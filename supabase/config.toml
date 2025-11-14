@@ -1,1 +1,4 @@
 project_id = "lvhtpmtmxxfeomyqvnuq"
+
+[functions.analyze-figma]
+verify_jwt = false
