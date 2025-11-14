@@ -257,6 +257,11 @@ function extractCanvasData(document: any) {
   function traverse(node: any, path: string = '') {
     if (!node) return;
     
+    // Skip hidden layers
+    if (node.visible === false) {
+      return;
+    }
+    
     const currentPath = path ? `${path} > ${node.name}` : node.name;
     
     // Include ALL nodes with IDs, especially interactive and leaf elements
