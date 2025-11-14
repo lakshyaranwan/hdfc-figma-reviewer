@@ -43,6 +43,11 @@ const categoryConfig = {
     icon: CheckCircle,
     color: "bg-purple-500/10 text-purple-500 border-purple-500/20",
   },
+  ux_writing: {
+    label: "UX Writing",
+    icon: MessageSquare,
+    color: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+  },
   high_level: {
     label: "High Level",
     icon: Lightbulb,
