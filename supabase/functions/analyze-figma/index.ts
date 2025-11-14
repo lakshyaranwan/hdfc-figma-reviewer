@@ -114,7 +114,7 @@ CRITICAL NODE ID INSTRUCTIONS:
 
 Example: If you're giving feedback about a "Login Button", find the exact node ID for that button in the structure above (e.g., "123:456"), not the page frame (e.g., "9:1").`;
 
-    // Map category labels to category IDs
+    // Map category labels to category IDs (case-insensitive)
     const categoryMapping: Record<string, string> = {
       "consistency across flows regarding ui": "consistency",
       "ux review": "ux",
@@ -130,7 +130,7 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
     if (customPrompt && customPrompt.includes("Provide me feedback on the following areas:")) {
       const areasText = customPrompt.split("Provide me feedback on the following areas:")[1];
       // Split only up to the first period (to avoid parsing the suggestions instruction)
-      const categoriesOnly = areasText.split(".")[0];
+      const categoriesOnly = areasText.split(/\. For each issue|\.$/)[0];
       const selectedAreas = categoriesOnly
         .toLowerCase()
         .split(",")
@@ -138,6 +138,7 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
       allowedCategories = selectedAreas
         .map((area: string) => categoryMapping[area] || area)
         .filter((cat: string) => cat);
+      console.log("Selected areas from prompt:", selectedAreas);
       console.log("Filtered to categories:", allowedCategories);
     }
 

@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare, ChevronDown } from "lucide-react";
 import { FeedbackItem } from "@/pages/Index";
@@ -66,6 +68,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
   const { toast } = useToast();
   const [isPostingComments, setIsPostingComments] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [hideLowSeverity, setHideLowSeverity] = useState(false);
 
   const toggleSection = (category: string) => {
     setOpenSections(prev => ({
@@ -87,6 +90,11 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
     setIsPostingComments(true);
     
     try {
+      // Filter out low severity issues if the toggle is enabled
+      const feedbackToPost = hideLowSeverity 
+        ? feedback.filter(item => item.severity !== "low")
+        : feedback;
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/post-figma-comments`,
         {
@@ -94,7 +102,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ fileKey, feedback }),
+          body: JSON.stringify({ fileKey, feedback: feedbackToPost }),
         }
       );
 
@@ -145,7 +153,12 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
     );
   }
 
-  const groupedFeedback = feedback.reduce((acc, item) => {
+  // Filter feedback based on severity toggle
+  const filteredFeedback = hideLowSeverity 
+    ? feedback.filter(item => item.severity !== "low")
+    : feedback;
+
+  const groupedFeedback = filteredFeedback.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
@@ -176,7 +189,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
             Analysis Results
           </h2>
           <Badge variant="secondary" className="text-sm">
-            {feedback.length} insights found
+            {filteredFeedback.length} insights found
           </Badge>
         </div>
         
@@ -200,6 +213,27 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
           </Button>
         )}
       </div>
+
+      {/* Filter Controls */}
+      {feedback.length > 0 && (
+        <Card className="p-4 bg-muted/30">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="hide-low-severity"
+              checked={hideLowSeverity}
+              onCheckedChange={setHideLowSeverity}
+            />
+            <Label htmlFor="hide-low-severity" className="cursor-pointer">
+              Hide low severity issues
+            </Label>
+            {hideLowSeverity && (
+              <Badge variant="outline" className="ml-auto">
+                {feedback.length - filteredFeedback.length} hidden
+              </Badge>
+            )}
+          </div>
+        </Card>
+      )}
 
       {sortedCategories.map(([category, items]) => {
         const config = categoryConfig[category as keyof typeof categoryConfig];
