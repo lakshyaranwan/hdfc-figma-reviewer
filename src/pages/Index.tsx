@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { AnalysisForm } from "@/components/AnalysisForm";
 import { FeedbackDisplay } from "@/components/FeedbackDisplay";
-import { Sparkles } from "lucide-react";
+import hdfcLogo from "@/assets/hdfc-logo.png";
 
 export type FeedbackItem = {
   id: string;
@@ -25,7 +25,7 @@ const Index = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-primary/80">
-              <Sparkles className="w-6 h-6 text-primary-foreground" />
+              <img src={hdfcLogo} alt="HDFC Logo" className="w-6 h-6 object-contain" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Figma AI Analyzer</h1>
