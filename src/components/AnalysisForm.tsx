@@ -10,13 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { FeedbackItem } from "@/pages/Index";
 
 const ANALYSIS_CATEGORIES = [
-  { id: "visual", label: "Visual consistency" },
-  { id: "interaction", label: "Interaction patterns" },
-  { id: "accessibility", label: "Accessibility issues" },
-  { id: "naming", label: "Naming conventions" },
-  { id: "layout", label: "Layout spacing & grids" },
-  { id: "content", label: "Content clarity" },
-  { id: "components", label: "Component usage & design system adherence" },
+  { id: "consistency", label: "Consistency across flow" },
+  { id: "ux", label: "UX review" },
+  { id: "ui", label: "UI Review" },
+  { id: "accessibility", label: "Accessibility Issues" },
+  { id: "design_system", label: "Design system adherence" },
 ];
 
 type AnalysisFormProps = {
@@ -29,7 +27,7 @@ type AnalysisFormProps = {
 export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, onFileKeyExtracted }: AnalysisFormProps) => {
   const [figmaUrl, setFigmaUrl] = useState("");
   const [promptMode, setPromptMode] = useState<"simple" | "manual">("simple");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(["visual", "interaction", "accessibility"]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(["consistency", "ux", "ui"]);
   const [customPrompt, setCustomPrompt] = useState("");
   const { toast } = useToast();
 
@@ -51,8 +49,9 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
       return;
     }
 
-    // Extract file key and optional node ID from URL
-    const urlMatch = figmaUrl.match(/(?:file|design)\/([a-zA-Z0-9_-]+)(?:\/[^?]*)?(?:\?[^#]*)?(?:#(.+))?/);
+    // Extract file key and node ID from URL
+    // Figma URLs format: figma.com/design/fileKey/name?node-id=123:456 or ?node-id=123-456
+    const urlMatch = figmaUrl.match(/(?:file|design)\/([a-zA-Z0-9_-]+)/);
     if (!urlMatch) {
       toast({
         title: "Invalid URL",
@@ -63,7 +62,20 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
     }
 
     const fileKey = urlMatch[1];
-    const nodeId = urlMatch[2] ? urlMatch[2].replace('node-id=', '').replace(/%3A/g, ':') : null;
+    
+    // Extract node-id from query parameters
+    let nodeId: string | null = null;
+    try {
+      const url = new URL(figmaUrl);
+      const nodeIdParam = url.searchParams.get('node-id');
+      if (nodeIdParam) {
+        // Convert node-id format (123-456 or 123:456) to proper format
+        nodeId = nodeIdParam.replace(/-/g, ':');
+        console.log('Extracted node ID:', nodeId);
+      }
+    } catch (e) {
+      console.warn('Could not parse URL for node-id:', e);
+    }
 
     // Validation for Simple mode
     if (promptMode === "simple" && selectedCategories.length === 0) {
@@ -94,7 +106,7 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
       const categoryLabels = selectedCategories
         .map(id => ANALYSIS_CATEGORIES.find(cat => cat.id === id)?.label)
         .join(", ");
-      finalPrompt = `I am a designer who sometimes misses small details. Please act as my design reviewer and analyze the selected section of my Figma file. Provide clear, actionable feedback focusing on these aspects: ${categoryLabels}. Keep the tone constructive and practical.`;
+      finalPrompt = `I am a designer who sometimes misses small details and lacks attention to detail and makes mistakes. Please act as my design reviewer and analyze the selected section of my Figma file. Provide UX feedback, provide UI Feedback, provide consistency feedback. Provide clear, actionable feedback focusing on these aspects: ${categoryLabels}. Keep the tone constructive and practical.`;
     } else {
       finalPrompt = customPrompt;
     }
