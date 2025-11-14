@@ -11,11 +11,12 @@ import { FeedbackItem } from "@/pages/Index";
 import hdfcLogo from "@/assets/hdfc-logo.png";
 
 const ANALYSIS_CATEGORIES = [
-  { id: "consistency", label: "Consistency across flow" },
-  { id: "ux", label: "UX review" },
+  { id: "consistency", label: "Consistency across flows regarding UI" },
+  { id: "ux", label: "UX Review" },
   { id: "ui", label: "UI Review" },
   { id: "accessibility", label: "Accessibility Issues" },
-  { id: "design_system", label: "Design system adherence" },
+  { id: "design_system", label: "Design System Adherence" },
+  { id: "high_level", label: "High Level Review About and the Why? Questioning the basics." },
 ];
 
 type AnalysisFormProps = {
@@ -107,7 +108,7 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
       const categoryLabels = selectedCategories
         .map(id => ANALYSIS_CATEGORIES.find(cat => cat.id === id)?.label)
         .join(", ");
-      finalPrompt = `I am a designer who sometimes misses small details and lacks attention to detail and makes mistakes. Please act as my design reviewer and analyze the selected section of my Figma file. Provide UX feedback, provide UI Feedback, provide consistency feedback. Provide clear, actionable feedback focusing on these aspects: ${categoryLabels}. Keep the tone constructive and practical.`;
+      finalPrompt = `I am a UI UX designer who lacks attention to detail and makes a lot of mistakes. Act as my manager and reviewer. Provide me feedback on the following areas: ${categoryLabels}`;
     } else {
       finalPrompt = customPrompt;
     }
