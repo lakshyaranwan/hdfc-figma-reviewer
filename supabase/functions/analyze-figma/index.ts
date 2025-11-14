@@ -115,8 +115,8 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
 
     const formatInstructions = `
 For each issue found, provide:
-- A clear, actionable title
-- Detailed description of the issue and how to fix it
+- A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
+- Detailed description of the issue and how to fix it (NO technical IDs in the description)
 - Severity (low, medium, high)
 - The EXACT node ID from the structure above for the specific element this feedback applies to
 - Component/frame name (user-friendly name only, NO technical IDs like "9:123" - use descriptive names like "Login Button" or "Header Navigation")
@@ -124,18 +124,20 @@ For each issue found, provide:
 Format your response as a JSON array of feedback items with this structure:
 [{
   "category": "ux" | "ui" | "consistency" | "improvement",
-  "title": "Issue title",
-  "description": "Detailed description",
+  "title": "Issue title (clean, no IDs)",
+  "description": "Detailed description (clean, no IDs)",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name (e.g., 'Login Button', 'Navigation Bar')",
   "nodeId": "exact_node_id_from_structure"
 }]
 
 CRITICAL: 
+- NEVER include technical IDs like [123:456] or (9:123) in title or description
 - Always include the nodeId field with the exact ID from the design structure for technical purposes
 - For the location field, use ONLY user-friendly, descriptive names - NO technical node IDs
-- Example good location: "Primary CTA Button in Hero Section"
-- Example bad location: "I9:27410;21165:91137"
+- Keep all user-facing text clean and readable
+- Example good title: "Improve button contrast for accessibility"
+- Example bad title: "Improve button [123:456] contrast for accessibility"
 
 Provide 5-10 high-quality, actionable insights. Focus on the most impactful issues.`;
 
