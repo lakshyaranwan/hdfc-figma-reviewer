@@ -154,6 +154,12 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
 Do NOT provide feedback for any other categories. Only use these exact category values: ${categoryOptions}
 
+CRITICAL BALANCE REQUIREMENT: You MUST provide feedback EVENLY distributed across ALL requested categories.
+- Provide 8-12 feedback items for EACH category requested
+- Do NOT skip any category
+- Do NOT heavily favor one category over others
+- If analyzing ${allowedCategories.length} categories, aim for approximately ${Math.floor(80 / allowedCategories.length)} items per category
+
 Format your response as a JSON array of feedback items with this structure:
 [{
   "category": ${categoryOptions},
@@ -194,7 +200,11 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Be comprehensive - don't skip any text elements
 ` : ""}
 
-Provide ${allowedCategories.includes("ux_writing") ? "15-25" : "10-15"} detailed, actionable insights. ${allowedCategories.includes("ux_writing") ? "For UX writing reviews, be THOROUGH and catch ALL text issues including minor typos." : "Cover all significant issues in the requested areas."}${allowedCategories.includes("consistency") ? " For consistency reviews, compare across ALL screens and flows to catch variations and inconsistencies." : ""}`;
+Provide comprehensive feedback with NO HARD LIMIT on total items. Focus on thoroughness and balance across categories:
+${allowedCategories.map(cat => `- ${cat}: Provide 8-12 detailed, actionable insights`).join('\n')}
+${allowedCategories.includes("ux_writing") ? "- For UX writing reviews, be THOROUGH and catch ALL text issues including minor typos." : ""}
+${allowedCategories.includes("consistency") ? "- For consistency reviews, compare across ALL screens and flows to catch variations and inconsistencies." : ""}
+Ensure EVERY requested category has substantial feedback. Do not skip or under-represent any category.`;
 
     const analysisPrompt = customPrompt
       ? `${baseContext}\n\nUser's specific request: ${customPrompt}\n${formatInstructions}`
