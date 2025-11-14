@@ -33,6 +33,21 @@ const categoryConfig = {
     icon: Lightbulb,
     color: "bg-accent/10 text-accent border-accent/20",
   },
+  accessibility: {
+    label: "Accessibility",
+    icon: AlertCircle,
+    color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  },
+  design_system: {
+    label: "Design System",
+    icon: CheckCircle,
+    color: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+  },
+  high_level: {
+    label: "High Level",
+    icon: Lightbulb,
+    color: "bg-green-500/10 text-green-500 border-green-500/20",
+  },
 };
 
 const severityConfig = {
