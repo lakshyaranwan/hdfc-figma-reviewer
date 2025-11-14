@@ -21,8 +21,10 @@ serve(async (req) => {
   }
 
   try {
-    const { fileKey } = await req.json();
+    const { fileKey, nodeId, customPrompt } = await req.json();
     console.log('Analyzing Figma file:', fileKey);
+    console.log('Target node:', nodeId || 'entire file');
+    console.log('Custom prompt provided:', !!customPrompt);
 
     const FIGMA_TOKEN = Deno.env.get('FIGMA_ACCESS_TOKEN');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -34,9 +36,14 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // Step 1: Fetch Figma file data
+    // Step 1: Fetch Figma file data (specific node or entire file)
     console.log('Fetching Figma file data...');
-    const figmaResponse = await fetch(`https://api.figma.com/v1/files/${fileKey}`, {
+    let figmaUrl = `https://api.figma.com/v1/files/${fileKey}`;
+    if (nodeId) {
+      figmaUrl += `/nodes?ids=${encodeURIComponent(nodeId)}`;
+    }
+    
+    const figmaResponse = await fetch(figmaUrl, {
       headers: {
         'X-Figma-Token': FIGMA_TOKEN,
       },
@@ -49,27 +56,38 @@ serve(async (req) => {
     }
 
     const figmaData = await figmaResponse.json();
-    console.log('Figma file fetched successfully');
+    console.log('Figma data fetched successfully');
 
     // Step 2: Prepare data for AI analysis
-    const canvasData = extractCanvasData(figmaData.document);
+    let targetData;
+    if (nodeId && figmaData.nodes) {
+      // Extract specific node data
+      const nodeData = figmaData.nodes[nodeId];
+      if (!nodeData) {
+        throw new Error('Specified node not found');
+      }
+      targetData = nodeData.document;
+      console.log('Analyzing specific node:', nodeData.document.name);
+    } else {
+      // Use entire document
+      targetData = figmaData.document;
+      console.log('Analyzing entire file');
+    }
+    
+    const canvasData = extractCanvasData(targetData);
     console.log('Canvas data extracted, node count:', canvasData.nodes.length);
 
     // Step 3: Analyze with Gemini AI
     console.log('Sending to AI for analysis...');
-    const analysisPrompt = `You are a UX/UI expert analyzing a Figma design. Analyze the following design data and provide detailed feedback.
+    
+    const baseContext = `You are a UX/UI expert analyzing a Figma design. Analyze the following design data and provide detailed feedback.
 
 Design Structure (showing node hierarchy with IDs):
 ${JSON.stringify(canvasData, null, 2)}
 
-IMPORTANT: For each feedback item, identify the SPECIFIC node ID from the list above that the feedback applies to. Use the exact node ID provided.
+IMPORTANT: For each feedback item, identify the SPECIFIC node ID from the list above that the feedback applies to. Use the exact node ID provided.`;
 
-Provide feedback in the following categories:
-1. UX Issues - Navigation flows, user interactions, usability problems
-2. UI Issues - Visual design, typography, spacing, color usage
-3. Consistency Issues - Design pattern violations, inconsistent components
-4. Improvement Suggestions - Ways to enhance the design
-
+    const formatInstructions = `
 For each issue found, provide:
 - A clear, actionable title
 - Detailed description of the issue and how to fix it
@@ -90,6 +108,14 @@ Format your response as a JSON array of feedback items with this structure:
 CRITICAL: Always include the nodeId field with the exact ID from the design structure. Choose the most specific, relevant node for each piece of feedback.
 
 Provide 5-10 high-quality, actionable insights. Focus on the most impactful issues.`;
+
+    const analysisPrompt = customPrompt 
+      ? `${baseContext}\n\nUser's specific request: ${customPrompt}\n${formatInstructions}`
+      : `${baseContext}\n\nProvide feedback in the following categories:
+1. UX Issues - Navigation flows, user interactions, usability problems
+2. UI Issues - Visual design, typography, spacing, color usage
+3. Consistency Issues - Design pattern violations, inconsistent components
+4. Improvement Suggestions - Ways to enhance the design\n${formatInstructions}`;
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

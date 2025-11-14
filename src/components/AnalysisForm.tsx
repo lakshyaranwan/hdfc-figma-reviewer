@@ -2,9 +2,22 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FeedbackItem } from "@/pages/Index";
+
+const ANALYSIS_CATEGORIES = [
+  { id: "visual", label: "Visual consistency" },
+  { id: "interaction", label: "Interaction patterns" },
+  { id: "accessibility", label: "Accessibility issues" },
+  { id: "naming", label: "Naming conventions" },
+  { id: "layout", label: "Layout spacing & grids" },
+  { id: "content", label: "Content clarity" },
+  { id: "components", label: "Component usage & design system adherence" },
+];
 
 type AnalysisFormProps = {
   onAnalysisComplete: (feedback: FeedbackItem[]) => void;
@@ -15,7 +28,18 @@ type AnalysisFormProps = {
 
 export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, onFileKeyExtracted }: AnalysisFormProps) => {
   const [figmaUrl, setFigmaUrl] = useState("");
+  const [promptMode, setPromptMode] = useState<"simple" | "manual">("simple");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(["visual", "interaction", "accessibility"]);
+  const [customPrompt, setCustomPrompt] = useState("");
   const { toast } = useToast();
+
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
   const handleAnalyze = async () => {
     if (!figmaUrl.trim()) {
@@ -27,20 +51,54 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
       return;
     }
 
-    // Extract file key from URL (supports both /file/ and /design/ patterns)
-    const fileKeyMatch = figmaUrl.match(/(?:file|design)\/([a-zA-Z0-9_-]+)/);
-    if (!fileKeyMatch) {
+    // Extract file key and optional node ID from URL
+    const urlMatch = figmaUrl.match(/(?:file|design)\/([a-zA-Z0-9_-]+)(?:\/[^?]*)?(?:\?[^#]*)?(?:#(.+))?/);
+    if (!urlMatch) {
       toast({
         title: "Invalid URL",
-        description: "Please enter a valid Figma file URL (e.g., figma.com/file/... or figma.com/design/...)",
+        description: "Please enter a valid Figma file URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const fileKey = urlMatch[1];
+    const nodeId = urlMatch[2] ? urlMatch[2].replace('node-id=', '').replace(/%3A/g, ':') : null;
+
+    // Validation for Simple mode
+    if (promptMode === "simple" && selectedCategories.length === 0) {
+      toast({
+        title: "Select Categories",
+        description: "Please select at least one analysis category",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validation for Manual mode
+    if (promptMode === "manual" && !customPrompt.trim()) {
+      toast({
+        title: "Custom Prompt Required",
+        description: "Please enter a custom prompt for analysis",
         variant: "destructive",
       });
       return;
     }
 
     setIsAnalyzing(true);
-    onFileKeyExtracted(fileKeyMatch[1]);
+    onFileKeyExtracted(fileKey);
     
+    // Generate prompt based on mode
+    let finalPrompt = "";
+    if (promptMode === "simple") {
+      const categoryLabels = selectedCategories
+        .map(id => ANALYSIS_CATEGORIES.find(cat => cat.id === id)?.label)
+        .join(", ");
+      finalPrompt = `I am a designer who sometimes misses small details. Please act as my design reviewer and analyze the selected section of my Figma file. Provide clear, actionable feedback focusing on these aspects: ${categoryLabels}. Keep the tone constructive and practical.`;
+    } else {
+      finalPrompt = customPrompt;
+    }
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-figma`,
@@ -49,7 +107,11 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ fileKey: fileKeyMatch[1] }),
+          body: JSON.stringify({ 
+            fileKey, 
+            nodeId,
+            customPrompt: finalPrompt,
+          }),
         }
       );
 
@@ -81,27 +143,76 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
       <div>
         <h2 className="text-xl font-semibold text-foreground mb-2">Start Analysis</h2>
         <p className="text-sm text-muted-foreground">
-          Paste your Figma file URL to get AI-powered UX/UI feedback
+          Analyze specific pages or entire files with customizable feedback
         </p>
       </div>
 
       <div className="space-y-4">
+        {/* Figma URL Input */}
         <div className="space-y-2">
           <Label htmlFor="figma-url" className="text-foreground">
-            Figma File URL
+            Figma URL
           </Label>
           <Input
             id="figma-url"
             type="url"
-            placeholder="https://www.figma.com/file/..."
+            placeholder="https://www.figma.com/design/..."
             value={figmaUrl}
             onChange={(e) => setFigmaUrl(e.target.value)}
             disabled={isAnalyzing}
             className="bg-background border-border focus:ring-primary"
           />
           <p className="text-xs text-muted-foreground">
-            Example: https://www.figma.com/file/abc123/My-Design
+            Paste a link to a file, page, or specific frame
           </p>
+        </div>
+
+        {/* Prompt Customization */}
+        <div className="space-y-3">
+          <Label className="text-foreground">Analysis Focus</Label>
+          <Tabs value={promptMode} onValueChange={(v) => setPromptMode(v as "simple" | "manual")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="simple">Simple</TabsTrigger>
+              <TabsTrigger value="manual">Manual</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="simple" className="space-y-3 mt-3">
+              <p className="text-sm text-muted-foreground">
+                Choose what to review:
+              </p>
+              <div className="space-y-2.5">
+                {ANALYSIS_CATEGORIES.map((category) => (
+                  <div key={category.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={category.id}
+                      checked={selectedCategories.includes(category.id)}
+                      onCheckedChange={() => toggleCategory(category.id)}
+                      disabled={isAnalyzing}
+                    />
+                    <Label
+                      htmlFor={category.id}
+                      className="text-sm font-normal cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {category.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="manual" className="space-y-3 mt-3">
+              <p className="text-sm text-muted-foreground">
+                Write your custom analysis prompt:
+              </p>
+              <Textarea
+                placeholder="Example: Focus on mobile responsiveness and button states. Check if all CTAs are clearly visible..."
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                disabled={isAnalyzing}
+                className="min-h-[120px] bg-background border-border focus:ring-primary"
+              />
+            </TabsContent>
+          </Tabs>
         </div>
 
         <Button 
@@ -121,28 +232,6 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
             </>
           )}
         </Button>
-      </div>
-
-      <div className="pt-4 border-t border-border">
-        <h3 className="text-sm font-medium text-foreground mb-2">What we analyze:</h3>
-        <ul className="space-y-1.5 text-sm text-muted-foreground">
-          <li className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-            User experience flows and interactions
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-            Visual consistency and design patterns
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-warning" />
-            Accessibility and usability issues
-          </li>
-          <li className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-            Improvement suggestions
-          </li>
-        </ul>
       </div>
     </div>
   );
