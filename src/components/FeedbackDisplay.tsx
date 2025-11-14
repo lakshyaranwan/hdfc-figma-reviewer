@@ -187,7 +187,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
                 >
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <h4 className="font-medium text-foreground leading-tight">
-                      {item.title}
+                      {item.title.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
                     </h4>
                     <Badge 
                       variant="secondary" 
@@ -198,7 +198,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
                   </div>
                   
                   <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                    {item.description}
+                    {item.description.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
                   </p>
 
                   {item.location && !item.location.match(/[0-9]+:[0-9]+/) && (
