@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare, ChevronDown } from "lucide-react";
 import { FeedbackItem } from "@/pages/Index";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -64,6 +65,14 @@ const severityConfig = {
 export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisplayProps) => {
   const { toast } = useToast();
   const [isPostingComments, setIsPostingComments] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (category: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
 
   const handlePostComments = async () => {
     if (!fileKey) {
@@ -204,49 +213,64 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
         const Icon = config.icon;
 
         return (
-          <div key={category} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Icon className="w-5 h-5 text-muted-foreground" />
-              <h3 className="font-medium text-foreground">{config.label}</h3>
-              <Badge variant="outline" className="ml-auto">
-                {items.length}
-              </Badge>
-            </div>
+          <Collapsible
+            key={category}
+            open={openSections[category] !== false}
+            onOpenChange={() => toggleSection(category)}
+          >
+            <Card className="overflow-hidden shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-shadow">
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Icon className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                  <h3 className="font-medium text-foreground text-left">{config.label}</h3>
+                  <Badge variant="outline" className="ml-auto">
+                    {items.length}
+                  </Badge>
+                  <ChevronDown 
+                    className={`w-4 h-4 text-muted-foreground transition-transform ${
+                      openSections[category] !== false ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </CollapsibleTrigger>
 
-            <div className="space-y-3">
-              {items.map((item) => (
-                <Card 
-                  key={item.id} 
-                  className="p-4 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-all duration-200 border-l-4"
-                  style={{
-                    borderLeftColor: `hsl(var(--${category === 'ux' ? 'primary' : category === 'ui' ? 'warning' : category === 'consistency' ? 'destructive' : 'accent'}))`
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <h4 className="font-medium text-foreground leading-tight">
-                      {item.title.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
-                    </h4>
-                    <Badge 
-                      variant="secondary" 
-                      className={severityConfig[item.severity].color}
+              <CollapsibleContent>
+                <div className="p-4 pt-0 space-y-3">
+                  {items.map((item) => (
+                    <Card 
+                      key={item.id} 
+                      className="p-4 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-all duration-200 border-l-4"
+                      style={{
+                        borderLeftColor: `hsl(var(--${category === 'ux' ? 'primary' : category === 'ui' ? 'warning' : category === 'consistency' ? 'destructive' : 'accent'}))`
+                      }}
                     >
-                      {severityConfig[item.severity].label}
-                    </Badge>
-                  </div>
-                  
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                    {item.description.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
-                  </p>
+                      <div className="flex items-start justify-between gap-4 mb-2">
+                        <h4 className="font-medium text-foreground leading-tight">
+                          {item.title.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
+                        </h4>
+                        <Badge 
+                          variant="secondary" 
+                          className={severityConfig[item.severity].color}
+                        >
+                          {severityConfig[item.severity].label}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+                        {item.description.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
+                      </p>
 
-                  {item.location && !item.location.match(/[0-9]+:[0-9]+/) && (
-                    <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
-                      Location: {item.location}
-                    </div>
-                  )}
-                </Card>
-              ))}
-            </div>
-          </div>
+                      {item.location && !item.location.match(/[0-9]+:[0-9]+/) && (
+                        <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
+                          Location: {item.location}
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         );
       })}
     </div>
