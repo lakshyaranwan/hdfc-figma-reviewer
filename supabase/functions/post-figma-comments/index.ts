@@ -49,15 +49,21 @@ serve(async (req) => {
     // Extract ALL node IDs from the entire tree (not just canvas nodes)
     const allNodes: string[] = [];
     const nodeNameMap: Record<string, string> = {};
+    const nodeTypeMap: Record<string, string> = {};
+    const nodeParentMap: Record<string, string> = {};
     
-    function extractAllNodes(node: any) {
+    function extractAllNodes(node: any, parentId?: string) {
       if (!node) return;
       if (node.id) {
         allNodes.push(node.id);
         nodeNameMap[node.id] = node.name || 'Unnamed';
+        nodeTypeMap[node.id] = node.type || 'UNKNOWN';
+        if (parentId) {
+          nodeParentMap[node.id] = parentId;
+        }
       }
       if (node.children) {
-        node.children.forEach(extractAllNodes);
+        node.children.forEach((child: any) => extractAllNodes(child, node.id));
       }
     }
     
@@ -70,6 +76,29 @@ serve(async (req) => {
     
     if (allNodes.length === 0) {
       throw new Error('No valid nodes found in Figma file');
+    }
+
+    // Helper function to find parent frame
+    function findParentFrame(nodeId: string): string {
+      let currentId = nodeId;
+      let depth = 0;
+      const maxDepth = 10; // Prevent infinite loops
+      
+      while (currentId && depth < maxDepth) {
+        const parentId = nodeParentMap[currentId];
+        if (!parentId) break;
+        
+        const parentType = nodeTypeMap[parentId];
+        // Use parent if it's a FRAME, COMPONENT, or INSTANCE
+        if (parentType === 'FRAME' || parentType === 'COMPONENT' || parentType === 'INSTANCE') {
+          return parentId;
+        }
+        
+        currentId = parentId;
+        depth++;
+      }
+      
+      return nodeId; // Return original if no frame found
     }
 
     let commentsPosted = 0;
@@ -137,9 +166,21 @@ serve(async (req) => {
           console.log(`⚠ Using fallback node: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'})`);
         }
         
+        // Try to use parent frame for better contextual placement
+        const contextualNodeId = findParentFrame(nodeId);
+        if (contextualNodeId !== nodeId) {
+          console.log(`📍 Using parent frame: ${contextualNodeId} (${nodeNameMap[contextualNodeId]}) instead of ${nodeId}`);
+          nodeId = contextualNodeId;
+        }
+        
         const commentText = `🤖 **AI Feedback - ${item.category.toUpperCase()}**\n\n**${item.title}**\n\nSeverity: ${item.severity.toUpperCase()}\n\n${item.description}${item.location ? `\n\n📍 Component: ${item.location}` : ''}`;
 
-        console.log(`Posting comment ${i + 1}/${feedback.length} to node: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'})`);
+        // Calculate offset to prevent overlapping comments
+        // Space comments vertically by 100px each
+        const offsetY = i * 100;
+        const offsetX = 50 + (Math.floor(i / 5) * 200); // Shift right every 5 comments
+
+        console.log(`Posting comment ${i + 1}/${feedback.length} to node: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'}) at offset (${offsetX}, ${offsetY})`);
 
         const commentResponse = await fetch(
           `https://api.figma.com/v1/files/${fileKey}/comments`,
@@ -154,8 +195,8 @@ serve(async (req) => {
               client_meta: {
                 node_id: nodeId,
                 node_offset: {
-                  x: 0,
-                  y: 0,
+                  x: offsetX,
+                  y: offsetY,
                 }
               },
             }),
