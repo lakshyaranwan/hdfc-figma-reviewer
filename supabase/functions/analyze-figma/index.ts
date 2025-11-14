@@ -38,38 +38,57 @@ serve(async (req) => {
 
     // Step 1: Fetch Figma file data (specific node or entire file)
     console.log('Fetching Figma file data...');
-    let figmaUrl = `https://api.figma.com/v1/files/${fileKey}`;
-    if (nodeId) {
-      figmaUrl += `/nodes?ids=${encodeURIComponent(nodeId)}`;
-    }
+    console.log('File key:', fileKey);
+    console.log('Node ID:', nodeId || 'entire file');
     
-    const figmaResponse = await fetch(figmaUrl, {
-      headers: {
-        'X-Figma-Token': FIGMA_TOKEN,
-      },
-    });
-
-    if (!figmaResponse.ok) {
-      const errorText = await figmaResponse.text();
-      console.error('Figma API error:', errorText);
-      throw new Error(`Failed to fetch Figma file: ${figmaResponse.status}`);
-    }
-
-    const figmaData = await figmaResponse.json();
-    console.log('Figma data fetched successfully');
-
-    // Step 2: Prepare data for AI analysis
+    let figmaUrl = `https://api.figma.com/v1/files/${fileKey}`;
+    let figmaData;
     let targetData;
-    if (nodeId && figmaData.nodes) {
-      // Extract specific node data
-      const nodeData = figmaData.nodes[nodeId];
-      if (!nodeData) {
-        throw new Error('Specified node not found');
+    
+    if (nodeId) {
+      // Fetch specific node
+      console.log('Fetching specific node:', nodeId);
+      figmaUrl = `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(nodeId)}`;
+      
+      const figmaResponse = await fetch(figmaUrl, {
+        headers: {
+          'X-Figma-Token': FIGMA_TOKEN,
+        },
+      });
+
+      if (!figmaResponse.ok) {
+        const errorText = await figmaResponse.text();
+        console.error('Figma API error:', errorText);
+        throw new Error(`Failed to fetch Figma node: ${figmaResponse.status}`);
       }
+
+      figmaData = await figmaResponse.json();
+      
+      // Extract the specific node data
+      const nodeData = figmaData.nodes?.[nodeId];
+      if (!nodeData || !nodeData.document) {
+        console.error('Node data:', figmaData);
+        throw new Error(`Node ${nodeId} not found in file`);
+      }
+      
       targetData = nodeData.document;
-      console.log('Analyzing specific node:', nodeData.document.name);
+      console.log('Analyzing specific node:', targetData.name);
     } else {
-      // Use entire document
+      // Fetch entire file
+      console.log('Fetching entire file');
+      const figmaResponse = await fetch(figmaUrl, {
+        headers: {
+          'X-Figma-Token': FIGMA_TOKEN,
+        },
+      });
+
+      if (!figmaResponse.ok) {
+        const errorText = await figmaResponse.text();
+        console.error('Figma API error:', errorText);
+        throw new Error(`Failed to fetch Figma file: ${figmaResponse.status}`);
+      }
+
+      figmaData = await figmaResponse.json();
       targetData = figmaData.document;
       console.log('Analyzing entire file');
     }
