@@ -21,7 +21,7 @@ const Index = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
             <img src={hdfcLogo} alt="HDFC Logo" className="w-8 h-8 object-contain" />
-            <h1 className="text-2xl font-bold text-foreground">HDFC Figma AI Analyzer</h1>
+            <h1 className="text-2xl font-bold text-foreground">HDFC Figma Reviewer    </h1>
           </div>
         </div>
       </header>
