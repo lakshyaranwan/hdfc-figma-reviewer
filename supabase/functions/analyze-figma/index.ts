@@ -59,8 +59,10 @@ serve(async (req) => {
     console.log('Sending to AI for analysis...');
     const analysisPrompt = `You are a UX/UI expert analyzing a Figma design. Analyze the following design data and provide detailed feedback.
 
-Design Structure:
+Design Structure (showing node hierarchy with IDs):
 ${JSON.stringify(canvasData, null, 2)}
+
+IMPORTANT: For each feedback item, identify the SPECIFIC node ID from the list above that the feedback applies to. Use the exact node ID provided.
 
 Provide feedback in the following categories:
 1. UX Issues - Navigation flows, user interactions, usability problems
@@ -72,7 +74,8 @@ For each issue found, provide:
 - A clear, actionable title
 - Detailed description of the issue and how to fix it
 - Severity (low, medium, high)
-- Specific location/component name if applicable
+- The EXACT node ID from the structure above for the specific element this feedback applies to
+- Component/frame name and path
 
 Format your response as a JSON array of feedback items with this structure:
 [{
@@ -80,9 +83,11 @@ Format your response as a JSON array of feedback items with this structure:
   "title": "Issue title",
   "description": "Detailed description",
   "severity": "low" | "medium" | "high",
-  "location": "Component/Frame name",
-  "nodeId": "node_id_if_available"
+  "location": "Component/Frame name with path",
+  "nodeId": "exact_node_id_from_structure"
 }]
+
+CRITICAL: Always include the nodeId field with the exact ID from the design structure. Choose the most specific, relevant node for each piece of feedback.
 
 Provide 5-10 high-quality, actionable insights. Focus on the most impactful issues.`;
 
@@ -156,19 +161,25 @@ Provide 5-10 high-quality, actionable insights. Focus on the most impactful issu
 });
 
 function extractCanvasData(document: any) {
-  const nodes: Array<{ id: string; name: string; type: string }> = [];
+  const nodes: Array<{ id: string; name: string; type: string; path: string }> = [];
   
-  function traverse(node: any) {
+  function traverse(node: any, path: string = '') {
     if (!node) return;
     
-    nodes.push({
-      id: node.id,
-      name: node.name,
-      type: node.type,
-    });
+    const currentPath = path ? `${path} > ${node.name}` : node.name;
+    
+    // Include all interactive and visual elements
+    if (node.type && node.id) {
+      nodes.push({
+        id: node.id,
+        name: node.name,
+        type: node.type,
+        path: currentPath,
+      });
+    }
     
     if (node.children) {
-      node.children.forEach(traverse);
+      node.children.forEach((child: any) => traverse(child, currentPath));
     }
   }
   
@@ -176,6 +187,6 @@ function extractCanvasData(document: any) {
   
   return {
     name: document.name,
-    nodes: nodes.slice(0, 50), // Limit to first 50 nodes to avoid token limits
+    nodes: nodes.slice(0, 100), // Include more nodes for better targeting
   };
 }
