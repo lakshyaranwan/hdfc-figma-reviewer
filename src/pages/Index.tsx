@@ -24,13 +24,8 @@ const Index = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-primary/80">
-              <img src={hdfcLogo} alt="HDFC Logo" className="w-6 h-6 object-contain" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Figma AI Analyzer</h1>
-              <p className="text-sm text-muted-foreground">Get intelligent UX/UI feedback powered by AI</p>
-            </div>
+            <img src={hdfcLogo} alt="HDFC Logo" className="w-8 h-8 object-contain" />
+            <h1 className="text-2xl font-bold text-foreground">Figma AI Analyzer</h1>
           </div>
         </div>
       </header>
