@@ -174,7 +174,17 @@ ${includeSuggestions ? "- For EACH issue, include specific, actionable suggestio
 - Example good title: "Improve button contrast for accessibility"
 - Example bad title: "Improve button [123:456] contrast for accessibility"
 
-Provide 5-10 high-quality, actionable insights. Focus on the most impactful issues ONLY in the requested areas.`;
+${allowedCategories.includes("ux_writing") ? `
+SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
+- Scan ALL text content in the design thoroughly
+- Check EVERY button label, heading, paragraph, placeholder text, and microcopy
+- Look for typos, spelling errors, grammatical mistakes, and inconsistent capitalization
+- Identify inconsistent terminology (e.g., "Sign In" vs "Login" vs "Log In")
+- Flag ALL instances of poor UX writing, no matter how minor
+- Be comprehensive - don't skip any text elements
+` : ""}
+
+Provide ${allowedCategories.includes("ux_writing") ? "15-25" : "10-15"} detailed, actionable insights. ${allowedCategories.includes("ux_writing") ? "For UX writing reviews, be THOROUGH and catch ALL text issues including minor typos." : "Cover all significant issues in the requested areas."}`;
 
     const analysisPrompt = customPrompt
       ? `${baseContext}\n\nUser's specific request: ${customPrompt}\n${formatInstructions}`
@@ -300,9 +310,15 @@ function extractCanvasData(document: any) {
 
   traverse(document);
 
-  // Return more nodes for better specificity (200 instead of 100)
+  // Prioritize TEXT nodes for better typo detection
+  const textNodes = nodes.filter(n => n.type === "TEXT" && n.text);
+  const otherNodes = nodes.filter(n => n.type !== "TEXT" || !n.text);
+  
+  // Return up to 300 nodes total, with TEXT nodes first for better analysis
+  const prioritizedNodes = [...textNodes, ...otherNodes].slice(0, 300);
+
   return {
     name: document.name,
-    nodes: nodes.slice(0, 200),
+    nodes: prioritizedNodes,
   };
 }
