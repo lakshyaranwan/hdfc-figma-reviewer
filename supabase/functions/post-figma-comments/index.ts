@@ -46,23 +46,29 @@ serve(async (req) => {
 
     const figmaData = await figmaResponse.json();
     
-    // Extract canvas node IDs (these are the frames at the top level)
-    const canvasNodes: string[] = [];
-    if (figmaData.document?.children) {
-      for (const canvas of figmaData.document.children) {
-        if (canvas.children) {
-          for (const frame of canvas.children) {
-            if (frame.id) {
-              canvasNodes.push(frame.id);
-            }
-          }
-        }
+    // Extract ALL node IDs from the entire tree (not just canvas nodes)
+    const allNodes: string[] = [];
+    const nodeNameMap: Record<string, string> = {};
+    
+    function extractAllNodes(node: any) {
+      if (!node) return;
+      if (node.id) {
+        allNodes.push(node.id);
+        nodeNameMap[node.id] = node.name || 'Unnamed';
+      }
+      if (node.children) {
+        node.children.forEach(extractAllNodes);
       }
     }
-
-    console.log('Found canvas nodes:', canvasNodes.length);
     
-    if (canvasNodes.length === 0) {
+    if (figmaData.document) {
+      extractAllNodes(figmaData.document);
+    }
+
+    console.log('Total nodes found:', allNodes.length);
+    console.log('Sample nodes:', allNodes.slice(0, 10));
+    
+    if (allNodes.length === 0) {
       throw new Error('No valid nodes found in Figma file');
     }
 
@@ -74,32 +80,37 @@ serve(async (req) => {
       const item = feedback[i];
       
       try {
-        // Use the specific node ID provided by AI, or fallback to first canvas node
+        // Priority 1: Use the AI-provided node ID if it exists and is valid
         let nodeId = item.nodeId;
+        let nodeFound = false;
         
-        // If no nodeId or invalid, try to find a matching node by name
-        if (!nodeId || !canvasNodes.includes(nodeId)) {
-          console.log(`Node ID ${nodeId} not found for "${item.title}", searching by location...`);
-          
-          // Try to find node by location name
-          if (item.location && figmaData.document) {
-            const foundNode = findNodeByName(figmaData.document, item.location);
-            if (foundNode) {
-              nodeId = foundNode;
-              console.log(`Found matching node: ${nodeId}`);
-            }
-          }
-          
-          // Ultimate fallback to canvas nodes
-          if (!nodeId || !canvasNodes.includes(nodeId)) {
-            nodeId = canvasNodes[i % canvasNodes.length];
-            console.log(`Using fallback canvas node: ${nodeId}`);
+        if (nodeId && allNodes.includes(nodeId)) {
+          nodeFound = true;
+          console.log(`✓ Using AI-provided node ID: ${nodeId} (${nodeNameMap[nodeId]})`);
+        } else if (nodeId) {
+          console.log(`✗ AI-provided node ID ${nodeId} not found in file`);
+        }
+        
+        // Priority 2: Try to find node by matching location name
+        if (!nodeFound && item.location) {
+          console.log(`Searching for node matching location: "${item.location}"`);
+          const foundNodeId = findNodeByName(figmaData.document, item.location);
+          if (foundNodeId && allNodes.includes(foundNodeId)) {
+            nodeId = foundNodeId;
+            nodeFound = true;
+            console.log(`✓ Found node by name match: ${nodeId} (${nodeNameMap[nodeId]})`);
           }
         }
         
-        const commentText = `🤖 **AI Feedback - ${item.category.toUpperCase()}**\n\n**${item.title}**\n\nSeverity: ${item.severity.toUpperCase()}\n\n${item.description}${item.location ? `\n\n📍 Location: ${item.location}` : ''}`;
+        // Priority 3: Use first available node (last resort)
+        if (!nodeFound) {
+          nodeId = allNodes[0];
+          console.log(`⚠ Using fallback node: ${nodeId} (${nodeNameMap[nodeId]})`);
+        }
+        
+        const commentText = `🤖 **AI Feedback - ${item.category.toUpperCase()}**\n\n**${item.title}**\n\nSeverity: ${item.severity.toUpperCase()}\n\n${item.description}${item.location ? `\n\n📍 Component: ${item.location}` : ''}`;
 
-        console.log(`Posting comment ${i + 1}/${feedback.length} to node:`, nodeId);
+        console.log(`Posting comment ${i + 1}/${feedback.length} to node: ${nodeId} (${nodeNameMap[nodeId]})`);
 
         const commentResponse = await fetch(
           `https://api.figma.com/v1/files/${fileKey}/comments`,
