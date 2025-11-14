@@ -26,12 +26,12 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }
       return;
     }
 
-    // Extract file key from URL
-    const fileKeyMatch = figmaUrl.match(/file\/([a-zA-Z0-9]+)/);
+    // Extract file key from URL (supports both /file/ and /design/ patterns)
+    const fileKeyMatch = figmaUrl.match(/(?:file|design)\/([a-zA-Z0-9_-]+)/);
     if (!fileKeyMatch) {
       toast({
         title: "Invalid URL",
-        description: "Please enter a valid Figma file URL",
+        description: "Please enter a valid Figma file URL (e.g., figma.com/file/... or figma.com/design/...)",
         variant: "destructive",
       });
       return;
