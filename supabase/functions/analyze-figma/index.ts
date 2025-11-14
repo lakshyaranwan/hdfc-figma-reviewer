@@ -174,6 +174,16 @@ ${includeSuggestions ? "- For EACH issue, include specific, actionable suggestio
 - Example good title: "Improve button contrast for accessibility"
 - Example bad title: "Improve button [123:456] contrast for accessibility"
 
+${allowedCategories.includes("consistency") ? `
+SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
+- Compare ALL screens/pages/flows for inconsistent patterns
+- Look for text variations across similar elements (e.g., "Send Money" vs "Send Money2", "Sign In" vs "Login")
+- Check for inconsistent heading styles, button labels, spacing, and component usage
+- Identify any naming inconsistencies that appear to be mistakes or typos
+- Compare similar UI patterns across different screens for visual consistency
+- Flag ALL instances where the same element has different names, styles, or behaviors across screens
+` : ""}
+
 ${allowedCategories.includes("ux_writing") ? `
 SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Scan ALL text content in the design thoroughly
@@ -184,7 +194,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Be comprehensive - don't skip any text elements
 ` : ""}
 
-Provide ${allowedCategories.includes("ux_writing") ? "15-25" : "10-15"} detailed, actionable insights. ${allowedCategories.includes("ux_writing") ? "For UX writing reviews, be THOROUGH and catch ALL text issues including minor typos." : "Cover all significant issues in the requested areas."}`;
+Provide ${allowedCategories.includes("ux_writing") ? "15-25" : "10-15"} detailed, actionable insights. ${allowedCategories.includes("ux_writing") ? "For UX writing reviews, be THOROUGH and catch ALL text issues including minor typos." : "Cover all significant issues in the requested areas."}${allowedCategories.includes("consistency") ? " For consistency reviews, compare across ALL screens and flows to catch variations and inconsistencies." : ""}`;
 
     const analysisPrompt = customPrompt
       ? `${baseContext}\n\nUser's specific request: ${customPrompt}\n${formatInstructions}`
