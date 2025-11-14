@@ -85,19 +85,32 @@ serve(async (req) => {
         let nodeFound = false;
         
         // Clean up instance notation from node IDs (Figma API doesn't accept them)
-        // Convert "I9:27410;11530:113555" to "9:27410" or "11530:113555"
+        // Convert "I9:27410;11530:113555;12190:118991" to the most specific node
         if (nodeId) {
           // Remove "I" prefix if present
           if (nodeId.startsWith('I')) {
             nodeId = nodeId.substring(1);
           }
-          // Take only the first part before semicolon (the parent frame)
+          // For instance chains, try from most specific (last) to least specific (first)
           if (nodeId.includes(';')) {
-            const parts = nodeId.split(';');
-            // Use the first valid node ID (not starting with 0:)
-            nodeId = parts.find((part: string) => !part.startsWith('0:')) || parts[0];
+            const parts = nodeId.split(';').filter((part: string) => !part.startsWith('0:'));
+            // Try each part from most specific to least specific
+            for (let i = parts.length - 1; i >= 0; i--) {
+              if (allNodes.includes(parts[i])) {
+                nodeId = parts[i];
+                nodeFound = true;
+                console.log(`✓ Using specific node from chain: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'})`);
+                break;
+              }
+            }
+            // If no valid node found in chain, use the last valid part
+            if (!nodeFound) {
+              nodeId = parts[parts.length - 1];
+              console.log(`Cleaned node ID: ${item.nodeId} → ${nodeId}`);
+            }
+          } else {
+            console.log(`Using simple node ID: ${nodeId}`);
           }
-          console.log(`Cleaned node ID: ${item.nodeId} → ${nodeId}`);
         }
         
         if (nodeId && allNodes.includes(nodeId)) {
