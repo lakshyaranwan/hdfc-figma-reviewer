@@ -101,10 +101,17 @@ serve(async (req) => {
     
     const baseContext = `You are a UX/UI expert analyzing a Figma design. Analyze the following design data and provide detailed feedback.
 
-Design Structure (showing node hierarchy with IDs):
+Design Structure (complete node hierarchy with IDs - USE THESE EXACT IDs):
 ${JSON.stringify(canvasData, null, 2)}
 
-IMPORTANT: For each feedback item, identify the SPECIFIC node ID from the list above that the feedback applies to. Use the exact node ID provided.`;
+CRITICAL NODE ID INSTRUCTIONS:
+- You MUST use the EXACT node IDs from the list above
+- Choose the MOST SPECIFIC node ID for each piece of feedback
+- For a button issue, use the button's node ID, NOT its parent frame
+- For a text issue, use the text layer's node ID, NOT the containing group
+- The more specific the node, the better the comment placement will be
+
+Example: If you're giving feedback about a "Login Button", find the exact node ID for that button in the structure above (e.g., "123:456"), not the page frame (e.g., "9:1").`;
 
     const formatInstructions = `
 For each issue found, provide:
@@ -217,7 +224,7 @@ function extractCanvasData(document: any) {
     
     const currentPath = path ? `${path} > ${node.name}` : node.name;
     
-    // Include all interactive and visual elements
+    // Include ALL nodes with IDs, especially interactive and leaf elements
     if (node.type && node.id) {
       nodes.push({
         id: node.id,
@@ -234,8 +241,9 @@ function extractCanvasData(document: any) {
   
   traverse(document);
   
+  // Return more nodes for better specificity (200 instead of 100)
   return {
     name: document.name,
-    nodes: nodes.slice(0, 100), // Include more nodes for better targeting
+    nodes: nodes.slice(0, 200),
   };
 }
