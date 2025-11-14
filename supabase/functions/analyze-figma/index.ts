@@ -216,11 +216,11 @@ Provide ${allowedCategories.includes("ux_writing") ? "15-25" : "10-15"} detailed
           {
             role: "system",
             content:
-              "You are an expert UX/UI designer providing professional design feedback. Always respond with valid JSON.",
+              "You are an expert UX/UI designer providing professional design feedback. CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].",
           },
           { role: "user", content: analysisPrompt },
         ],
-        temperature: 0.7,
+        temperature: 0.3,
       }),
     });
 
@@ -237,10 +237,21 @@ Provide ${allowedCategories.includes("ux_writing") ? "15-25" : "10-15"} detailed
     let feedback: FeedbackItem[];
     try {
       const content = aiData.choices[0].message.content;
+      console.log("Raw AI response (first 500 chars):", content.substring(0, 500));
+      
       // Extract JSON from markdown code blocks if present
       const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\[[\s\S]*\]/);
       const jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+      
+      console.log("Extracted JSON (first 500 chars):", jsonContent.substring(0, 500));
+      
       feedback = JSON.parse(jsonContent);
+
+      // Validate feedback structure
+      if (!Array.isArray(feedback)) {
+        console.error("Feedback is not an array:", feedback);
+        throw new Error("AI response is not an array of feedback items");
+      }
 
       // Add unique IDs to feedback items
       feedback = feedback.map((item, index) => ({
@@ -249,7 +260,8 @@ Provide ${allowedCategories.includes("ux_writing") ? "15-25" : "10-15"} detailed
       }));
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      throw new Error("Failed to parse AI feedback");
+      console.error("Full AI response:", JSON.stringify(aiData, null, 2));
+      throw new Error(`Failed to parse AI feedback: ${parseError instanceof Error ? parseError.message : "Unknown parsing error"}`);
     }
 
     console.log("Generated feedback items:", feedback.length);
