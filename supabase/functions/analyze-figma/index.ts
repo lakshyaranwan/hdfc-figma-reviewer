@@ -113,6 +113,29 @@ CRITICAL NODE ID INSTRUCTIONS:
 
 Example: If you're giving feedback about a "Login Button", find the exact node ID for that button in the structure above (e.g., "123:456"), not the page frame (e.g., "9:1").`;
 
+    // Map category labels to category IDs
+    const categoryMapping: Record<string, string> = {
+      'consistency across flows regarding ui': 'consistency',
+      'ux review': 'ux',
+      'ui review': 'ui',
+      'accessibility issues': 'accessibility',
+      'design system adherence': 'design_system',
+      'high level review about and the why? questioning the basics.': 'high_level'
+    };
+
+    // Extract selected categories from customPrompt
+    let allowedCategories = ['ux', 'ui', 'consistency', 'improvement'];
+    if (customPrompt && customPrompt.includes('Provide me feedback on the following areas:')) {
+      const areasText = customPrompt.split('Provide me feedback on the following areas:')[1];
+      const selectedAreas = areasText.toLowerCase().split(',').map((s: string) => s.trim());
+      allowedCategories = selectedAreas
+        .map((area: string) => categoryMapping[area] || area)
+        .filter((cat: string) => cat);
+      console.log('Filtered to categories:', allowedCategories);
+    }
+
+    const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(' | ');
+
     const formatInstructions = `
 For each issue found, provide:
 - A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
@@ -121,9 +144,12 @@ For each issue found, provide:
 - The EXACT node ID from the structure above for the specific element this feedback applies to
 - Component/frame name (user-friendly name only, NO technical IDs like "9:123" - use descriptive names like "Login Button" or "Header Navigation")
 
+CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(', ')}
+Do NOT provide feedback for any other categories. Only use these exact category values: ${categoryOptions}
+
 Format your response as a JSON array of feedback items with this structure:
 [{
-  "category": "ux" | "ui" | "consistency" | "improvement",
+  "category": ${categoryOptions},
   "title": "Issue title (clean, no IDs)",
   "description": "Detailed description (clean, no IDs)",
   "severity": "low" | "medium" | "high",
@@ -136,10 +162,11 @@ CRITICAL:
 - Always include the nodeId field with the exact ID from the design structure for technical purposes
 - For the location field, use ONLY user-friendly, descriptive names - NO technical node IDs
 - Keep all user-facing text clean and readable
+- ONLY provide feedback for the requested categories: ${allowedCategories.join(', ')}
 - Example good title: "Improve button contrast for accessibility"
 - Example bad title: "Improve button [123:456] contrast for accessibility"
 
-Provide 5-10 high-quality, actionable insights. Focus on the most impactful issues.`;
+Provide 5-10 high-quality, actionable insights. Focus on the most impactful issues ONLY in the requested areas.`;
 
     const analysisPrompt = customPrompt 
       ? `${baseContext}\n\nUser's specific request: ${customPrompt}\n${formatInstructions}`
