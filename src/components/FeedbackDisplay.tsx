@@ -13,45 +13,45 @@ type FeedbackDisplayProps = {
 };
 
 const categoryConfig = {
+  consistency: {
+    label: "Consistency across flows regarding UI",
+    icon: CheckCircle,
+    color: "bg-destructive/10 text-destructive border-destructive/20",
+  },
   ux: {
-    label: "UX Issue",
+    label: "UX Review",
     icon: Target,
     color: "bg-primary/10 text-primary border-primary/20",
   },
   ui: {
-    label: "UI Issue",
+    label: "UI Review",
     icon: AlertCircle,
     color: "bg-warning/10 text-warning border-warning/20",
   },
-  consistency: {
-    label: "Consistency",
+  accessibility: {
+    label: "Accessibility Issues",
+    icon: AlertCircle,
+    color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  },
+  design_system: {
+    label: "Design System Adherence",
     icon: CheckCircle,
-    color: "bg-destructive/10 text-destructive border-destructive/20",
+    color: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+  },
+  ux_writing: {
+    label: "Typos & Inconsistent UX Writing",
+    icon: MessageSquare,
+    color: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+  },
+  high_level: {
+    label: "High Level Review About and the Why? Questioning the basics.",
+    icon: Lightbulb,
+    color: "bg-green-500/10 text-green-500 border-green-500/20",
   },
   improvement: {
     label: "Improvement",
     icon: Lightbulb,
     color: "bg-accent/10 text-accent border-accent/20",
-  },
-  accessibility: {
-    label: "Accessibility",
-    icon: AlertCircle,
-    color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  },
-  design_system: {
-    label: "Design System",
-    icon: CheckCircle,
-    color: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-  },
-  ux_writing: {
-    label: "UX Writing",
-    icon: MessageSquare,
-    color: "bg-orange-500/10 text-orange-500 border-orange-500/20",
-  },
-  high_level: {
-    label: "High Level",
-    icon: Lightbulb,
-    color: "bg-green-500/10 text-green-500 border-green-500/20",
   },
 };
 

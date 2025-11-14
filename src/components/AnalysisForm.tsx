@@ -134,6 +134,7 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
             fileKey, 
             nodeId,
             customPrompt: finalPrompt,
+            includeSuggestions,
           }),
         }
       );

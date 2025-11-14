@@ -21,10 +21,11 @@ serve(async (req) => {
   }
 
   try {
-    const { fileKey, nodeId, customPrompt } = await req.json();
+    const { fileKey, nodeId, customPrompt, includeSuggestions = true } = await req.json();
     console.log("Analyzing Figma file:", fileKey);
     console.log("Target node:", nodeId || "entire file");
     console.log("Custom prompt provided:", !!customPrompt);
+    console.log("Include suggestions:", includeSuggestions);
 
     const FIGMA_TOKEN = Deno.env.get("FIGMA_ACCESS_TOKEN");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -143,7 +144,7 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
     const formatInstructions = `
 For each issue found, provide:
 - A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
-- Detailed description of the issue and how to fix it (NO technical IDs in the description)
+- Detailed description of the issue${includeSuggestions ? " AND specific actionable suggestions on how to fix it" : ""} (NO technical IDs in the description)
 - Severity (low, medium, high)
 - The EXACT node ID from the structure above for the specific element this feedback applies to
 - Component/frame name (user-friendly name only, NO technical IDs like "9:123" - use descriptive names like "Login Button" or "Header Navigation")
@@ -155,7 +156,7 @@ Format your response as a JSON array of feedback items with this structure:
 [{
   "category": ${categoryOptions},
   "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description (clean, no IDs)",
+  "description": "Detailed description${includeSuggestions ? " with specific suggestions" : ""} (clean, no IDs)",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name (e.g., 'Login Button', 'Navigation Bar')",
   "nodeId": "exact_node_id_from_structure"
@@ -167,6 +168,7 @@ CRITICAL:
 - For the location field, use ONLY user-friendly, descriptive names - NO technical node IDs
 - Keep all user-facing text clean and readable
 - ONLY provide feedback for the requested categories: ${allowedCategories.join(", ")}
+${includeSuggestions ? "- For EACH issue, include specific, actionable suggestions on how to fix it in the description" : ""}
 - Example good title: "Improve button contrast for accessibility"
 - Example bad title: "Improve button [123:456] contrast for accessibility"
 
