@@ -129,7 +129,9 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
     let allowedCategories = ["ux", "ui", "consistency", "improvement"];
     if (customPrompt && customPrompt.includes("Provide me feedback on the following areas:")) {
       const areasText = customPrompt.split("Provide me feedback on the following areas:")[1];
-      const selectedAreas = areasText
+      // Split only up to the first period (to avoid parsing the suggestions instruction)
+      const categoriesOnly = areasText.split(".")[0];
+      const selectedAreas = categoriesOnly
         .toLowerCase()
         .split(",")
         .map((s: string) => s.trim());
