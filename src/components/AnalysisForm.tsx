@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -221,16 +222,16 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
                 ))}
               </div>
 
-              <div className="flex items-center space-x-2 pt-4 border-t">
-                <Checkbox
-                  id="suggestions"
-                  checked={includeSuggestions}
-                  onCheckedChange={(checked) => setIncludeSuggestions(checked as boolean)}
-                  disabled={isAnalyzing}
-                />
-                <Label htmlFor="suggestions" className="text-sm font-normal cursor-pointer">
+              <div className="flex items-center justify-between pt-4 border-t">
+                <Label htmlFor="suggestions" className="text-sm font-normal">
                   Include specific suggestions for fixing each issue
                 </Label>
+                <Switch
+                  id="suggestions"
+                  checked={includeSuggestions}
+                  onCheckedChange={setIncludeSuggestions}
+                  disabled={isAnalyzing}
+                />
               </div>
             </TabsContent>
             
@@ -246,16 +247,16 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
                 className="min-h-[120px] bg-background border-border focus:ring-primary"
               />
 
-              <div className="flex items-center space-x-2 pt-4 border-t">
-                <Checkbox
-                  id="suggestions-manual"
-                  checked={includeSuggestions}
-                  onCheckedChange={(checked) => setIncludeSuggestions(checked as boolean)}
-                  disabled={isAnalyzing}
-                />
-                <Label htmlFor="suggestions-manual" className="text-sm font-normal cursor-pointer">
+              <div className="flex items-center justify-between pt-4 border-t">
+                <Label htmlFor="suggestions-manual" className="text-sm font-normal">
                   Include specific suggestions for fixing each issue
                 </Label>
+                <Switch
+                  id="suggestions-manual"
+                  checked={includeSuggestions}
+                  onCheckedChange={setIncludeSuggestions}
+                  disabled={isAnalyzing}
+                />
               </div>
             </TabsContent>
           </Tabs>
