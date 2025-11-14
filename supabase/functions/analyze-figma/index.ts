@@ -7,7 +7,7 @@ const corsHeaders = {
 
 interface FeedbackItem {
   id: string;
-  category: "ux" | "ui" | "consistency" | "improvement";
+  category: "ux" | "ui" | "consistency" | "improvement" | "accessibility" | "design_system" | "high_level";
   title: string;
   description: string;
   severity: "low" | "medium" | "high";
