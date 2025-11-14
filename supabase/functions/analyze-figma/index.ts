@@ -246,7 +246,13 @@ Provide 5-10 high-quality, actionable insights. Focus on the most impactful issu
 });
 
 function extractCanvasData(document: any) {
-  const nodes: Array<{ id: string; name: string; type: string; path: string }> = [];
+  const nodes: Array<{ 
+    id: string; 
+    name: string; 
+    type: string; 
+    path: string;
+    text?: string; // Add text content for TEXT nodes
+  }> = [];
   
   function traverse(node: any, path: string = '') {
     if (!node) return;
@@ -255,12 +261,19 @@ function extractCanvasData(document: any) {
     
     // Include ALL nodes with IDs, especially interactive and leaf elements
     if (node.type && node.id) {
-      nodes.push({
+      const nodeData: any = {
         id: node.id,
         name: node.name,
         type: node.type,
         path: currentPath,
-      });
+      };
+      
+      // For TEXT nodes, include the actual text content
+      if (node.type === 'TEXT' && node.characters) {
+        nodeData.text = node.characters;
+      }
+      
+      nodes.push(nodeData);
     }
     
     if (node.children) {
