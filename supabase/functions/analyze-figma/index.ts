@@ -112,7 +112,7 @@ For each issue found, provide:
 - Detailed description of the issue and how to fix it
 - Severity (low, medium, high)
 - The EXACT node ID from the structure above for the specific element this feedback applies to
-- Component/frame name and path
+- Component/frame name (user-friendly name only, NO technical IDs like "9:123" - use descriptive names like "Login Button" or "Header Navigation")
 
 Format your response as a JSON array of feedback items with this structure:
 [{
@@ -120,11 +120,15 @@ Format your response as a JSON array of feedback items with this structure:
   "title": "Issue title",
   "description": "Detailed description",
   "severity": "low" | "medium" | "high",
-  "location": "Component/Frame name with path",
+  "location": "User-friendly component name (e.g., 'Login Button', 'Navigation Bar')",
   "nodeId": "exact_node_id_from_structure"
 }]
 
-CRITICAL: Always include the nodeId field with the exact ID from the design structure. Choose the most specific, relevant node for each piece of feedback.
+CRITICAL: 
+- Always include the nodeId field with the exact ID from the design structure for technical purposes
+- For the location field, use ONLY user-friendly, descriptive names - NO technical node IDs
+- Example good location: "Primary CTA Button in Hero Section"
+- Example bad location: "I9:27410;21165:91137"
 
 Provide 5-10 high-quality, actionable insights. Focus on the most impactful issues.`;
 
