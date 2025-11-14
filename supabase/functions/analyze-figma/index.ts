@@ -132,52 +132,10 @@ Provide 5-10 high-quality, actionable insights. Focus on the most impactful issu
 
     console.log('Generated feedback items:', feedback.length);
 
-    // Step 4: Post comments to Figma
-    console.log('Posting comments to Figma...');
-    let commentsPosted = 0;
-
-    for (const item of feedback) {
-      try {
-        // Find a suitable node to comment on
-        const nodeId = item.nodeId || canvasData.nodes[0]?.id;
-        if (!nodeId) continue;
-
-        const commentText = `**${item.category.toUpperCase()} - ${item.severity.toUpperCase()}**\n\n**${item.title}**\n\n${item.description}`;
-
-        const commentResponse = await fetch(
-          `https://api.figma.com/v1/files/${fileKey}/comments`,
-          {
-            method: 'POST',
-            headers: {
-              'X-Figma-Token': FIGMA_TOKEN,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              message: commentText,
-              client_meta: {
-                node_id: nodeId,
-              },
-            }),
-          }
-        );
-
-        if (commentResponse.ok) {
-          commentsPosted++;
-        } else {
-          console.error('Failed to post comment:', await commentResponse.text());
-        }
-      } catch (commentError) {
-        console.error('Error posting comment:', commentError);
-      }
-    }
-
-    console.log(`Posted ${commentsPosted} comments to Figma`);
-
     return new Response(
       JSON.stringify({
         success: true,
         feedback,
-        commentsPosted,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

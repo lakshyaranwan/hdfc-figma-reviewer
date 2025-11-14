@@ -16,6 +16,7 @@ export type FeedbackItem = {
 const Index = () => {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [fileKey, setFileKey] = useState<string>("");
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,6 +45,7 @@ const Index = () => {
                 onAnalysisComplete={setFeedback}
                 isAnalyzing={isAnalyzing}
                 setIsAnalyzing={setIsAnalyzing}
+                onFileKeyExtracted={setFileKey}
               />
             </Card>
           </div>
@@ -53,6 +55,7 @@ const Index = () => {
             <FeedbackDisplay 
               feedback={feedback}
               isAnalyzing={isAnalyzing}
+              fileKey={fileKey}
             />
           </div>
         </div>
