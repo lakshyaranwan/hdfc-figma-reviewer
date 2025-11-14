@@ -5,9 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface FeedbackItem {
+  interface FeedbackItem {
   id: string;
-  category: "ux" | "ui" | "consistency" | "improvement";
+  category: "ux" | "ui" | "consistency" | "improvement" | "accessibility" | "design_system" | "ux_writing" | "high_level";
   title: string;
   description: string;
   severity: "low" | "medium" | "high";
@@ -167,20 +167,39 @@ serve(async (req) => {
         }
         
         // Try to use parent frame for better contextual placement
-        const contextualNodeId = findParentFrame(nodeId);
-        if (contextualNodeId !== nodeId) {
-          console.log(`📍 Using parent frame: ${contextualNodeId} (${nodeNameMap[contextualNodeId]}) instead of ${nodeId}`);
-          nodeId = contextualNodeId;
+        // BUT ONLY if the specific node is too granular (like TEXT or small elements)
+        const nodeType = nodeTypeMap[nodeId];
+        let finalNodeId = nodeId;
+        
+        // Only use parent frame if the node is a leaf element (TEXT, VECTOR, etc.)
+        // Keep FRAME, COMPONENT, INSTANCE nodes as they are more contextual
+        const shouldUseParent = nodeType && !['FRAME', 'COMPONENT', 'INSTANCE', 'GROUP'].includes(nodeType);
+        
+        if (shouldUseParent) {
+          const contextualNodeId = findParentFrame(nodeId);
+          if (contextualNodeId !== nodeId) {
+            console.log(`📍 Using parent frame: ${contextualNodeId} (${nodeNameMap[contextualNodeId]}) instead of ${nodeId} (${nodeType})`);
+            finalNodeId = contextualNodeId;
+          }
+        } else {
+          console.log(`✓ Using specific node: ${nodeId} (${nodeType}) - no parent needed`);
         }
         
         const commentText = `🤖 **AI Feedback - ${item.category.toUpperCase()}**\n\n**${item.title}**\n\nSeverity: ${item.severity.toUpperCase()}\n\n${item.description}${item.location ? `\n\n📍 Component: ${item.location}` : ''}`;
 
         // Calculate offset to prevent overlapping comments
-        // Space comments vertically by 100px each
-        const offsetY = i * 100;
-        const offsetX = 50 + (Math.floor(i / 5) * 200); // Shift right every 5 comments
+        // Group by node ID and spread them out better
+        const commentsOnSameNode = feedback.slice(0, i).filter((f: any) => {
+          const prevNodeId = f.nodeId || '';
+          const prevFinalNode = shouldUseParent ? findParentFrame(prevNodeId) : prevNodeId;
+          return prevFinalNode === finalNodeId;
+        }).length;
+        
+        // Base offset starts at 50, with additional spacing for each comment on same node
+        const offsetX = 50 + (commentsOnSameNode * 250); // Spread horizontally for same node
+        const offsetY = 50 + (i * 120); // Stack vertically overall
 
-        console.log(`Posting comment ${i + 1}/${feedback.length} to node: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'}) at offset (${offsetX}, ${offsetY})`);
+        console.log(`Posting comment ${i + 1}/${feedback.length} to node: ${finalNodeId} (${nodeNameMap[finalNodeId] || 'Unknown'}) at offset (${offsetX}, ${offsetY})`);
 
         const commentResponse = await fetch(
           `https://api.figma.com/v1/files/${fileKey}/comments`,
@@ -193,7 +212,7 @@ serve(async (req) => {
             body: JSON.stringify({
               message: commentText,
               client_meta: {
-                node_id: nodeId,
+                node_id: finalNodeId,
                 node_offset: {
                   x: offsetX,
                   y: offsetY,
