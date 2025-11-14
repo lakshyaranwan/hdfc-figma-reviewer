@@ -142,6 +142,23 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
     return acc;
   }, {} as Record<string, FeedbackItem[]>);
 
+  // Define the display order to match checkbox order
+  const categoryOrder = [
+    "consistency",
+    "ux", 
+    "ui",
+    "accessibility",
+    "design_system",
+    "ux_writing",
+    "high_level",
+    "improvement"
+  ];
+
+  // Sort categories according to the defined order
+  const sortedCategories = categoryOrder
+    .filter(category => groupedFeedback[category] && groupedFeedback[category].length > 0)
+    .map(category => [category, groupedFeedback[category]] as [string, FeedbackItem[]]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -175,7 +192,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
         )}
       </div>
 
-      {Object.entries(groupedFeedback).map(([category, items]) => {
+      {sortedCategories.map(([category, items]) => {
         const config = categoryConfig[category as keyof typeof categoryConfig];
         
         // Safety check: skip if category config doesn't exist
