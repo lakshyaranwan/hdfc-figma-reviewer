@@ -157,6 +157,13 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
 
       {Object.entries(groupedFeedback).map(([category, items]) => {
         const config = categoryConfig[category as keyof typeof categoryConfig];
+        
+        // Safety check: skip if category config doesn't exist
+        if (!config) {
+          console.warn(`Unknown feedback category: ${category}`);
+          return null;
+        }
+        
         const Icon = config.icon;
 
         return (
