@@ -84,11 +84,27 @@ serve(async (req) => {
         let nodeId = item.nodeId;
         let nodeFound = false;
         
+        // Clean up instance notation from node IDs (Figma API doesn't accept them)
+        // Convert "I9:27410;11530:113555" to "9:27410" or "11530:113555"
+        if (nodeId) {
+          // Remove "I" prefix if present
+          if (nodeId.startsWith('I')) {
+            nodeId = nodeId.substring(1);
+          }
+          // Take only the first part before semicolon (the parent frame)
+          if (nodeId.includes(';')) {
+            const parts = nodeId.split(';');
+            // Use the first valid node ID (not starting with 0:)
+            nodeId = parts.find((part: string) => !part.startsWith('0:')) || parts[0];
+          }
+          console.log(`Cleaned node ID: ${item.nodeId} → ${nodeId}`);
+        }
+        
         if (nodeId && allNodes.includes(nodeId)) {
           nodeFound = true;
-          console.log(`✓ Using AI-provided node ID: ${nodeId} (${nodeNameMap[nodeId]})`);
+          console.log(`✓ Using node ID: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'})`);
         } else if (nodeId) {
-          console.log(`✗ AI-provided node ID ${nodeId} not found in file`);
+          console.log(`✗ Node ID ${nodeId} not found in file`);
         }
         
         // Priority 2: Try to find node by matching location name
@@ -102,15 +118,15 @@ serve(async (req) => {
           }
         }
         
-        // Priority 3: Use first available node (last resort)
+        // Priority 3: Use first available simple node (skip document root 0:0, 0:1)
         if (!nodeFound) {
-          nodeId = allNodes[0];
-          console.log(`⚠ Using fallback node: ${nodeId} (${nodeNameMap[nodeId]})`);
+          nodeId = allNodes.find(id => !id.startsWith('0:') && !id.includes(';')) || allNodes[2];
+          console.log(`⚠ Using fallback node: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'})`);
         }
         
         const commentText = `🤖 **AI Feedback - ${item.category.toUpperCase()}**\n\n**${item.title}**\n\nSeverity: ${item.severity.toUpperCase()}\n\n${item.description}${item.location ? `\n\n📍 Component: ${item.location}` : ''}`;
 
-        console.log(`Posting comment ${i + 1}/${feedback.length} to node: ${nodeId} (${nodeNameMap[nodeId]})`);
+        console.log(`Posting comment ${i + 1}/${feedback.length} to node: ${nodeId} (${nodeNameMap[nodeId] || 'Unknown'})`);
 
         const commentResponse = await fetch(
           `https://api.figma.com/v1/files/${fileKey}/comments`,
