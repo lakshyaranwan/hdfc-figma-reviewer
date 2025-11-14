@@ -2,3 +2,6 @@ project_id = "lvhtpmtmxxfeomyqvnuq"
 
 [functions.analyze-figma]
 verify_jwt = false
+
+[functions.post-figma-comments]
+verify_jwt = false

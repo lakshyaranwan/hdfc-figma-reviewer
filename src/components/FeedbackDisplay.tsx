@@ -1,11 +1,15 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare } from "lucide-react";
 import { FeedbackItem } from "@/pages/Index";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 type FeedbackDisplayProps = {
   feedback: FeedbackItem[];
   isAnalyzing: boolean;
+  fileKey?: string;
 };
 
 const categoryConfig = {
@@ -37,7 +41,55 @@ const severityConfig = {
   high: { label: "High", color: "bg-destructive/20 text-destructive" },
 };
 
-export const FeedbackDisplay = ({ feedback, isAnalyzing }: FeedbackDisplayProps) => {
+export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisplayProps) => {
+  const { toast } = useToast();
+  const [isPostingComments, setIsPostingComments] = useState(false);
+
+  const handlePostComments = async () => {
+    if (!fileKey) {
+      toast({
+        title: "No File Selected",
+        description: "Please analyze a Figma file first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPostingComments(true);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/post-figma-comments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ fileKey, feedback }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to post comments");
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "Comments Posted!",
+        description: `Successfully added ${data.commentsPosted} comments to your Figma file`,
+      });
+    } catch (error) {
+      console.error("Error posting comments:", error);
+      toast({
+        title: "Failed to Post Comments",
+        description: "Unable to add comments to Figma. Please check your token permissions.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPostingComments(false);
+    }
+  };
   if (isAnalyzing) {
     return (
       <Card className="p-12 text-center shadow-[var(--shadow-card)]">
@@ -72,13 +124,35 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing }: FeedbackDisplayProps)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-foreground">
-          Analysis Results
-        </h2>
-        <Badge variant="secondary" className="text-sm">
-          {feedback.length} insights found
-        </Badge>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold text-foreground">
+            Analysis Results
+          </h2>
+          <Badge variant="secondary" className="text-sm">
+            {feedback.length} insights found
+          </Badge>
+        </div>
+        
+        {fileKey && feedback.length > 0 && (
+          <Button
+            onClick={handlePostComments}
+            disabled={isPostingComments}
+            className="bg-accent hover:bg-accent/90"
+          >
+            {isPostingComments ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Posting...
+              </>
+            ) : (
+              <>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Add Comments to Figma
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       {Object.entries(groupedFeedback).map(([category, items]) => {

@@ -10,9 +10,10 @@ type AnalysisFormProps = {
   onAnalysisComplete: (feedback: FeedbackItem[]) => void;
   isAnalyzing: boolean;
   setIsAnalyzing: (value: boolean) => void;
+  onFileKeyExtracted: (fileKey: string) => void;
 };
 
-export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }: AnalysisFormProps) => {
+export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, onFileKeyExtracted }: AnalysisFormProps) => {
   const [figmaUrl, setFigmaUrl] = useState("");
   const { toast } = useToast();
 
@@ -38,6 +39,7 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }
     }
 
     setIsAnalyzing(true);
+    onFileKeyExtracted(fileKeyMatch[1]);
     
     try {
       const response = await fetch(
