@@ -5,9 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FeedbackItem } from "@/pages/Index";
+import hdfcLogo from "@/assets/hdfc-logo.png";
 
 const ANALYSIS_CATEGORIES = [
   { id: "consistency", label: "Consistency across flow" },
@@ -239,7 +240,7 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
             </>
           ) : (
             <>
-              <Sparkles className="mr-2 h-4 w-4" />
+              <img src={hdfcLogo} alt="HDFC" className="mr-2 h-4 w-4 object-contain" />
               Analyze with AI
             </>
           )}
