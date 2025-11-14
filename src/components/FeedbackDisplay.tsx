@@ -201,7 +201,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
                     {item.description}
                   </p>
 
-                  {item.location && (
+                  {item.location && !item.location.match(/[0-9]+:[0-9]+/) && (
                     <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
                       Location: {item.location}
                     </div>
