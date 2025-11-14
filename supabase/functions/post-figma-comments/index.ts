@@ -74,8 +74,28 @@ serve(async (req) => {
       const item = feedback[i];
       
       try {
-        // Use a different node for each comment to spread them out
-        const nodeId = canvasNodes[i % canvasNodes.length];
+        // Use the specific node ID provided by AI, or fallback to first canvas node
+        let nodeId = item.nodeId;
+        
+        // If no nodeId or invalid, try to find a matching node by name
+        if (!nodeId || !canvasNodes.includes(nodeId)) {
+          console.log(`Node ID ${nodeId} not found for "${item.title}", searching by location...`);
+          
+          // Try to find node by location name
+          if (item.location && figmaData.document) {
+            const foundNode = findNodeByName(figmaData.document, item.location);
+            if (foundNode) {
+              nodeId = foundNode;
+              console.log(`Found matching node: ${nodeId}`);
+            }
+          }
+          
+          // Ultimate fallback to canvas nodes
+          if (!nodeId || !canvasNodes.includes(nodeId)) {
+            nodeId = canvasNodes[i % canvasNodes.length];
+            console.log(`Using fallback canvas node: ${nodeId}`);
+          }
+        }
         
         const commentText = `🤖 **AI Feedback - ${item.category.toUpperCase()}**\n\n**${item.title}**\n\nSeverity: ${item.severity.toUpperCase()}\n\n${item.description}${item.location ? `\n\n📍 Location: ${item.location}` : ''}`;
 
@@ -145,3 +165,26 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to find node by name or partial match
+function findNodeByName(node: any, searchName: string): string | null {
+  if (!node) return null;
+  
+  const normalizedSearch = searchName.toLowerCase();
+  const normalizedNodeName = (node.name || '').toLowerCase();
+  
+  // Check for exact or partial match
+  if (normalizedNodeName.includes(normalizedSearch) || normalizedSearch.includes(normalizedNodeName)) {
+    return node.id;
+  }
+  
+  // Recursively search children
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findNodeByName(child, searchName);
+      if (found) return found;
+    }
+  }
+  
+  return null;
+}
