@@ -16,6 +16,7 @@ const ANALYSIS_CATEGORIES = [
   { id: "ui", label: "UI Review" },
   { id: "accessibility", label: "Accessibility Issues" },
   { id: "design_system", label: "Design System Adherence" },
+  { id: "ux_writing", label: "Typos & Inconsistent UX Writing" },
   { id: "high_level", label: "High Level Review About and the Why? Questioning the basics." },
 ];
 
@@ -31,6 +32,7 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
   const [promptMode, setPromptMode] = useState<"simple" | "manual">("simple");
   const [selectedCategories, setSelectedCategories] = useState<string[]>(["consistency", "ux", "ui"]);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [includeSuggestions, setIncludeSuggestions] = useState(true);
   const { toast } = useToast();
 
   const toggleCategory = (categoryId: string) => {
@@ -109,8 +111,14 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
         .map(id => ANALYSIS_CATEGORIES.find(cat => cat.id === id)?.label)
         .join(", ");
       finalPrompt = `I am a UI UX designer who lacks attention to detail and makes a lot of mistakes. Act as my manager and reviewer. Provide me feedback on the following areas: ${categoryLabels}`;
+      if (includeSuggestions) {
+        finalPrompt += ". For each issue, provide specific actionable suggestions on how to fix it.";
+      }
     } else {
       finalPrompt = customPrompt;
+      if (includeSuggestions) {
+        finalPrompt += " For each issue, provide specific actionable suggestions on how to fix it.";
+      }
     }
 
     try {
@@ -212,6 +220,18 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
                   </div>
                 ))}
               </div>
+
+              <div className="flex items-center space-x-2 pt-4 border-t">
+                <Checkbox
+                  id="suggestions"
+                  checked={includeSuggestions}
+                  onCheckedChange={(checked) => setIncludeSuggestions(checked as boolean)}
+                  disabled={isAnalyzing}
+                />
+                <Label htmlFor="suggestions" className="text-sm font-normal cursor-pointer">
+                  Include specific suggestions for fixing each issue
+                </Label>
+              </div>
             </TabsContent>
             
             <TabsContent value="manual" className="space-y-3 mt-3">
@@ -225,6 +245,18 @@ export const AnalysisForm = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, 
                 disabled={isAnalyzing}
                 className="min-h-[120px] bg-background border-border focus:ring-primary"
               />
+
+              <div className="flex items-center space-x-2 pt-4 border-t">
+                <Checkbox
+                  id="suggestions-manual"
+                  checked={includeSuggestions}
+                  onCheckedChange={(checked) => setIncludeSuggestions(checked as boolean)}
+                  disabled={isAnalyzing}
+                />
+                <Label htmlFor="suggestions-manual" className="text-sm font-normal cursor-pointer">
+                  Include specific suggestions for fixing each issue
+                </Label>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

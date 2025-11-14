@@ -7,7 +7,7 @@ const corsHeaders = {
 
 interface FeedbackItem {
   id: string;
-  category: "ux" | "ui" | "consistency" | "improvement" | "accessibility" | "design_system" | "high_level";
+  category: "ux" | "ui" | "consistency" | "improvement" | "accessibility" | "design_system" | "ux_writing" | "high_level";
   title: string;
   description: string;
   severity: "low" | "medium" | "high";
@@ -120,6 +120,7 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
       "ui review": "ui",
       "accessibility issues": "accessibility",
       "design system adherence": "design_system",
+      "typos & inconsistent ux writing": "ux_writing",
       "high level review about and the why? questioning the basics.": "high_level",
     };
 
