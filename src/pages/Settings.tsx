@@ -26,7 +26,8 @@ const AI_MODELS = [
     description: "Fastest & cheapest - great for quick feedback",
     speed: "Very Fast",
     cost: "Lowest",
-    rateLimit: "Higher limits available"
+    rateLimit: "Higher limits available",
+    tpmLimit: "200K TPM"
   },
   {
     id: "gpt-5-mini-2025-08-07",
@@ -34,7 +35,8 @@ const AI_MODELS = [
     description: "Balanced performance & cost",
     speed: "Fast",
     cost: "Medium",
-    rateLimit: "Standard limits"
+    rateLimit: "Standard limits",
+    tpmLimit: "150K TPM"
   },
   {
     id: "gpt-5-2025-08-07",
@@ -42,9 +44,19 @@ const AI_MODELS = [
     description: "Most capable - best for complex analysis",
     speed: "Moderate",
     cost: "Higher",
-    rateLimit: "Standard limits"
+    rateLimit: "Standard limits",
+    tpmLimit: "100K TPM"
   }
 ];
+
+type ModelUsage = {
+  model: string;
+  lastUsed?: string;
+  status: "available" | "rate_limited" | "error";
+  remaining?: number;
+  limit?: number;
+  resetTime?: string;
+};
 
 const Settings = () => {
   const [userName, setUserName] = useState("");
@@ -54,12 +66,14 @@ const Settings = () => {
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>("gpt-5-nano-2025-08-07");
   const [modelLoading, setModelLoading] = useState(false);
+  const [modelUsage, setModelUsage] = useState<Record<string, ModelUsage>>({});
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchSharedKeys();
     fetchSelectedModel();
+    fetchModelUsage();
     
     // Load selected key from localStorage
     const savedKeyId = localStorage.getItem(STORAGE_KEY);
@@ -120,6 +134,31 @@ const Settings = () => {
       }
     } catch (error: any) {
       console.error("Error fetching model setting:", error);
+    }
+  };
+
+  const fetchModelUsage = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .like("key", "model_usage_%");
+
+      if (error) throw error;
+      
+      const usage: Record<string, ModelUsage> = {};
+      data?.forEach((item) => {
+        const modelId = item.key.replace("model_usage_", "");
+        try {
+          usage[modelId] = JSON.parse(item.value || "{}");
+        } catch (e) {
+          console.error("Error parsing usage data:", e);
+        }
+      });
+      
+      setModelUsage(usage);
+    } catch (error: any) {
+      console.error("Error fetching model usage:", error);
     }
   };
 
@@ -279,7 +318,7 @@ const Settings = () => {
                         {selectedModel === model.id && <Check className="h-4 w-4 text-primary" />}
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">{model.description}</p>
-                      <div className="flex gap-4 text-xs">
+                      <div className="flex gap-4 text-xs mb-2">
                         <div className="flex items-center gap-1">
                           <Zap className="h-3 w-3" />
                           <span>{model.speed}</span>
@@ -288,8 +327,42 @@ const Settings = () => {
                           <DollarSign className="h-3 w-3" />
                           <span>{model.cost}</span>
                         </div>
-                        <span className="text-muted-foreground">{model.rateLimit}</span>
+                        <span className="text-muted-foreground">{model.tpmLimit}</span>
                       </div>
+                      {modelUsage[model.id] && (
+                        <div className="text-xs p-2 rounded bg-muted/50">
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Status:</span>
+                            <span className={`font-medium ${
+                              modelUsage[model.id].status === "available" ? "text-green-600" :
+                              modelUsage[model.id].status === "rate_limited" ? "text-orange-600" :
+                              "text-red-600"
+                            }`}>
+                              {modelUsage[model.id].status === "available" ? "✓ Available" :
+                               modelUsage[model.id].status === "rate_limited" ? "⚠ Rate Limited" :
+                               "✗ Error"}
+                            </span>
+                          </div>
+                          {modelUsage[model.id].remaining !== undefined && (
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-muted-foreground">Tokens remaining:</span>
+                              <span>{modelUsage[model.id].remaining?.toLocaleString()} / {modelUsage[model.id].limit?.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {modelUsage[model.id].resetTime && (
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-muted-foreground">Resets:</span>
+                              <span>{new Date(modelUsage[model.id].resetTime!).toLocaleTimeString()}</span>
+                            </div>
+                          )}
+                          {modelUsage[model.id].lastUsed && (
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-muted-foreground">Last used:</span>
+                              <span>{new Date(modelUsage[model.id].lastUsed!).toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </Label>
                   </div>
                 </div>

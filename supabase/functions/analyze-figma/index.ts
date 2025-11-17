@@ -269,11 +269,69 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
       }),
     });
 
+    // Store usage information
+    const storeUsageInfo = async (status: string, headers: Headers, error?: any) => {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+      
+      try {
+        const usage: any = {
+          model: selectedModel,
+          lastUsed: new Date().toISOString(),
+          status: status,
+        };
+
+        // Extract rate limit info from headers
+        const remaining = headers.get("x-ratelimit-remaining-tokens");
+        const limit = headers.get("x-ratelimit-limit-tokens");
+        const resetTime = headers.get("x-ratelimit-reset-tokens");
+
+        if (remaining) usage.remaining = parseInt(remaining);
+        if (limit) usage.limit = parseInt(limit);
+        if (resetTime) usage.resetTime = resetTime;
+
+        if (error) {
+          // Try to extract rate limit info from error message
+          const match = error.match(/Limit (\d+), Used (\d+)/);
+          if (match) {
+            usage.limit = parseInt(match[1]);
+            usage.remaining = parseInt(match[1]) - parseInt(match[2]);
+          }
+        }
+
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/app_settings`,
+          {
+            method: "POST",
+            headers: {
+              "apikey": SUPABASE_SERVICE_ROLE_KEY,
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+              "Prefer": "resolution=merge-duplicates",
+            },
+            body: JSON.stringify({
+              key: `model_usage_${selectedModel}`,
+              value: JSON.stringify(usage),
+            }),
+          }
+        );
+      } catch (e) {
+        console.error("Error storing usage info:", e);
+      }
+    };
+
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("AI API error:", errorText);
+      await storeUsageInfo(
+        aiResponse.status === 429 ? "rate_limited" : "error",
+        aiResponse.headers,
+        errorText
+      );
       throw new Error(`AI analysis failed: ${aiResponse.status}`);
     }
+
+    // Store successful usage
+    await storeUsageInfo("available", aiResponse.headers);
 
     const aiData = await aiResponse.json();
     console.log("AI analysis complete");
