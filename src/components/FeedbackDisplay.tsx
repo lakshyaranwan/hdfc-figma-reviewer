@@ -88,7 +88,7 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
     }
 
     // Get the selected API key from localStorage
-    const selectedApiKey = localStorage.getItem("selectedFigmaApiKey");
+    const selectedApiKey = localStorage.getItem("hdfc_figma_api_key");
     if (!selectedApiKey) {
       toast({
         title: "No API Key Selected",
