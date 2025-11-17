@@ -28,9 +28,38 @@ serve(async (req) => {
     console.log("Include suggestions:", includeSuggestions);
 
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY not configured");
+    }
+
+    // Fetch selected AI model from settings
+    let selectedModel = "gpt-5-nano-2025-08-07"; // default
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const settingsResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_model&select=value`,
+          {
+            headers: {
+              "apikey": SUPABASE_SERVICE_ROLE_KEY,
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+          }
+        );
+        
+        if (settingsResponse.ok) {
+          const settings = await settingsResponse.json();
+          if (settings && settings.length > 0 && settings[0].value) {
+            selectedModel = settings[0].value;
+            console.log("Using selected model:", selectedModel);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching model setting:", error);
+        // Continue with default model
+      }
     }
 
     // Use the API key from the request body
@@ -218,6 +247,8 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
 3. Consistency Issues - Design pattern violations, inconsistent components
 4. Improvement Suggestions - Ways to enhance the design\n${formatInstructions}`;
 
+    console.log("Using AI model:", selectedModel);
+    
     const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -225,7 +256,7 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5-nano-2025-08-07",
+        model: selectedModel,
         messages: [
           {
             role: "system",
