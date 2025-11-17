@@ -87,6 +87,17 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
       return;
     }
 
+    // Get the selected API key from localStorage
+    const selectedApiKey = localStorage.getItem("selectedFigmaApiKey");
+    if (!selectedApiKey) {
+      toast({
+        title: "No API Key Selected",
+        description: "Please select a Figma API key in Settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsPostingComments(true);
     
     try {
@@ -102,7 +113,11 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ fileKey, feedback: feedbackToPost }),
+          body: JSON.stringify({ 
+            fileKey, 
+            feedback: feedbackToPost,
+            figmaApiKey: selectedApiKey 
+          }),
         }
       );
 

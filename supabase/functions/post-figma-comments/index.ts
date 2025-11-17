@@ -21,14 +21,15 @@ serve(async (req) => {
   }
 
   try {
-    const { fileKey, feedback } = await req.json();
+    const { fileKey, feedback, figmaApiKey } = await req.json();
     console.log('Posting comments to Figma file:', fileKey);
     console.log('Number of feedback items:', feedback.length);
 
-    const FIGMA_TOKEN = Deno.env.get('FIGMA_ACCESS_TOKEN');
-    if (!FIGMA_TOKEN) {
-      throw new Error('FIGMA_ACCESS_TOKEN not configured');
+    if (!figmaApiKey) {
+      throw new Error('Figma API key not provided');
     }
+
+    const FIGMA_TOKEN = figmaApiKey;
 
     // First, fetch the file to get valid node IDs
     console.log('Fetching Figma file structure...');
