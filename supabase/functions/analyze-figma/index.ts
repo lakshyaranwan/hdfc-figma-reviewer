@@ -225,7 +225,7 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-5-nano-2025-08-07",
         messages: [
           {
             role: "system",
@@ -234,7 +234,7 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
           },
           { role: "user", content: analysisPrompt },
         ],
-        temperature: 0.3,
+        max_completion_tokens: 4000,
       }),
     });
 
