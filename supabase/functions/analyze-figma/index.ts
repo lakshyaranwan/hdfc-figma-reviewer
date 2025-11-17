@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,51 +21,20 @@ serve(async (req) => {
   }
 
   try {
-    const { fileKey, nodeId, customPrompt, includeSuggestions = true } = await req.json();
+    const { fileKey, nodeId, customPrompt, includeSuggestions = true, figmaApiKey } = await req.json();
     console.log("Analyzing Figma file:", fileKey);
     console.log("Target node:", nodeId || "entire file");
     console.log("Custom prompt provided:", !!customPrompt);
     console.log("Include suggestions:", includeSuggestions);
 
-    const GLOBAL_FIGMA_TOKEN = Deno.env.get("FIGMA_ACCESS_TOKEN");
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY not configured");
     }
 
-    // Get the authorization header to identify the user
-    const authHeader = req.headers.get("Authorization");
-    let FIGMA_TOKEN = GLOBAL_FIGMA_TOKEN;
-
-    // If user is authenticated, try to get their personal API key
-    if (authHeader) {
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-          { global: { headers: { Authorization: authHeader } } }
-        );
-
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        
-        if (user) {
-          const { data: apiKeyData } = await supabaseClient
-            .from("user_api_keys")
-            .select("figma_api_key")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (apiKeyData?.figma_api_key) {
-            FIGMA_TOKEN = apiKeyData.figma_api_key;
-            console.log("Using user's personal Figma API key");
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user API key:", error);
-        // Fall back to global token
-      }
-    }
+    // Use the API key from the request body
+    const FIGMA_TOKEN = figmaApiKey || Deno.env.get("FIGMA_ACCESS_TOKEN");
 
     if (!FIGMA_TOKEN) {
       throw new Error("FIGMA_ACCESS_TOKEN not configured. Please add your Figma API key in Settings.");
