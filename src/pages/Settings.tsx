@@ -21,31 +21,31 @@ type SharedApiKey = {
 
 const AI_MODELS = [
   {
-    id: "gpt-5-nano-2025-08-07",
-    name: "GPT-5 Nano",
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    description: "Balanced - good for most design reviews (Recommended)",
+    speed: "Fast",
+    cost: "Low",
+    rateLimit: "Standard limits",
+    tpmLimit: "Standard"
+  },
+  {
+    id: "google/gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
     description: "Fastest & cheapest - great for quick feedback",
     speed: "Very Fast",
     cost: "Lowest",
-    rateLimit: "Higher limits available",
-    tpmLimit: "200K TPM"
+    rateLimit: "Higher limits",
+    tpmLimit: "Higher"
   },
   {
-    id: "gpt-5-mini-2025-08-07",
-    name: "GPT-5 Mini",
-    description: "Balanced performance & cost",
-    speed: "Fast",
-    cost: "Medium",
-    rateLimit: "Standard limits",
-    tpmLimit: "150K TPM"
-  },
-  {
-    id: "gpt-5-2025-08-07",
-    name: "GPT-5",
+    id: "google/gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
     description: "Most capable - best for complex analysis",
     speed: "Moderate",
     cost: "Higher",
     rateLimit: "Standard limits",
-    tpmLimit: "100K TPM"
+    tpmLimit: "Standard"
   }
 ];
 
@@ -64,7 +64,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [sharedKeys, setSharedKeys] = useState<SharedApiKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string>("gpt-5-nano-2025-08-07");
+  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
   const [modelLoading, setModelLoading] = useState(false);
   const [modelUsage, setModelUsage] = useState<Record<string, ModelUsage>>({});
   const navigate = useNavigate();
