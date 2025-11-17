@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare, ChevronDown } from "lucide-react";
+import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare, ChevronDown, Sparkles } from "lucide-react";
 import { FeedbackItem } from "@/pages/Index";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -14,6 +14,11 @@ type FeedbackDisplayProps = {
   isAnalyzing: boolean;
   fileKey?: string;
 };
+
+interface SolutionItem extends FeedbackItem {
+  solution: string;
+  implementation_steps: string[];
+}
 
 const categoryConfig = {
   consistency: {
@@ -67,6 +72,8 @@ const severityConfig = {
 export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisplayProps) => {
   const { toast } = useToast();
   const [isPostingComments, setIsPostingComments] = useState(false);
+  const [isGeneratingSolutions, setIsGeneratingSolutions] = useState(false);
+  const [solutions, setSolutions] = useState<SolutionItem[]>([]);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [hideLowSeverity, setHideLowSeverity] = useState(false);
 
@@ -125,6 +132,57 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
       });
     } finally {
       setIsPostingComments(false);
+    }
+  };
+
+  const handleGenerateSolutions = async () => {
+    if (!fileKey || feedback.length === 0) {
+      toast({
+        title: "No Feedback Available",
+        description: "Please analyze a Figma file first to generate solutions",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingSolutions(true);
+    
+    try {
+      const feedbackToProcess = hideLowSeverity 
+        ? feedback.filter(item => item.severity !== "low")
+        : feedback;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-figma-solutions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ feedback: feedbackToProcess, fileKey }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to generate solutions");
+      }
+
+      const data = await response.json();
+      setSolutions(data.solutions);
+      
+      toast({
+        title: "Solutions Generated!",
+        description: `AI has generated ${data.solutions.length} detailed solutions for your feedback`,
+      });
+    } catch (error) {
+      console.error("Error generating solutions:", error);
+      toast({
+        title: "Failed to Generate Solutions",
+        description: "Unable to generate AI-powered solutions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingSolutions(false);
     }
   };
   if (isAnalyzing) {
@@ -194,23 +252,43 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
         </div>
         
         {fileKey && feedback.length > 0 && (
-          <Button
-            onClick={handlePostComments}
-            disabled={isPostingComments}
-            className="bg-accent hover:bg-accent/90"
-          >
-            {isPostingComments ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Posting...
-              </>
-            ) : (
-              <>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Add Comments to Figma
-              </>
-            )}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={handlePostComments}
+              disabled={isPostingComments}
+              className="bg-accent hover:bg-accent/90"
+            >
+              {isPostingComments ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Posting...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Add Comments to Figma
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleGenerateSolutions}
+              disabled={isGeneratingSolutions}
+              variant="outline"
+              className="border-primary/20 hover:bg-primary/10"
+            >
+              {isGeneratingSolutions ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate AI Solutions
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -299,6 +377,39 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
                           Location: {item.location}
                         </div>
                       )}
+
+                      {/* AI Generated Solution */}
+                      {solutions.length > 0 && (() => {
+                        const solution = solutions.find(s => s.id === item.id);
+                        if (!solution) return null;
+                        
+                        return (
+                          <div className="mt-4 pt-4 border-t border-primary/20 bg-primary/5 -mx-4 -mb-4 p-4 rounded-b-lg">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              <h5 className="font-semibold text-sm text-primary">AI-Generated Solution</h5>
+                            </div>
+                            
+                            <p className="text-sm text-foreground mb-3 leading-relaxed">
+                              {solution.solution}
+                            </p>
+                            
+                            {solution.implementation_steps && solution.implementation_steps.length > 0 && (
+                              <div className="space-y-2">
+                                <h6 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Implementation Steps:</h6>
+                                <ol className="space-y-2 text-sm text-foreground">
+                                  {solution.implementation_steps.map((step, idx) => (
+                                    <li key={idx} className="flex gap-2">
+                                      <span className="font-semibold text-primary flex-shrink-0">{idx + 1}.</span>
+                                      <span>{step}</span>
+                                    </li>
+                                  ))}
+                                </ol>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </Card>
                   ))}
                 </div>
