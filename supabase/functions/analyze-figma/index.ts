@@ -27,16 +27,16 @@ serve(async (req) => {
     console.log("Custom prompt provided:", !!customPrompt);
     console.log("Include suggestions:", includeSuggestions);
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY not configured");
     }
 
     // Fetch selected AI model from settings
-    let selectedModel = "gpt-5-nano-2025-08-07"; // default
+    let selectedModel = "google/gemini-2.5-flash"; // default
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const settingsResponse = await fetch(
@@ -249,10 +249,10 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
 
     console.log("Using AI model:", selectedModel);
     
-    const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -265,7 +265,7 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
           },
           { role: "user", content: analysisPrompt },
         ],
-        max_completion_tokens: 16000,
+        max_tokens: 16000,
       }),
     });
 
