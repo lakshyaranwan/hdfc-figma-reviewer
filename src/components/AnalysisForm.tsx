@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,26 +51,16 @@ export const AnalysisForm = ({
   const [customPrompt, setCustomPrompt] = useState("");
   const [includeSuggestions, setIncludeSuggestions] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [hasApiKey, setHasApiKey] = useState(false);
 
   useEffect(() => {
     checkApiKey();
   }, []);
 
-  const checkApiKey = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("user_api_keys")
-          .select("figma_api_key")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        setHasApiKey(!!data?.figma_api_key);
-      }
-    } catch (error) {
-      console.error("Error checking API key:", error);
-    }
+  const checkApiKey = () => {
+    const apiKey = localStorage.getItem("hdfc_figma_api_key");
+    setHasApiKey(!!apiKey);
   };
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev => prev.includes(categoryId) ? prev.filter(id => id !== categoryId) : [...prev, categoryId]);
@@ -149,19 +139,30 @@ export const AnalysisForm = ({
       }
     }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const figmaApiKey = localStorage.getItem("hdfc_figma_api_key");
+      
+      if (!figmaApiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please add your Figma API key in Settings first",
+          variant: "destructive",
+        });
+        navigate("/settings");
+        setIsAnalyzing(false);
+        return;
+      }
       
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-figma`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           fileKey,
           nodeId,
           customPrompt: finalPrompt,
-          includeSuggestions
+          includeSuggestions,
+          figmaApiKey
         })
       });
       if (!response.ok) {

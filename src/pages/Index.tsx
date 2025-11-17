@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AnalysisForm } from "@/components/AnalysisForm";
 import { FeedbackDisplay } from "@/components/FeedbackDisplay";
-import { Settings, LogOut } from "lucide-react";
+import { Settings } from "lucide-react";
 import hdfcLogo from "@/assets/hdfc-logo.png";
+
 export type FeedbackItem = {
   id: string;
   category: "ux" | "ui" | "consistency" | "improvement" | "accessibility" | "design_system" | "high_level";
@@ -15,50 +15,27 @@ export type FeedbackItem = {
   severity: "low" | "medium" | "high";
   location?: string;
 };
+
 const Index = () => {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [fileKey, setFileKey] = useState<string>("");
-  const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Check authentication
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
-        setUser(session.user);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
-        setUser(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
-  };
-
-  if (!user) {
-    return null;
-  }
-
-  return <div className="min-h-screen bg-background">
+  return (
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <img src={hdfcLogo} alt="HDFC Logo" className="w-8 h-8 object-contain" />
-            <h1 className="text-2xl font-bold text-foreground">HDFC Figma Reviewer    </h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={hdfcLogo} alt="HDFC Logo" className="w-8 h-8 object-contain" />
+              <h1 className="text-2xl font-bold text-foreground">HDFC Figma Reviewer</h1>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
           </div>
         </div>
       </header>
@@ -69,7 +46,12 @@ const Index = () => {
           {/* Analysis Form */}
           <div className="lg:sticky lg:top-24 h-fit">
             <Card className="p-6 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-shadow duration-200">
-              <AnalysisForm onAnalysisComplete={setFeedback} isAnalyzing={isAnalyzing} setIsAnalyzing={setIsAnalyzing} onFileKeyExtracted={setFileKey} />
+              <AnalysisForm 
+                onAnalysisComplete={setFeedback} 
+                isAnalyzing={isAnalyzing} 
+                setIsAnalyzing={setIsAnalyzing} 
+                onFileKeyExtracted={setFileKey} 
+              />
             </Card>
           </div>
 
@@ -79,6 +61,8 @@ const Index = () => {
           </div>
         </div>
       </main>
-    </div>;
+    </div>
+  );
 };
+
 export default Index;

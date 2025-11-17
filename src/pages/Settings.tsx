@@ -1,62 +1,30 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import hdfcLogo from "@/assets/hdfc-logo.png";
+
+const STORAGE_KEY = "hdfc_figma_api_key";
 
 const Settings = () => {
   const [figmaApiKey, setFigmaApiKey] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
   const [showKey, setShowKey] = useState(false);
-  const [hasExistingKey, setHasExistingKey] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchApiKey();
+    // Load API key from localStorage
+    const savedKey = localStorage.getItem(STORAGE_KEY);
+    if (savedKey) {
+      setFigmaApiKey(savedKey);
+    }
   }, []);
 
-  const fetchApiKey = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("user_api_keys")
-        .select("figma_api_key")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error && error.code !== "PGRST116") {
-        throw error;
-      }
-
-      if (data) {
-        setFigmaApiKey(data.figma_api_key);
-        setHasExistingKey(true);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch API key",
-        variant: "destructive",
-      });
-    } finally {
-      setFetching(false);
-    }
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!figmaApiKey.trim()) {
@@ -68,59 +36,23 @@ const Settings = () => {
       return;
     }
 
-    setLoading(true);
+    // Save to localStorage
+    localStorage.setItem(STORAGE_KEY, figmaApiKey);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
-
-      if (hasExistingKey) {
-        const { error } = await supabase
-          .from("user_api_keys")
-          .update({ figma_api_key: figmaApiKey })
-          .eq("user_id", user.id);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("user_api_keys")
-          .insert({ user_id: user.id, figma_api_key: figmaApiKey });
-
-        if (error) throw error;
-        setHasExistingKey(true);
-      }
-
-      toast({
-        title: "Success!",
-        description: "Your Figma API key has been saved securely.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save API key",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+      title: "Success!",
+      description: "Your Figma API key has been saved locally in your browser.",
+    });
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
+  const handleClear = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setFigmaApiKey("");
+    toast({
+      title: "Cleared",
+      description: "Your Figma API key has been removed.",
+    });
   };
-
-  if (fetching) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -143,7 +75,7 @@ const Settings = () => {
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Figma API Configuration</h2>
           <p className="text-muted-foreground mb-6">
-            Add your Figma API key to analyze your designs. Your key is stored securely and never shared.
+            Add your Figma API key to analyze your designs. Your key is stored locally in your browser.
           </p>
 
           <form onSubmit={handleSave} className="space-y-4">
@@ -182,18 +114,17 @@ const Settings = () => {
               </p>
             </div>
 
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {hasExistingKey ? "Update" : "Save"} API Key
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit">
+                Save API Key
+              </Button>
+              {figmaApiKey && (
+                <Button type="button" variant="outline" onClick={handleClear}>
+                  Clear
+                </Button>
+              )}
+            </div>
           </form>
-
-          <div className="mt-8 pt-8 border-t border-border">
-            <h3 className="text-lg font-semibold mb-4">Account</h3>
-            <Button variant="destructive" onClick={handleLogout}>
-              Logout
-            </Button>
-          </div>
         </Card>
       </main>
     </div>
