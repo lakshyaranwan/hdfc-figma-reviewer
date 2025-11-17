@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,9 +50,28 @@ export const AnalysisForm = ({
   const [selectedCategories, setSelectedCategories] = useState<string[]>(["consistency", "ux", "ui"]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [includeSuggestions, setIncludeSuggestions] = useState(true);
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  useEffect(() => {
+    checkApiKey();
+  }, []);
+
+  const checkApiKey = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("user_api_keys")
+          .select("figma_api_key")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        setHasApiKey(!!data?.figma_api_key);
+      }
+    } catch (error) {
+      console.error("Error checking API key:", error);
+    }
+  };
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev => prev.includes(categoryId) ? prev.filter(id => id !== categoryId) : [...prev, categoryId]);
   };
@@ -129,10 +149,13 @@ export const AnalysisForm = ({
       }
     }
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-figma`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           fileKey,
