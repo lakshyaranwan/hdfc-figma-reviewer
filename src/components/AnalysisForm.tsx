@@ -60,7 +60,8 @@ export const AnalysisForm = ({
 
   const checkApiKey = () => {
     const apiKey = localStorage.getItem("hdfc_figma_api_key");
-    setHasApiKey(!!apiKey);
+    const keyId = localStorage.getItem("hdfc_selected_api_key_id");
+    setHasApiKey(!!apiKey && !!keyId);
   };
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev => prev.includes(categoryId) ? prev.filter(id => id !== categoryId) : [...prev, categoryId]);
@@ -144,7 +145,7 @@ export const AnalysisForm = ({
       if (!figmaApiKey) {
         toast({
           title: "API Key Required",
-          description: "Please add your Figma API key in Settings first",
+          description: "Please select a Figma API key in Settings first",
           variant: "destructive",
         });
         navigate("/settings");

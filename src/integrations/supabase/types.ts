@@ -35,6 +35,30 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_api_keys: {
+        Row: {
+          created_at: string
+          figma_api_key: string
+          id: string
+          updated_at: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          figma_api_key: string
+          id?: string
+          updated_at?: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          figma_api_key?: string
+          id?: string
+          updated_at?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
