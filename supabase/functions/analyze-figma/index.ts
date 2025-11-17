@@ -265,7 +265,7 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
           },
           { role: "user", content: analysisPrompt },
         ],
-        max_completion_tokens: 4000,
+        max_completion_tokens: 16000,
       }),
     });
 
@@ -340,6 +340,14 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
     let feedback: FeedbackItem[];
     try {
       const content = aiData.choices[0].message.content;
+      
+      // Check if content is empty or response was cut off
+      if (!content || content.trim() === "") {
+        console.error("Empty AI response. Finish reason:", aiData.choices[0].finish_reason);
+        console.error("Token usage:", aiData.usage);
+        throw new Error("AI response was empty. This may indicate the response was cut off due to token limits. Try using a different model or simplifying your prompt.");
+      }
+      
       console.log("Raw AI response (first 500 chars):", content.substring(0, 500));
       
       // Extract JSON from markdown code blocks if present
