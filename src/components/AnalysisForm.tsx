@@ -166,10 +166,15 @@ export const AnalysisForm = ({
           figmaApiKey
         })
       });
-      if (!response.ok) {
-        throw new Error("Analysis failed");
-      }
+      
       const data = await response.json();
+      
+      if (!response.ok) {
+        // Handle specific error messages from the backend
+        const errorMessage = data.error || "Analysis failed";
+        throw new Error(errorMessage);
+      }
+      
       onAnalysisComplete(data.feedback);
       toast({
         title: "Analysis Complete!",
@@ -179,7 +184,7 @@ export const AnalysisForm = ({
       console.error("Analysis error:", error);
       toast({
         title: "Analysis Failed",
-        description: "Unable to analyze the Figma file. Please try again.",
+        description: error instanceof Error ? error.message : "Unable to analyze the Figma file. Please try again.",
         variant: "destructive"
       });
     } finally {
