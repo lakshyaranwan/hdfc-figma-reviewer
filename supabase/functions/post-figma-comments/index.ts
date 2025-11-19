@@ -232,8 +232,8 @@ serve(async (req) => {
           errors.push(`Comment ${i + 1}: ${errorText}`);
         }
         
-        // Add a small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Add delay to avoid Figma API rate limiting (1.5 seconds between comments)
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (commentError) {
         console.error(`Error posting comment ${i + 1}:`, commentError);
         errors.push(`Comment ${i + 1}: ${commentError instanceof Error ? commentError.message : 'Unknown error'}`);
