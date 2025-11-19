@@ -53,6 +53,8 @@ export const AnalysisForm = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [lastAnalysisTime, setLastAnalysisTime] = useState<number>(0);
+  const COOLDOWN_PERIOD = 15000; // 15 seconds cooldown between analyses
 
   useEffect(() => {
     checkApiKey();
@@ -71,6 +73,19 @@ export const AnalysisForm = ({
       toast({
         title: "URL Required",
         description: "Please enter a Figma file URL",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check cooldown period to prevent rapid API calls
+    const now = Date.now();
+    const timeSinceLastAnalysis = now - lastAnalysisTime;
+    if (timeSinceLastAnalysis < COOLDOWN_PERIOD) {
+      const remainingSeconds = Math.ceil((COOLDOWN_PERIOD - timeSinceLastAnalysis) / 1000);
+      toast({
+        title: "Please Wait",
+        description: `Please wait ${remainingSeconds} more seconds before analyzing again to avoid rate limits.`,
         variant: "destructive"
       });
       return;
@@ -176,6 +191,7 @@ export const AnalysisForm = ({
       }
       
       onAnalysisComplete(data.feedback);
+      setLastAnalysisTime(Date.now()); // Update last analysis time
       toast({
         title: "Analysis Complete!",
         description: `Found ${data.feedback.length} insights. Comments added to Figma.`
