@@ -92,6 +92,19 @@ serve(async (req) => {
       if (!figmaResponse.ok) {
         const errorText = await figmaResponse.text();
         console.error("Figma API error:", errorText);
+        
+        if (figmaResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ 
+              error: "Figma API rate limit exceeded. Please wait a few minutes before trying again." 
+            }),
+            { 
+              status: 429, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
+        
         throw new Error(`Failed to fetch Figma node: ${figmaResponse.status}`);
       }
 
@@ -118,6 +131,19 @@ serve(async (req) => {
       if (!figmaResponse.ok) {
         const errorText = await figmaResponse.text();
         console.error("Figma API error:", errorText);
+        
+        if (figmaResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ 
+              error: "Figma API rate limit exceeded. Please wait a few minutes before trying again." 
+            }),
+            { 
+              status: 429, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
+        
         throw new Error(`Failed to fetch Figma file: ${figmaResponse.status}`);
       }
 
