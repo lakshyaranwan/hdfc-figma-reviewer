@@ -13,6 +13,11 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
     try {
       const response = await fetch(url, options);
       
+      // Don't retry on authentication errors (403, 401) - these won't succeed
+      if (response.status === 403 || response.status === 401) {
+        return response;
+      }
+      
       // If rate limited, wait and retry with exponential backoff
       if (response.status === 429) {
         const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Cap at 10 seconds
@@ -123,6 +128,18 @@ serve(async (req) => {
         const errorText = await figmaResponse.text();
         console.error("Figma API error:", errorText);
         
+        if (figmaResponse.status === 403 || figmaResponse.status === 401) {
+          return new Response(
+            JSON.stringify({ 
+              error: "Invalid or expired Figma API key. Please update your API key in Settings." 
+            }),
+            { 
+              status: 403, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
+        
         if (figmaResponse.status === 429) {
           return new Response(
             JSON.stringify({ 
@@ -161,6 +178,18 @@ serve(async (req) => {
       if (!figmaResponse.ok) {
         const errorText = await figmaResponse.text();
         console.error("Figma API error:", errorText);
+        
+        if (figmaResponse.status === 403 || figmaResponse.status === 401) {
+          return new Response(
+            JSON.stringify({ 
+              error: "Invalid or expired Figma API key. Please update your API key in Settings." 
+            }),
+            { 
+              status: 403, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" } 
+            }
+          );
+        }
         
         if (figmaResponse.status === 429) {
           return new Response(
