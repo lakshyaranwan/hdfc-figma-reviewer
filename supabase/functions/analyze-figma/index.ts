@@ -7,11 +7,13 @@ const corsHeaders = {
 
 // Helper function to fetch with retry logic for rate limits
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  let lastResponse: Response | null = null;
   let lastError;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
+      lastResponse = response;
       
       // Don't retry on authentication errors (403, 401) - these won't succeed
       if (response.status === 403 || response.status === 401) {
@@ -20,12 +22,19 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
       
       // If rate limited, wait and retry with exponential backoff
       if (response.status === 429) {
-        const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Cap at 10 seconds
-        console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}). Waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
+        if (attempt < maxRetries - 1) {
+          const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Cap at 10 seconds
+          console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}). Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        } else {
+          // Last attempt failed with 429, return the response so it can be handled
+          console.log(`Rate limit persists after ${maxRetries} attempts`);
+          return response;
+        }
       }
       
+      // Success or other error
       return response;
     } catch (error) {
       lastError = error;
@@ -35,6 +44,11 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
+  }
+  
+  // If we have a last response (even if it's an error), return it
+  if (lastResponse) {
+    return lastResponse;
   }
   
   throw lastError || new Error('Max retries exceeded');
