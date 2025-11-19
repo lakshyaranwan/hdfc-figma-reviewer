@@ -5,6 +5,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to fetch with retry logic for rate limits
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // If rate limited, wait and retry with exponential backoff
+      if (response.status === 429) {
+        const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Cap at 10 seconds
+        console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}). Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error;
+      console.error(`Fetch attempt ${attempt + 1} failed:`, error);
+      if (attempt < maxRetries - 1) {
+        const waitTime = Math.min(1000 * Math.pow(2, attempt), 5000);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
 interface FeedbackItem {
   id: string;
   category: "ux" | "ui" | "consistency" | "improvement" | "accessibility" | "design_system" | "ux_writing" | "high_level";
@@ -83,7 +113,7 @@ serve(async (req) => {
       console.log("Fetching specific node:", nodeId);
       figmaUrl = `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(nodeId)}`;
 
-      const figmaResponse = await fetch(figmaUrl, {
+      const figmaResponse = await fetchWithRetry(figmaUrl, {
         headers: {
           "X-Figma-Token": FIGMA_TOKEN,
         },
@@ -96,7 +126,7 @@ serve(async (req) => {
         if (figmaResponse.status === 429) {
           return new Response(
             JSON.stringify({ 
-              error: "Figma API rate limit exceeded. Please wait a few minutes before trying again." 
+              error: "Figma API rate limit exceeded after retries. Please wait 5-10 minutes before trying again." 
             }),
             { 
               status: 429, 
@@ -122,7 +152,7 @@ serve(async (req) => {
     } else {
       // Fetch entire file
       console.log("Fetching entire file");
-      const figmaResponse = await fetch(figmaUrl, {
+      const figmaResponse = await fetchWithRetry(figmaUrl, {
         headers: {
           "X-Figma-Token": FIGMA_TOKEN,
         },
@@ -135,7 +165,7 @@ serve(async (req) => {
         if (figmaResponse.status === 429) {
           return new Response(
             JSON.stringify({ 
-              error: "Figma API rate limit exceeded. Please wait a few minutes before trying again." 
+              error: "Figma API rate limit exceeded after retries. Please wait 5-10 minutes before trying again." 
             }),
             { 
               status: 429, 
