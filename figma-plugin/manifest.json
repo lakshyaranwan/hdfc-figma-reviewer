@@ -8,6 +8,7 @@
   "enableProposedApi": false,
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": ["*"]
+    "allowedDomains": ["https://lvhtpmtmxxfeomyqvnuq.supabase.co"],
+    "reasoning": "Required to communicate with the analysis backend API"
   }
 }
