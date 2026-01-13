@@ -40,6 +40,9 @@ interface DesignNode {
 function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null {
   if (depth > 10) return null; // Limit depth to prevent huge payloads
   
+  // Skip hidden layers/elements
+  if (!node.visible) return null;
+  
   const baseData: DesignNode = {
     id: node.id,
     name: node.name,
