@@ -637,13 +637,7 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
   }
 }
 
-// Send initial data to UI
-figma.ui.postMessage({
-  type: 'selection-data',
-  data: getSelectionData(),
-});
-
-// Remove automatic selection listener - selection is now captured on-demand
+// Do NOT send initial selection data - selection is captured on-demand only
 // when user clicks the selection box in the UI
 
 // Handle messages from UI
