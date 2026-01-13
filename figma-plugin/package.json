@@ -1,0 +1,12 @@
+{
+  "name": "design-analyzer-figma-plugin",
+  "version": "1.0.0",
+  "description": "Figma plugin for analyzing designs",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.98.0",
+    "typescript": "^5.0.0"
+  }
+}
