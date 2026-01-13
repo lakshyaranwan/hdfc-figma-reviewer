@@ -31,27 +31,52 @@
       color: #333;
     }
     
-    .file-info {
-      background: #f5f5f5;
-      border-radius: 6px;
-      padding: 12px;
+    .selection-info {
+      background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+      border: 1px solid #e0e7ff;
+      border-radius: 8px;
+      padding: 14px;
       margin-bottom: 16px;
+    }
+    
+    .selection-info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    
+    .selection-info-row:last-child {
+      margin-bottom: 0;
+    }
+    
+    .selection-info-label {
+      color: #666;
       font-size: 11px;
     }
     
-    .file-info-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 4px;
-    }
-    
-    .file-info-label {
-      color: #666;
-    }
-    
-    .file-info-value {
+    .selection-info-value {
       font-weight: 500;
       color: #333;
+      font-size: 11px;
+    }
+    
+    .no-selection {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    
+    .no-selection-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .no-selection-text {
+      color: #9a3412;
+      font-size: 12px;
     }
     
     .section {
@@ -64,20 +89,6 @@
       color: #666;
       text-transform: uppercase;
       margin-bottom: 8px;
-    }
-    
-    .api-key-input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 12px;
-      margin-bottom: 8px;
-    }
-    
-    .api-key-input:focus {
-      outline: none;
-      border-color: #0d99ff;
     }
     
     .categories {
@@ -116,27 +127,30 @@
     
     .btn {
       width: 100%;
-      padding: 10px 16px;
+      padding: 12px 16px;
       border: none;
-      border-radius: 6px;
-      font-size: 12px;
+      border-radius: 8px;
+      font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
     }
     
     .btn-primary {
-      background: #0d99ff;
+      background: linear-gradient(135deg, #0d99ff 0%, #0066cc 100%);
       color: white;
     }
     
-    .btn-primary:hover {
-      background: #0085e6;
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(13, 153, 255, 0.3);
     }
     
     .btn-primary:disabled {
       background: #ccc;
       cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
     
     .btn-secondary {
@@ -152,7 +166,7 @@
     .loading {
       display: none;
       text-align: center;
-      padding: 20px;
+      padding: 30px;
     }
     
     .loading.active {
@@ -160,17 +174,22 @@
     }
     
     .spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid #e5e5e5;
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e5e5e5;
       border-top-color: #0d99ff;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 8px;
+      margin: 0 auto 12px;
     }
     
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      color: #666;
+      font-size: 12px;
     }
     
     .results {
@@ -209,12 +228,13 @@
       font-weight: 600;
       font-size: 12px;
       margin-bottom: 4px;
+      color: #1a1a1a;
     }
     
     .feedback-desc {
       font-size: 11px;
-      color: #666;
-      line-height: 1.4;
+      color: #555;
+      line-height: 1.5;
     }
     
     .feedback-meta {
@@ -228,12 +248,14 @@
       background: #e5e5e5;
       padding: 2px 6px;
       border-radius: 4px;
+      text-transform: capitalize;
     }
     
     .feedback-severity {
       padding: 2px 6px;
       border-radius: 4px;
       font-weight: 500;
+      text-transform: capitalize;
     }
     
     .feedback-severity.high {
@@ -251,12 +273,6 @@
       color: #16a34a;
     }
     
-    .no-selection {
-      text-align: center;
-      color: #999;
-      padding: 20px;
-    }
-    
     .error {
       background: #fef2f2;
       border: 1px solid #fee2e2;
@@ -265,6 +281,7 @@
       border-radius: 6px;
       margin-bottom: 12px;
       display: none;
+      font-size: 11px;
     }
     
     .error.active {
@@ -285,6 +302,7 @@
       border-radius: 6px;
       font-size: 11px;
       cursor: pointer;
+      transition: all 0.2s;
     }
     
     .tab.active {
@@ -302,7 +320,7 @@
     
     textarea {
       width: 100%;
-      padding: 8px 12px;
+      padding: 10px 12px;
       border: 1px solid #ddd;
       border-radius: 6px;
       font-size: 12px;
@@ -320,7 +338,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-top: 8px;
+      margin-top: 10px;
       font-size: 11px;
     }
     
@@ -333,19 +351,25 @@
     .stat {
       flex: 1;
       text-align: center;
-      padding: 8px;
+      padding: 10px 8px;
       background: #f5f5f5;
-      border-radius: 6px;
+      border-radius: 8px;
     }
     
     .stat-value {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 600;
     }
     
     .stat-label {
       font-size: 10px;
       color: #666;
+      margin-top: 2px;
+    }
+    
+    .scroll-area {
+      max-height: 300px;
+      overflow-y: auto;
     }
   </style>
 </head>
@@ -358,90 +382,76 @@
     <h1>Design Analyzer</h1>
   </div>
   
-  <div class="file-info" id="fileInfo">
-    <div class="file-info-row">
-      <span class="file-info-label">File:</span>
-      <span class="file-info-value" id="fileName">-</span>
-    </div>
-    <div class="file-info-row">
-      <span class="file-info-label">Page:</span>
-      <span class="file-info-value" id="pageName">-</span>
-    </div>
-    <div class="file-info-row">
-      <span class="file-info-label">Selection:</span>
-      <span class="file-info-value" id="selectionInfo">None</span>
-    </div>
-  </div>
+  <div id="selectionBox"></div>
   
   <div class="error" id="error"></div>
   
-  <div class="section">
-    <div class="section-title">Figma API Key</div>
-    <input type="password" class="api-key-input" id="apiKey" placeholder="Enter your Figma API key">
-  </div>
-  
-  <div class="tabs">
-    <button class="tab active" data-tab="categories">Categories</button>
-    <button class="tab" data-tab="custom">Custom Prompt</button>
-  </div>
-  
-  <div class="tab-content active" id="categoriesTab">
-    <div class="categories" id="categories">
-      <label class="category-chip selected">
-        <input type="checkbox" value="consistency" checked>
-        <span>Consistency</span>
-      </label>
-      <label class="category-chip selected">
-        <input type="checkbox" value="ux" checked>
-        <span>UX</span>
-      </label>
-      <label class="category-chip selected">
-        <input type="checkbox" value="accessibility" checked>
-        <span>Accessibility</span>
-      </label>
-      <label class="category-chip">
-        <input type="checkbox" value="visual">
-        <span>Visual</span>
-      </label>
-      <label class="category-chip">
-        <input type="checkbox" value="layout">
-        <span>Layout</span>
-      </label>
-      <label class="category-chip">
-        <input type="checkbox" value="typography">
-        <span>Typography</span>
-      </label>
+  <div id="analysisSection">
+    <div class="tabs">
+      <button class="tab active" data-tab="categories">Categories</button>
+      <button class="tab" data-tab="custom">Custom Prompt</button>
     </div>
-  </div>
-  
-  <div class="tab-content" id="customTab">
-    <textarea id="customPrompt" placeholder="Enter your custom analysis prompt..."></textarea>
-    <div class="checkbox-row">
-      <input type="checkbox" id="includeSuggestions" checked>
-      <label for="includeSuggestions">Include improvement suggestions</label>
+    
+    <div class="tab-content active" id="categoriesTab">
+      <div class="categories" id="categories">
+        <label class="category-chip selected">
+          <input type="checkbox" value="consistency" checked>
+          <span>Consistency</span>
+        </label>
+        <label class="category-chip selected">
+          <input type="checkbox" value="ux" checked>
+          <span>UX</span>
+        </label>
+        <label class="category-chip selected">
+          <input type="checkbox" value="accessibility" checked>
+          <span>Accessibility</span>
+        </label>
+        <label class="category-chip">
+          <input type="checkbox" value="ui">
+          <span>UI</span>
+        </label>
+        <label class="category-chip">
+          <input type="checkbox" value="typography">
+          <span>Typography</span>
+        </label>
+        <label class="category-chip">
+          <input type="checkbox" value="ux_writing">
+          <span>UX Writing</span>
+        </label>
+      </div>
     </div>
+    
+    <div class="tab-content" id="customTab">
+      <textarea id="customPrompt" placeholder="Enter your custom analysis prompt...&#10;&#10;Example: Check if buttons have consistent styles and proper touch targets"></textarea>
+      <div class="checkbox-row">
+        <input type="checkbox" id="includeSuggestions" checked>
+        <label for="includeSuggestions">Include improvement suggestions</label>
+      </div>
+    </div>
+    
+    <button class="btn btn-primary" id="analyzeBtn" disabled>Select a frame to analyze</button>
   </div>
-  
-  <button class="btn btn-primary" id="analyzeBtn">Analyze Design</button>
   
   <div class="loading" id="loading">
     <div class="spinner"></div>
-    <div>Analyzing your design...</div>
+    <div class="loading-text">Analyzing your design with AI...</div>
   </div>
   
   <div class="results" id="results">
     <div class="section-title">Analysis Results</div>
     <div class="summary-stats" id="summaryStats"></div>
-    <div id="feedbackList"></div>
-    <button class="btn btn-secondary" id="postCommentsBtn">Post Comments to Figma</button>
+    <div class="scroll-area">
+      <div id="feedbackList"></div>
+    </div>
+    <button class="btn btn-primary" id="newAnalysisBtn" style="margin-top: 12px;">Analyze Again</button>
   </div>
   
   <script>
-    // Configuration - UPDATE THIS URL
+    // Backend URL - uses your Supabase project
     const SUPABASE_URL = 'https://lvhtpmtmxxfeomyqvnuq.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aHRwbXRteHhmZW9teXF2bnVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMDQ5NjIsImV4cCI6MjA3ODY4MDk2Mn0.ZeCg-6BKIySftZ8DV3V0uz4LK_FoA0ngSG2OIJpoCUc';
     
-    let fileInfo = null;
+    let selectionData = null;
     let analysisResults = [];
     
     // Tab switching
@@ -468,20 +478,53 @@
       const msg = event.data.pluginMessage;
       if (!msg) return;
       
-      if (msg.type === 'file-info') {
-        fileInfo = msg.data;
-        updateFileInfo();
+      if (msg.type === 'selection-data') {
+        selectionData = msg.data;
+        updateSelectionUI();
+      }
+      
+      if (msg.type === 'analyze-data') {
+        // This is triggered when we request analysis
+        runAnalysis(msg.data);
       }
     };
     
-    function updateFileInfo() {
-      if (!fileInfo) return;
-      document.getElementById('fileName').textContent = fileInfo.fileName || '-';
-      document.getElementById('pageName').textContent = fileInfo.pageName || '-';
-      document.getElementById('selectionInfo').textContent = 
-        fileInfo.selectionCount > 0 
-          ? `${fileInfo.selectionCount} element(s)` 
-          : 'None (will analyze full page)';
+    function updateSelectionUI() {
+      const box = document.getElementById('selectionBox');
+      const btn = document.getElementById('analyzeBtn');
+      
+      if (!selectionData || !selectionData.hasSelection) {
+        box.innerHTML = `
+          <div class="no-selection">
+            <div class="no-selection-icon">👆</div>
+            <div class="no-selection-text">Select a frame or component to analyze</div>
+          </div>
+        `;
+        btn.disabled = true;
+        btn.textContent = 'Select a frame to analyze';
+      } else {
+        const nodeNames = selectionData.nodes.map(n => n.name).slice(0, 3).join(', ');
+        const moreCount = selectionData.nodes.length > 3 ? ` +${selectionData.nodes.length - 3} more` : '';
+        
+        box.innerHTML = `
+          <div class="selection-info">
+            <div class="selection-info-row">
+              <span class="selection-info-label">File</span>
+              <span class="selection-info-value">${selectionData.fileName || '-'}</span>
+            </div>
+            <div class="selection-info-row">
+              <span class="selection-info-label">Page</span>
+              <span class="selection-info-value">${selectionData.pageName || '-'}</span>
+            </div>
+            <div class="selection-info-row">
+              <span class="selection-info-label">Selected</span>
+              <span class="selection-info-value">${nodeNames}${moreCount}</span>
+            </div>
+          </div>
+        `;
+        btn.disabled = false;
+        btn.textContent = '✨ Analyze Design';
+      }
     }
     
     function showError(message) {
@@ -496,7 +539,8 @@
     
     function showLoading(show) {
       document.getElementById('loading').classList.toggle('active', show);
-      document.getElementById('analyzeBtn').disabled = show;
+      document.getElementById('analysisSection').style.display = show ? 'none' : 'block';
+      document.getElementById('results').classList.remove('active');
     }
     
     function buildPrompt() {
@@ -504,6 +548,7 @@
       
       if (customTab) {
         let prompt = document.getElementById('customPrompt').value.trim();
+        if (!prompt) return null;
         if (document.getElementById('includeSuggestions').checked) {
           prompt += '\n\nPlease include specific improvement suggestions for each issue found.';
         }
@@ -523,14 +568,14 @@
         consistency: 'Design consistency (colors, spacing, fonts)',
         ux: 'User experience and usability',
         accessibility: 'Accessibility (contrast, touch targets, labels)',
-        visual: 'Visual hierarchy and aesthetics',
-        layout: 'Layout and alignment',
-        typography: 'Typography and readability'
+        ui: 'Visual design and aesthetics',
+        typography: 'Typography and readability',
+        ux_writing: 'UX writing and microcopy'
       };
       
       const categoryDescriptions = selectedCategories.map(c => categoryLabels[c]).join(', ');
       
-      return `Analyze this Figma design for the following aspects: ${categoryDescriptions}. 
+      return `Analyze this design for the following aspects: ${categoryDescriptions}. 
               For each issue found, provide:
               1. A clear title
               2. A detailed description of the problem
@@ -543,14 +588,8 @@
     async function analyze() {
       hideError();
       
-      const apiKey = document.getElementById('apiKey').value.trim();
-      if (!apiKey) {
-        showError('Please enter your Figma API key');
-        return;
-      }
-      
-      if (!fileInfo || !fileInfo.fileKey) {
-        showError('Could not get file information. Please try reopening the plugin.');
+      if (!selectionData || !selectionData.hasSelection) {
+        showError('Please select a frame or component first');
         return;
       }
       
@@ -560,49 +599,61 @@
         return;
       }
       
+      // Request the latest selection data and trigger analysis
+      parent.postMessage({ pluginMessage: { type: 'analyze' } }, '*');
+    }
+    
+    async function runAnalysis(data) {
+      const prompt = buildPrompt();
+      if (!prompt) return;
+      
       showLoading(true);
-      document.getElementById('results').classList.remove('active');
       
       try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-figma`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
           },
           body: JSON.stringify({
-            fileKey: fileInfo.fileKey,
-            nodeId: fileInfo.nodeId,
+            designData: data.nodes,
             prompt: prompt,
-            figmaApiKey: apiKey
+            fileName: data.fileName,
+            pageName: data.pageName
           })
         });
         
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Analysis failed');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Analysis failed (${response.status})`);
         }
         
-        const data = await response.json();
-        analysisResults = data.feedback || [];
+        const result = await response.json();
+        analysisResults = result.feedback || [];
         displayResults();
         
         parent.postMessage({ pluginMessage: { type: 'analysis-complete' } }, '*');
         
       } catch (error) {
         showError(error.message || 'Analysis failed. Please try again.');
-      } finally {
         showLoading(false);
+        document.getElementById('analysisSection').style.display = 'block';
       }
     }
     
     function displayResults() {
+      showLoading(false);
+      
       const resultsEl = document.getElementById('results');
       const feedbackList = document.getElementById('feedbackList');
       const summaryStats = document.getElementById('summaryStats');
+      const analysisSection = document.getElementById('analysisSection');
+      
+      analysisSection.style.display = 'none';
       
       if (analysisResults.length === 0) {
-        feedbackList.innerHTML = '<div class="no-selection">No issues found! Your design looks great.</div>';
+        feedbackList.innerHTML = '<div style="text-align: center; color: #22c55e; padding: 20px;">✅ No issues found! Your design looks great.</div>';
         summaryStats.innerHTML = '';
         resultsEl.classList.add('active');
         return;
@@ -628,15 +679,21 @@
         </div>
       `;
       
+      // Sort by severity
+      const severityOrder = { high: 0, medium: 1, low: 2 };
+      const sortedResults = [...analysisResults].sort((a, b) => 
+        (severityOrder[a.severity] || 2) - (severityOrder[b.severity] || 2)
+      );
+      
       // Feedback items
-      feedbackList.innerHTML = analysisResults.map(item => `
-        <div class="feedback-item ${item.severity}">
+      feedbackList.innerHTML = sortedResults.map(item => `
+        <div class="feedback-item ${item.severity || 'low'}">
           <div class="feedback-title">${item.title}</div>
           <div class="feedback-desc">${item.description}</div>
           <div class="feedback-meta">
-            <span class="feedback-category">${item.category}</span>
-            <span class="feedback-severity ${item.severity}">${item.severity}</span>
-            ${item.location ? `<span style="color: #999">${item.location}</span>` : ''}
+            <span class="feedback-category">${item.category || 'general'}</span>
+            <span class="feedback-severity ${item.severity || 'low'}">${item.severity || 'low'}</span>
+            ${item.location ? `<span style="color: #888">${item.location}</span>` : ''}
           </div>
         </div>
       `).join('');
@@ -644,70 +701,15 @@
       resultsEl.classList.add('active');
     }
     
-    async function postComments() {
-      const apiKey = document.getElementById('apiKey').value.trim();
-      if (!apiKey) {
-        showError('Please enter your Figma API key');
-        return;
-      }
-      
-      if (analysisResults.length === 0) {
-        showError('No feedback to post');
-        return;
-      }
-      
-      const postBtn = document.getElementById('postCommentsBtn');
-      postBtn.disabled = true;
-      postBtn.textContent = 'Posting...';
-      
-      try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/post-figma-comments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({
-            fileKey: fileInfo.fileKey,
-            feedback: analysisResults,
-            figmaApiKey: apiKey
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to post comments');
-        }
-        
-        parent.postMessage({ 
-          pluginMessage: { 
-            type: 'notify', 
-            message: `Posted ${analysisResults.length} comments to Figma` 
-          } 
-        }, '*');
-        
-      } catch (error) {
-        showError(error.message || 'Failed to post comments');
-      } finally {
-        postBtn.disabled = false;
-        postBtn.textContent = 'Post Comments to Figma';
-      }
+    function resetToAnalysis() {
+      document.getElementById('results').classList.remove('active');
+      document.getElementById('analysisSection').style.display = 'block';
+      analysisResults = [];
     }
     
     // Event listeners
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
-    document.getElementById('postCommentsBtn').addEventListener('click', postComments);
-    
-    // Load saved API key from localStorage
-    const savedKey = localStorage.getItem('figma-analyzer-api-key');
-    if (savedKey) {
-      document.getElementById('apiKey').value = savedKey;
-    }
-    
-    // Save API key on change
-    document.getElementById('apiKey').addEventListener('change', (e) => {
-      localStorage.setItem('figma-analyzer-api-key', e.target.value);
-    });
+    document.getElementById('newAnalysisBtn').addEventListener('click', resetToAnalysis);
   </script>
 </body>
 </html>

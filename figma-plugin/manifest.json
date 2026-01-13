@@ -9,6 +9,6 @@
   "editorType": ["figma"],
   "networkAccess": {
     "allowedDomains": ["https://lvhtpmtmxxfeomyqvnuq.supabase.co"],
-    "reasoning": "Required to communicate with the analysis backend API"
+    "reasoning": "Required to communicate with the AI analysis backend"
   }
 }
