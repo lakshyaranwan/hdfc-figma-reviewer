@@ -643,13 +643,8 @@ figma.ui.postMessage({
   data: getSelectionData(),
 });
 
-// Listen for selection changes
-figma.on('selectionchange', () => {
-  figma.ui.postMessage({
-    type: 'selection-data',
-    data: getSelectionData(),
-  });
-});
+// Remove automatic selection listener - selection is now captured on-demand
+// when user clicks the selection box in the UI
 
 // Handle messages from UI
 figma.ui.onmessage = async (msg: any) => {

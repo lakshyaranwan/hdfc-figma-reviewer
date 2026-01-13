@@ -1127,8 +1127,8 @@
     }
     
     function requestSelection() {
-      // This is a visual indicator, actual selection happens in Figma canvas
-      showToast('Select a frame in the Figma canvas', '');
+      // Request the current selection from Figma
+      parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
     }
     
     function showError(message) {
