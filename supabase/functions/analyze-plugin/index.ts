@@ -62,7 +62,7 @@ serve(async (req) => {
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
     const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
-You provide THOROUGH and COMPREHENSIVE feedback - typically 10+ issues per category.
+You provide thorough, quality feedback - focus on real issues that matter.
 CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
 Do not include markdown code blocks, explanations, or any text outside the JSON array.
 Start your response with [ and end with ].`;
@@ -93,14 +93,13 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
 Only use these exact category values: ${categoryOptions}
 
-CRITICAL VOLUME REQUIREMENT - THIS IS MANDATORY:
-- You MUST provide AT LEAST 10 feedback items per category (minimum 10 per category!)
-- Aim for 10-15 items per category - be thorough and comprehensive
-- Total feedback should be around 50-100 items depending on categories selected
-- Do NOT skip any category - provide extensive analysis for each
-- Look for EVERY possible issue, even minor ones
-- Be thorough - scan every element, every text, every spacing issue
-- If you find fewer than 10 issues in a category, look harder - there are always improvements to be made
+FEEDBACK GUIDELINES:
+- Provide thorough feedback for each selected category
+- Focus on REAL, meaningful issues - quality over quantity
+- Report all genuine issues you find, typically 5-15 per category depending on design complexity
+- Be consistent - prioritize the most impactful issues first
+- Do NOT skip any category - analyze each one properly
+- Do NOT invent issues that don't exist - only report genuine problems
 
 Format your response as a JSON array with this structure:
 [{
@@ -159,6 +158,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
           { role: "user", content: analysisPrompt },
         ],
         max_tokens: 16000,
+        temperature: 0, // Deterministic output for consistent results
       }),
     });
 

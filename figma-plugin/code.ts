@@ -43,6 +43,9 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
   // Skip hidden layers/elements
   if (!node.visible) return null;
   
+  // Skip elements with opacity set to 0
+  if ('opacity' in node && node.opacity === 0) return null;
+  
   const baseData: DesignNode = {
     id: node.id,
     name: node.name,
