@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      color: #333;
+      background: #fff;
+      padding: 16px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    
+    .header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .file-info {
+      background: #f5f5f5;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 11px;
+    }
+    
+    .file-info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    
+    .file-info-label {
+      color: #666;
+    }
+    
+    .file-info-value {
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .section {
+      margin-bottom: 16px;
+    }
+    
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    
+    .api-key-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .api-key-input:focus {
+      outline: none;
+      border-color: #0d99ff;
+    }
+    
+    .categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    
+    .category-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      background: #f0f0f0;
+      border: 1px solid transparent;
+      border-radius: 16px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .category-chip:hover {
+      background: #e5e5e5;
+    }
+    
+    .category-chip.selected {
+      background: #e8f4ff;
+      border-color: #0d99ff;
+      color: #0d99ff;
+    }
+    
+    .category-chip input {
+      display: none;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #0d99ff;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #0085e6;
+    }
+    
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+      margin-top: 8px;
+    }
+    
+    .btn-secondary:hover {
+      background: #e5e5e5;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .loading.active {
+      display: block;
+    }
+    
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #e5e5e5;
+      border-top-color: #0d99ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .results {
+      display: none;
+      margin-top: 16px;
+    }
+    
+    .results.active {
+      display: block;
+    }
+    
+    .feedback-item {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-left: 3px solid #ddd;
+    }
+    
+    .feedback-item.high {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+    
+    .feedback-item.medium {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+    
+    .feedback-item.low {
+      border-left-color: #22c55e;
+      background: #f0fdf4;
+    }
+    
+    .feedback-title {
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    
+    .feedback-desc {
+      font-size: 11px;
+      color: #666;
+      line-height: 1.4;
+    }
+    
+    .feedback-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 10px;
+    }
+    
+    .feedback-category {
+      background: #e5e5e5;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    
+    .feedback-severity {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    
+    .feedback-severity.high {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    
+    .feedback-severity.medium {
+      background: #fef3c7;
+      color: #d97706;
+    }
+    
+    .feedback-severity.low {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    
+    .no-selection {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+    }
+    
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fee2e2;
+      color: #dc2626;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    
+    .error.active {
+      display: block;
+    }
+    
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: #f0f0f0;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    
+    .tab.active {
+      background: #0d99ff;
+      color: white;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #0d99ff;
+    }
+    
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 11px;
+    }
+    
+    .summary-stats {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .stat {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      background: #f5f5f5;
+      border-radius: 6px;
+    }
+    
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .stat-label {
+      font-size: 10px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d99ff" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M12 16v-4M12 8h.01"/>
+    </svg>
+    <h1>Design Analyzer</h1>
+  </div>
+  
+  <div class="file-info" id="fileInfo">
+    <div class="file-info-row">
+      <span class="file-info-label">File:</span>
+      <span class="file-info-value" id="fileName">-</span>
+    </div>
+    <div class="file-info-row">
+      <span class="file-info-label">Page:</span>
+      <span class="file-info-value" id="pageName">-</span>
+    </div>
+    <div class="file-info-row">
+      <span class="file-info-label">Selection:</span>
+      <span class="file-info-value" id="selectionInfo">None</span>
+    </div>
+  </div>
+  
+  <div class="error" id="error"></div>
+  
+  <div class="section">
+    <div class="section-title">Figma API Key</div>
+    <input type="password" class="api-key-input" id="apiKey" placeholder="Enter your Figma API key">
+  </div>
+  
+  <div class="tabs">
+    <button class="tab active" data-tab="categories">Categories</button>
+    <button class="tab" data-tab="custom">Custom Prompt</button>
+  </div>
+  
+  <div class="tab-content active" id="categoriesTab">
+    <div class="categories" id="categories">
+      <label class="category-chip selected">
+        <input type="checkbox" value="consistency" checked>
+        <span>Consistency</span>
+      </label>
+      <label class="category-chip selected">
+        <input type="checkbox" value="ux" checked>
+        <span>UX</span>
+      </label>
+      <label class="category-chip selected">
+        <input type="checkbox" value="accessibility" checked>
+        <span>Accessibility</span>
+      </label>
+      <label class="category-chip">
+        <input type="checkbox" value="visual">
+        <span>Visual</span>
+      </label>
+      <label class="category-chip">
+        <input type="checkbox" value="layout">
+        <span>Layout</span>
+      </label>
+      <label class="category-chip">
+        <input type="checkbox" value="typography">
+        <span>Typography</span>
+      </label>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="customTab">
+    <textarea id="customPrompt" placeholder="Enter your custom analysis prompt..."></textarea>
+    <div class="checkbox-row">
+      <input type="checkbox" id="includeSuggestions" checked>
+      <label for="includeSuggestions">Include improvement suggestions</label>
+    </div>
+  </div>
+  
+  <button class="btn btn-primary" id="analyzeBtn">Analyze Design</button>
+  
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>Analyzing your design...</div>
+  </div>
+  
+  <div class="results" id="results">
+    <div class="section-title">Analysis Results</div>
+    <div class="summary-stats" id="summaryStats"></div>
+    <div id="feedbackList"></div>
+    <button class="btn btn-secondary" id="postCommentsBtn">Post Comments to Figma</button>
+  </div>
+  
+  <script>
+    // Configuration - UPDATE THIS URL
+    const SUPABASE_URL = 'https://lvhtpmtmxxfeomyqvnuq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aHRwbXRteHhmZW9teXF2bnVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMDQ5NjIsImV4cCI6MjA3ODY4MDk2Mn0.ZeCg-6BKIySftZ8DV3V0uz4LK_FoA0ngSG2OIJpoCUc';
+    
+    let fileInfo = null;
+    let analysisResults = [];
+    
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
+      });
+    });
+    
+    // Category chip selection
+    document.querySelectorAll('.category-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const checkbox = chip.querySelector('input');
+        checkbox.checked = !checkbox.checked;
+        chip.classList.toggle('selected', checkbox.checked);
+      });
+    });
+    
+    // Listen for messages from plugin code
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg) return;
+      
+      if (msg.type === 'file-info') {
+        fileInfo = msg.data;
+        updateFileInfo();
+      }
+    };
+    
+    function updateFileInfo() {
+      if (!fileInfo) return;
+      document.getElementById('fileName').textContent = fileInfo.fileName || '-';
+      document.getElementById('pageName').textContent = fileInfo.pageName || '-';
+      document.getElementById('selectionInfo').textContent = 
+        fileInfo.selectionCount > 0 
+          ? `${fileInfo.selectionCount} element(s)` 
+          : 'None (will analyze full page)';
+    }
+    
+    function showError(message) {
+      const errorEl = document.getElementById('error');
+      errorEl.textContent = message;
+      errorEl.classList.add('active');
+    }
+    
+    function hideError() {
+      document.getElementById('error').classList.remove('active');
+    }
+    
+    function showLoading(show) {
+      document.getElementById('loading').classList.toggle('active', show);
+      document.getElementById('analyzeBtn').disabled = show;
+    }
+    
+    function buildPrompt() {
+      const customTab = document.getElementById('customTab').classList.contains('active');
+      
+      if (customTab) {
+        let prompt = document.getElementById('customPrompt').value.trim();
+        if (document.getElementById('includeSuggestions').checked) {
+          prompt += '\n\nPlease include specific improvement suggestions for each issue found.';
+        }
+        return prompt;
+      }
+      
+      const selectedCategories = [];
+      document.querySelectorAll('.category-chip input:checked').forEach(cb => {
+        selectedCategories.push(cb.value);
+      });
+      
+      if (selectedCategories.length === 0) {
+        return null;
+      }
+      
+      const categoryLabels = {
+        consistency: 'Design consistency (colors, spacing, fonts)',
+        ux: 'User experience and usability',
+        accessibility: 'Accessibility (contrast, touch targets, labels)',
+        visual: 'Visual hierarchy and aesthetics',
+        layout: 'Layout and alignment',
+        typography: 'Typography and readability'
+      };
+      
+      const categoryDescriptions = selectedCategories.map(c => categoryLabels[c]).join(', ');
+      
+      return `Analyze this Figma design for the following aspects: ${categoryDescriptions}. 
+              For each issue found, provide:
+              1. A clear title
+              2. A detailed description of the problem
+              3. The severity (low, medium, high)
+              4. The category
+              5. Specific location in the design if identifiable
+              6. A concrete suggestion for improvement`;
+    }
+    
+    async function analyze() {
+      hideError();
+      
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (!apiKey) {
+        showError('Please enter your Figma API key');
+        return;
+      }
+      
+      if (!fileInfo || !fileInfo.fileKey) {
+        showError('Could not get file information. Please try reopening the plugin.');
+        return;
+      }
+      
+      const prompt = buildPrompt();
+      if (!prompt) {
+        showError('Please select at least one category or enter a custom prompt');
+        return;
+      }
+      
+      showLoading(true);
+      document.getElementById('results').classList.remove('active');
+      
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-figma`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            fileKey: fileInfo.fileKey,
+            nodeId: fileInfo.nodeId,
+            prompt: prompt,
+            figmaApiKey: apiKey
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Analysis failed');
+        }
+        
+        const data = await response.json();
+        analysisResults = data.feedback || [];
+        displayResults();
+        
+        parent.postMessage({ pluginMessage: { type: 'analysis-complete' } }, '*');
+        
+      } catch (error) {
+        showError(error.message || 'Analysis failed. Please try again.');
+      } finally {
+        showLoading(false);
+      }
+    }
+    
+    function displayResults() {
+      const resultsEl = document.getElementById('results');
+      const feedbackList = document.getElementById('feedbackList');
+      const summaryStats = document.getElementById('summaryStats');
+      
+      if (analysisResults.length === 0) {
+        feedbackList.innerHTML = '<div class="no-selection">No issues found! Your design looks great.</div>';
+        summaryStats.innerHTML = '';
+        resultsEl.classList.add('active');
+        return;
+      }
+      
+      // Summary stats
+      const highCount = analysisResults.filter(f => f.severity === 'high').length;
+      const mediumCount = analysisResults.filter(f => f.severity === 'medium').length;
+      const lowCount = analysisResults.filter(f => f.severity === 'low').length;
+      
+      summaryStats.innerHTML = `
+        <div class="stat">
+          <div class="stat-value" style="color: #dc2626">${highCount}</div>
+          <div class="stat-label">High</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" style="color: #d97706">${mediumCount}</div>
+          <div class="stat-label">Medium</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" style="color: #16a34a">${lowCount}</div>
+          <div class="stat-label">Low</div>
+        </div>
+      `;
+      
+      // Feedback items
+      feedbackList.innerHTML = analysisResults.map(item => `
+        <div class="feedback-item ${item.severity}">
+          <div class="feedback-title">${item.title}</div>
+          <div class="feedback-desc">${item.description}</div>
+          <div class="feedback-meta">
+            <span class="feedback-category">${item.category}</span>
+            <span class="feedback-severity ${item.severity}">${item.severity}</span>
+            ${item.location ? `<span style="color: #999">${item.location}</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+      
+      resultsEl.classList.add('active');
+    }
+    
+    async function postComments() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (!apiKey) {
+        showError('Please enter your Figma API key');
+        return;
+      }
+      
+      if (analysisResults.length === 0) {
+        showError('No feedback to post');
+        return;
+      }
+      
+      const postBtn = document.getElementById('postCommentsBtn');
+      postBtn.disabled = true;
+      postBtn.textContent = 'Posting...';
+      
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/post-figma-comments`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            fileKey: fileInfo.fileKey,
+            feedback: analysisResults,
+            figmaApiKey: apiKey
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to post comments');
+        }
+        
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'notify', 
+            message: `Posted ${analysisResults.length} comments to Figma` 
+          } 
+        }, '*');
+        
+      } catch (error) {
+        showError(error.message || 'Failed to post comments');
+      } finally {
+        postBtn.disabled = false;
+        postBtn.textContent = 'Post Comments to Figma';
+      }
+    }
+    
+    // Event listeners
+    document.getElementById('analyzeBtn').addEventListener('click', analyze);
+    document.getElementById('postCommentsBtn').addEventListener('click', postComments);
+    
+    // Load saved API key from localStorage
+    const savedKey = localStorage.getItem('figma-analyzer-api-key');
+    if (savedKey) {
+      document.getElementById('apiKey').value = savedKey;
+    }
+    
+    // Save API key on change
+    document.getElementById('apiKey').addEventListener('change', (e) => {
+      localStorage.setItem('figma-analyzer-api-key', e.target.value);
+    });
+  </script>
+</body>
+</html>
