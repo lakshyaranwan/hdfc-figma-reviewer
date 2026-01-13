@@ -744,7 +744,10 @@
       if (msg.type === 'apply-complete') {
         if (msg.success) {
           appliedItems.add(msg.itemId);
-          showToast('Suggestion applied!', 'success');
+          const changesText = msg.appliedChanges && msg.appliedChanges.length > 0 
+            ? `Applied: ${msg.appliedChanges.join(', ')}` 
+            : 'Suggestion applied!';
+          showToast(changesText, 'success');
           displayResults();
         } else {
           showToast('Failed to apply: ' + msg.error, 'error');
@@ -958,11 +961,15 @@
       `;
       
       if (currentSort === 'priority') {
-        // Sort by severity
-        const severityOrder = { high: 0, medium: 1, low: 2 };
-        filteredResults.sort((a, b) => 
-          (severityOrder[a.severity] || 2) - (severityOrder[b.severity] || 2)
-        );
+        // Sort by severity - normalize severity values first
+        const severityOrder = { 'high': 0, 'High': 0, 'HIGH': 0, 'medium': 1, 'Medium': 1, 'MEDIUM': 1, 'low': 2, 'Low': 2, 'LOW': 2 };
+        filteredResults.sort((a, b) => {
+          const aSev = a.severity ? a.severity.toLowerCase() : 'low';
+          const bSev = b.severity ? b.severity.toLowerCase() : 'low';
+          const aOrder = aSev === 'high' ? 0 : (aSev === 'medium' ? 1 : 2);
+          const bOrder = bSev === 'high' ? 0 : (bSev === 'medium' ? 1 : 2);
+          return aOrder - bOrder;
+        });
         
         feedbackList.innerHTML = filteredResults.map(item => renderFeedbackItem(item)).join('');
       } else {
