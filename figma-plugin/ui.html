@@ -88,12 +88,81 @@
       padding: 24px;
     }
     
-    /* Selection Box */
+    /* Selection Box - Matching Component Auditor style */
+    .selection-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: var(--white);
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 24px;
+    }
+    
+    .selection-box:hover {
+      border-color: var(--hdfc-primary);
+      background: rgba(28, 63, 202, 0.03);
+    }
+    
+    .selection-box.selected {
+      border-style: solid;
+      border-color: var(--hdfc-primary);
+      background: rgba(28, 63, 202, 0.06);
+    }
+    
+    .selection-box .icon {
+      width: 40px;
+      height: 40px;
+      background: var(--hdfc-light);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--hdfc-medium);
+      flex-shrink: 0;
+      font-size: 18px;
+    }
+    
+    .selection-box.selected .icon {
+      background: var(--hdfc-primary);
+      color: white;
+    }
+    
     .selection-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .selection-name {
+      font-weight: 600;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-primary);
+    }
+    
+    .selection-details {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    
+    .selection-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    
+    /* Legacy selection info for detailed view */
+    .selection-info-detailed {
       background: var(--white);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
+      padding: 16px 20px;
       margin-bottom: 24px;
       box-shadow: var(--shadow-sm);
     }
@@ -102,7 +171,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 0;
+      padding: 6px 0;
       border-bottom: 1px solid var(--border);
     }
     
@@ -125,39 +194,6 @@
       font-weight: 600;
       color: var(--text-primary);
       font-size: 12px;
-    }
-    
-    .no-selection {
-      background: var(--white);
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 32px 24px;
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    
-    .no-selection-icon {
-      width: 56px;
-      height: 56px;
-      background: var(--hdfc-light);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 16px;
-      font-size: 24px;
-    }
-    
-    .no-selection-text {
-      color: var(--text-secondary);
-      font-size: 13px;
-      font-weight: 500;
-    }
-    
-    .no-selection-hint {
-      color: var(--text-muted);
-      font-size: 11px;
-      margin-top: 6px;
     }
     
     /* Section */
@@ -727,11 +763,11 @@
       font-size: 16px;
     }
     
-    /* Scroll Area */
+    /* Scroll Area - More vertical space */
     .scroll-area {
-      max-height: 380px;
+      max-height: 520px;
       overflow-y: auto;
-      padding-right: 4px;
+      padding-right: 6px;
     }
     
     .scroll-area::-webkit-scrollbar {
@@ -1048,37 +1084,51 @@
       
       if (!selectionData || !selectionData.hasSelection) {
         box.innerHTML = `
-          <div class="no-selection">
-            <div class="no-selection-icon">👆</div>
-            <div class="no-selection-text">Select a frame or component to analyze</div>
-            <div class="no-selection-hint">Choose any design element in your Figma canvas</div>
+          <div class="selection-box" onclick="requestSelection()">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+                <line x1="15" y1="3" x2="15" y2="21"></line>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="3" y1="15" x2="21" y2="15"></line>
+              </svg>
+            </div>
+            <div class="selection-info">
+              <div class="selection-name">Click to select a frame</div>
+              <div class="selection-hint">Select a frame, section, or component</div>
+            </div>
           </div>
         `;
         btn.disabled = true;
         btn.innerHTML = '<span>Select a frame to analyze</span>';
       } else {
-        const nodeNames = selectionData.nodes.map(n => n.name).slice(0, 3).join(', ');
-        const moreCount = selectionData.nodes.length > 3 ? ` +${selectionData.nodes.length - 3} more` : '';
+        const nodeNames = selectionData.nodes.map(n => n.name).slice(0, 2).join(', ');
+        const moreCount = selectionData.nodes.length > 2 ? ` +${selectionData.nodes.length - 2} more` : '';
+        const nodeCount = selectionData.nodes.length;
+        const details = `${selectionData.pageName || 'Page'} • ${nodeCount} item${nodeCount > 1 ? 's' : ''} selected`;
         
         box.innerHTML = `
-          <div class="selection-info">
-            <div class="selection-info-row">
-              <span class="selection-info-label">File</span>
-              <span class="selection-info-value">${selectionData.fileName || '-'}</span>
+          <div class="selection-box selected" onclick="requestSelection()">
+            <div class="icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
             </div>
-            <div class="selection-info-row">
-              <span class="selection-info-label">Page</span>
-              <span class="selection-info-value">${selectionData.pageName || '-'}</span>
-            </div>
-            <div class="selection-info-row">
-              <span class="selection-info-label">Selected</span>
-              <span class="selection-info-value">${nodeNames}${moreCount}</span>
+            <div class="selection-info">
+              <div class="selection-name">${nodeNames}${moreCount}</div>
+              <div class="selection-details">${details}</div>
             </div>
           </div>
         `;
         btn.disabled = false;
         btn.innerHTML = '<span>✨</span><span>Analyze Design</span>';
       }
+    }
+    
+    function requestSelection() {
+      // This is a visual indicator, actual selection happens in Figma canvas
+      showToast('Select a frame in the Figma canvas', '');
     }
     
     function showError(message) {
