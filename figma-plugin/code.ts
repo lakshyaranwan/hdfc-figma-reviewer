@@ -170,57 +170,6 @@ function findNodeByName(name: string): SceneNode | null {
   return figma.currentPage.findOne(n => n.name === name);
 }
 
-// Post a comment as a sticky note near the target node
-async function postCommentToNode(nodeId: string | undefined, location: string | undefined, title: string, description: string, severity: string): Promise<boolean> {
-  try {
-    let targetNode: SceneNode | null = null;
-    
-    // Try to find the node by ID first
-    if (nodeId) {
-      targetNode = findNodeById(nodeId);
-    }
-    
-    // If not found, try by location/name
-    if (!targetNode && location) {
-      targetNode = findNodeByName(location);
-    }
-    
-    // If still not found, use the first selected node
-    if (!targetNode && figma.currentPage.selection.length > 0) {
-      targetNode = figma.currentPage.selection[0];
-    }
-    
-    if (!targetNode) {
-      figma.notify('⚠️ Could not find target element. Select a frame first.');
-      return false;
-    }
-    
-    // Create a sticky note near the node
-    const sticky = figma.createSticky();
-    
-    // Set sticky content
-    const severityEmoji = severity === 'high' ? '🔴' : severity === 'medium' ? '🟡' : '🟢';
-    sticky.text.characters = `${severityEmoji} ${title}\n\n${description}`;
-    
-    // Position the sticky near the target node
-    if ('x' in targetNode && 'y' in targetNode) {
-      const nodeWidth = 'width' in targetNode ? (targetNode as any).width : 100;
-      sticky.x = targetNode.x + nodeWidth + 20;
-      sticky.y = targetNode.y;
-    }
-    
-    // Set sticky color based on severity
-    if (severity === 'high') {
-      sticky.authorVisible = true;
-    }
-    
-    figma.notify('💬 Comment added as sticky note!');
-    return true;
-  } catch (error) {
-    console.error('Error posting comment:', error);
-    return false;
-  }
-}
 
 // Parse design property values from suggestion text
 function parseDesignValues(suggestion: string): {
@@ -562,22 +511,6 @@ figma.ui.onmessage = async (msg: any) => {
 
   if (msg.type === 'analysis-complete') {
     figma.notify('✅ Analysis complete! Review feedback below.');
-  }
-
-  if (msg.type === 'post-comment') {
-    const success = await postCommentToNode(
-      msg.nodeId,
-      msg.location,
-      msg.title,
-      msg.description,
-      msg.severity
-    );
-    figma.ui.postMessage({
-      type: 'comment-posted',
-      success,
-      itemId: msg.itemId,
-      error: success ? null : 'Failed to post comment'
-    });
   }
 
   if (msg.type === 'apply-suggestion') {
