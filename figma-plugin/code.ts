@@ -246,6 +246,90 @@ function parseDesignValues(suggestion: string): {
   return result;
 }
 
+// Extract new text from various suggestion patterns
+function extractNewTextFromSuggestion(suggestion: string, title: string): string | null {
+  const combined = `${title} ${suggestion}`;
+  
+  // Pattern: "Change 'old' to 'new'" or "Change "old" to "new""
+  const changeToMatch = combined.match(/change\s+['"]([^'"]+)['"]\s+to\s+['"]([^'"]+)['"]/i);
+  if (changeToMatch) return changeToMatch[2];
+  
+  // Pattern: "Update to 'new'" or similar
+  const updateToMatch = combined.match(/(?:update|change|rename|replace)\s+(?:it\s+)?to\s+['"]([^'"]+)['"]/i);
+  if (updateToMatch) return updateToMatch[1];
+  
+  // Pattern: "Use 'new text' instead"
+  const useInsteadMatch = combined.match(/use\s+['"]([^'"]+)['"]\s+instead/i);
+  if (useInsteadMatch) return useInsteadMatch[1];
+  
+  // Pattern: "Replace with 'new text'"
+  const replaceWithMatch = combined.match(/replace\s+(?:it\s+)?with\s+['"]([^'"]+)['"]/i);
+  if (replaceWithMatch) return replaceWithMatch[1];
+  
+  // Pattern: "'new text'" at end of suggestion for short ones
+  const quotedAtEnd = combined.match(/['"]([^'"]{2,50})['"]\s*\.?\s*$/);
+  if (quotedAtEnd && combined.toLowerCase().includes('change')) return quotedAtEnd[1];
+  
+  // Pattern: Fix typo suggestions - "should be 'correct'"
+  const shouldBeMatch = combined.match(/should\s+be\s+['"]([^'"]+)['"]/i);
+  if (shouldBeMatch) return shouldBeMatch[1];
+  
+  // Pattern: "Correct spelling: 'word'" or "Correct to 'word'"
+  const correctMatch = combined.match(/correct(?:ed)?\s+(?:spelling[:\s]+)?(?:to\s+)?['"]([^'"]+)['"]/i);
+  if (correctMatch) return correctMatch[1];
+  
+  return null;
+}
+
+// Extract color from suggestion (hex, rgb, or color names)
+function extractColorFromSuggestion(suggestion: string): { r: number; g: number; b: number } | null {
+  const lowerSuggestion = suggestion.toLowerCase();
+  
+  // Hex color
+  const hexMatch = suggestion.match(/#([0-9a-fA-F]{6})/);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    return {
+      r: parseInt(hex.substring(0, 2), 16) / 255,
+      g: parseInt(hex.substring(2, 4), 16) / 255,
+      b: parseInt(hex.substring(4, 6), 16) / 255
+    };
+  }
+  
+  // RGB pattern
+  const rgbMatch = suggestion.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (rgbMatch) {
+    return {
+      r: parseInt(rgbMatch[1]) / 255,
+      g: parseInt(rgbMatch[2]) / 255,
+      b: parseInt(rgbMatch[3]) / 255
+    };
+  }
+  
+  // Common color names
+  const colorMap: { [key: string]: { r: number; g: number; b: number } } = {
+    'red': { r: 1, g: 0, b: 0 },
+    'green': { r: 0, g: 0.5, b: 0 },
+    'blue': { r: 0, g: 0, b: 1 },
+    'white': { r: 1, g: 1, b: 1 },
+    'black': { r: 0, g: 0, b: 0 },
+    'yellow': { r: 1, g: 1, b: 0 },
+    'orange': { r: 1, g: 0.647, b: 0 },
+    'purple': { r: 0.5, g: 0, b: 0.5 },
+    'pink': { r: 1, g: 0.753, b: 0.796 },
+    'gray': { r: 0.5, g: 0.5, b: 0.5 },
+    'grey': { r: 0.5, g: 0.5, b: 0.5 },
+  };
+  
+  for (const [name, color] of Object.entries(colorMap)) {
+    if (lowerSuggestion.includes(name)) {
+      return color;
+    }
+  }
+  
+  return null;
+}
+
 // Apply a suggestion to a node with comprehensive design changes
 async function applySuggestionToNode(nodeId: string | undefined, location: string | undefined, suggestion: string, title?: string): Promise<{ success: boolean; applied: string[] }> {
   const appliedChanges: string[] = [];
@@ -275,13 +359,129 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
     const values = parseDesignValues(suggestion);
     const lowerSuggestion = suggestion.toLowerCase();
     const lowerTitle = (title || '').toLowerCase();
+    const combinedText = `${title || ''} ${suggestion}`.toLowerCase();
     
-    // Apply visibility changes
+    // ========== TEXT CHANGES (Priority for typo/text fixes) ==========
+    if (targetNode.type === 'TEXT') {
+      const textNode = targetNode as TextNode;
+      
+      // Try to extract new text from suggestion
+      const newText = extractNewTextFromSuggestion(suggestion, title || '');
+      if (newText) {
+        try {
+          // Load font before modifying text
+          if (textNode.fontName !== figma.mixed) {
+            await figma.loadFontAsync(textNode.fontName as FontName);
+          } else {
+            // Load fonts for all characters if mixed
+            const len = textNode.characters.length;
+            for (let i = 0; i < len; i++) {
+              await figma.loadFontAsync(textNode.getRangeFontName(i, i + 1) as FontName);
+            }
+          }
+          textNode.characters = newText;
+          appliedChanges.push(`text changed to "${newText}"`);
+        } catch (e) {
+          console.error('Text update failed:', e);
+        }
+      }
+      
+      // Handle alignment suggestions
+      if (appliedChanges.length === 0 && (combinedText.includes('align') || combinedText.includes('center'))) {
+        try {
+          if (textNode.fontName !== figma.mixed) {
+            await figma.loadFontAsync(textNode.fontName as FontName);
+          }
+          if (combinedText.includes('center')) {
+            textNode.textAlignHorizontal = 'CENTER';
+            appliedChanges.push('text-align: center');
+          } else if (combinedText.includes('left')) {
+            textNode.textAlignHorizontal = 'LEFT';
+            appliedChanges.push('text-align: left');
+          } else if (combinedText.includes('right')) {
+            textNode.textAlignHorizontal = 'RIGHT';
+            appliedChanges.push('text-align: right');
+          }
+        } catch (e) {
+          console.error('Alignment failed:', e);
+        }
+      }
+      
+      // Apply font size changes
+      if (values.fontSize !== undefined) {
+        try {
+          if (textNode.fontName !== figma.mixed) {
+            await figma.loadFontAsync(textNode.fontName as FontName);
+          }
+          textNode.fontSize = values.fontSize;
+          appliedChanges.push(`font-size: ${values.fontSize}px`);
+        } catch (e) {
+          console.error('Font size change failed:', e);
+        }
+      }
+      
+      // Handle "increase/decrease font size" 
+      if (appliedChanges.length === 0 && combinedText.includes('font') && (combinedText.includes('size') || combinedText.includes('larger') || combinedText.includes('smaller') || combinedText.includes('bigger'))) {
+        try {
+          if (textNode.fontName !== figma.mixed && textNode.fontSize !== figma.mixed) {
+            await figma.loadFontAsync(textNode.fontName as FontName);
+            const currentSize = textNode.fontSize as number;
+            let newSize = currentSize;
+            
+            if (combinedText.includes('increase') || combinedText.includes('larger') || combinedText.includes('bigger')) {
+              newSize = Math.round(currentSize * 1.2);
+            } else if (combinedText.includes('decrease') || combinedText.includes('smaller') || combinedText.includes('reduce')) {
+              newSize = Math.max(8, Math.round(currentSize * 0.85));
+            }
+            
+            if (newSize !== currentSize) {
+              textNode.fontSize = newSize;
+              appliedChanges.push(`font-size: ${newSize}px`);
+            }
+          }
+        } catch (e) {
+          console.error('Font size adjustment failed:', e);
+        }
+      }
+      
+      // Handle font weight suggestions
+      if (combinedText.includes('bold') || combinedText.includes('weight')) {
+        try {
+          if (textNode.fontName !== figma.mixed) {
+            const currentFont = textNode.fontName as FontName;
+            const boldStyle = combinedText.includes('bold') ? 'Bold' : currentFont.style;
+            try {
+              await figma.loadFontAsync({ family: currentFont.family, style: boldStyle });
+              textNode.fontName = { family: currentFont.family, style: boldStyle };
+              appliedChanges.push(`font-weight: ${boldStyle}`);
+            } catch {
+              // Bold variant might not exist
+              console.log('Bold variant not available for this font');
+            }
+          }
+        } catch (e) {
+          console.error('Font weight change failed:', e);
+        }
+      }
+    }
+    
+    // ========== COLOR CHANGES ==========
+    if (combinedText.includes('color') || combinedText.includes('fill') || suggestion.includes('#')) {
+      const color = extractColorFromSuggestion(suggestion) || values.color;
+      if (color && 'fills' in targetNode) {
+        const fillableNode = targetNode as GeometryMixin;
+        fillableNode.fills = [{ type: 'SOLID', color: color }];
+        appliedChanges.push(`fill color applied`);
+      }
+    }
+    
+    // ========== VISIBILITY CHANGES ==========
     if (values.visible !== undefined) {
       targetNode.visible = values.visible;
       appliedChanges.push(`visibility: ${values.visible ? 'shown' : 'hidden'}`);
     }
     
+    // ========== LAYOUT/SPACING CHANGES ==========
     // Apply padding (for frames/components)
     if (values.padding && 'paddingLeft' in targetNode) {
       const frameNode = targetNode as FrameNode;
@@ -296,7 +496,7 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
         if (values.padding.right !== undefined) frameNode.paddingRight = values.padding.right;
         if (values.padding.bottom !== undefined) frameNode.paddingBottom = values.padding.bottom;
         if (values.padding.left !== undefined) frameNode.paddingLeft = values.padding.left;
-        appliedChanges.push(`padding: ${values.padding.top || 0} ${values.padding.right || 0} ${values.padding.bottom || 0} ${values.padding.left || 0}`);
+        appliedChanges.push(`padding updated`);
       }
     }
     
@@ -331,83 +531,84 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
       appliedChanges.push(`height: ${values.height}px`);
     }
     
-    // Apply fill color
-    if (values.color && 'fills' in targetNode) {
-      const fillableNode = targetNode as GeometryMixin;
-      fillableNode.fills = [{ type: 'SOLID', color: values.color }];
-      appliedChanges.push(`fill color applied`);
-    }
-    
-    // Apply font size (for text nodes)
-    if (values.fontSize !== undefined && targetNode.type === 'TEXT') {
-      const textNode = targetNode as TextNode;
-      try {
-        await figma.loadFontAsync(textNode.fontName as FontName);
-        textNode.fontSize = values.fontSize;
-        appliedChanges.push(`font-size: ${values.fontSize}px`);
-      } catch (e) {
-        console.error('Font load failed:', e);
-      }
-    }
-    
-    // Handle text-related suggestions for TEXT nodes
-    if (targetNode.type === 'TEXT') {
-      const textNode = targetNode as TextNode;
-      
-      // Rename/change text content
-      const renameMatch = suggestion.match(/rename[d]?\s+(?:to\s+)?['"]([^'"]+)['"]/i) ||
-                          suggestion.match(/change\s+(?:to\s+)?['"]([^'"]+)['"]/i) ||
-                          suggestion.match(/update\s+(?:to\s+)?['"]([^'"]+)['"]/i) ||
-                          suggestion.match(/replace\s+(?:with\s+)?['"]([^'"]+)['"]/i);
-      if (renameMatch) {
-        try {
-          await figma.loadFontAsync(textNode.fontName as FontName);
-          textNode.characters = renameMatch[1];
-          appliedChanges.push(`text: "${renameMatch[1]}"`);
-        } catch (e) {
-          console.error('Text update failed:', e);
-        }
-      }
-      
-      // Handle alignment suggestions
-      if (lowerSuggestion.includes('align') || lowerSuggestion.includes('center')) {
-        try {
-          await figma.loadFontAsync(textNode.fontName as FontName);
-          if (lowerSuggestion.includes('center')) {
-            textNode.textAlignHorizontal = 'CENTER';
-            appliedChanges.push('text-align: center');
-          } else if (lowerSuggestion.includes('left')) {
-            textNode.textAlignHorizontal = 'LEFT';
-            appliedChanges.push('text-align: left');
-          } else if (lowerSuggestion.includes('right')) {
-            textNode.textAlignHorizontal = 'RIGHT';
-            appliedChanges.push('text-align: right');
-          }
-        } catch (e) {
-          console.error('Alignment failed:', e);
-        }
-      }
-    }
-    
-    // Handle auto-layout suggestions
-    if ('layoutMode' in targetNode && lowerSuggestion.includes('auto-layout')) {
+    // ========== AUTO-LAYOUT CHANGES ==========
+    if ('layoutMode' in targetNode && combinedText.includes('auto-layout')) {
       const frameNode = targetNode as FrameNode;
-      if (lowerSuggestion.includes('horizontal') || lowerSuggestion.includes('row')) {
+      if (combinedText.includes('horizontal') || combinedText.includes('row')) {
         frameNode.layoutMode = 'HORIZONTAL';
         appliedChanges.push('layout: horizontal');
-      } else if (lowerSuggestion.includes('vertical') || lowerSuggestion.includes('column')) {
+      } else if (combinedText.includes('vertical') || combinedText.includes('column')) {
         frameNode.layoutMode = 'VERTICAL';
         appliedChanges.push('layout: vertical');
       }
     }
     
     // Handle alignment in auto-layout
-    if ('primaryAxisAlignItems' in targetNode) {
+    if ('primaryAxisAlignItems' in targetNode && combinedText.includes('center') && combinedText.includes('align')) {
       const frameNode = targetNode as FrameNode;
-      if (lowerSuggestion.includes('center') && lowerSuggestion.includes('align')) {
-        frameNode.primaryAxisAlignItems = 'CENTER';
-        frameNode.counterAxisAlignItems = 'CENTER';
-        appliedChanges.push('alignment: centered');
+      frameNode.primaryAxisAlignItems = 'CENTER';
+      frameNode.counterAxisAlignItems = 'CENTER';
+      appliedChanges.push('alignment: centered');
+    }
+    
+    // ========== RELATIVE ADJUSTMENTS ==========
+    if (appliedChanges.length === 0) {
+      // Increase/decrease padding
+      if ((combinedText.includes('increase') || combinedText.includes('more') || combinedText.includes('add')) && combinedText.includes('padding')) {
+        if ('paddingLeft' in targetNode) {
+          const frameNode = targetNode as FrameNode;
+          const increase = 8;
+          frameNode.paddingLeft += increase;
+          frameNode.paddingRight += increase;
+          frameNode.paddingTop += increase;
+          frameNode.paddingBottom += increase;
+          appliedChanges.push(`increased padding by ${increase}px`);
+        }
+      }
+      
+      if ((combinedText.includes('decrease') || combinedText.includes('less') || combinedText.includes('reduce')) && combinedText.includes('padding')) {
+        if ('paddingLeft' in targetNode) {
+          const frameNode = targetNode as FrameNode;
+          const decrease = 4;
+          frameNode.paddingLeft = Math.max(0, frameNode.paddingLeft - decrease);
+          frameNode.paddingRight = Math.max(0, frameNode.paddingRight - decrease);
+          frameNode.paddingTop = Math.max(0, frameNode.paddingTop - decrease);
+          frameNode.paddingBottom = Math.max(0, frameNode.paddingBottom - decrease);
+          appliedChanges.push(`decreased padding by ${decrease}px`);
+        }
+      }
+      
+      // Increase/decrease spacing
+      if ((combinedText.includes('increase') || combinedText.includes('more') || combinedText.includes('add')) && combinedText.includes('spacing')) {
+        if ('itemSpacing' in targetNode) {
+          const frameNode = targetNode as FrameNode;
+          frameNode.itemSpacing += 8;
+          appliedChanges.push(`increased spacing to ${frameNode.itemSpacing}px`);
+        }
+      }
+      
+      if ((combinedText.includes('decrease') || combinedText.includes('less') || combinedText.includes('reduce')) && combinedText.includes('spacing')) {
+        if ('itemSpacing' in targetNode) {
+          const frameNode = targetNode as FrameNode;
+          frameNode.itemSpacing = Math.max(0, frameNode.itemSpacing - 4);
+          appliedChanges.push(`decreased spacing to ${frameNode.itemSpacing}px`);
+        }
+      }
+      
+      // Corner radius adjustments
+      if ((combinedText.includes('round') || combinedText.includes('radius')) && 'cornerRadius' in targetNode) {
+        const roundable = targetNode as any;
+        if (combinedText.includes('more') || combinedText.includes('increase')) {
+          roundable.cornerRadius = (roundable.cornerRadius || 0) + 4;
+          appliedChanges.push(`corner-radius: ${roundable.cornerRadius}px`);
+        } else if (combinedText.includes('less') || combinedText.includes('decrease') || combinedText.includes('remove')) {
+          roundable.cornerRadius = Math.max(0, (roundable.cornerRadius || 0) - 4);
+          appliedChanges.push(`corner-radius: ${roundable.cornerRadius}px`);
+        } else {
+          // Just "add rounding" - set a default
+          roundable.cornerRadius = 8;
+          appliedChanges.push(`corner-radius: 8px`);
+        }
       }
     }
     
@@ -417,55 +618,8 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
       return { success: true, applied: appliedChanges };
     }
     
-    // If no structured values found, try to interpret common phrases
-    if (lowerSuggestion.includes('increase') || lowerSuggestion.includes('larger') || lowerSuggestion.includes('bigger')) {
-      // Try to increase common properties by 20%
-      if ('paddingLeft' in targetNode) {
-        const frameNode = targetNode as FrameNode;
-        const increase = Math.max(4, Math.round(frameNode.paddingLeft * 0.2));
-        frameNode.paddingLeft += increase;
-        frameNode.paddingRight += increase;
-        frameNode.paddingTop += increase;
-        frameNode.paddingBottom += increase;
-        appliedChanges.push(`increased padding by ${increase}px`);
-      } else if (targetNode.type === 'TEXT') {
-        const textNode = targetNode as TextNode;
-        if (textNode.fontSize !== figma.mixed) {
-          await figma.loadFontAsync(textNode.fontName as FontName);
-          const newSize = Math.round((textNode.fontSize as number) * 1.2);
-          textNode.fontSize = newSize;
-          appliedChanges.push(`font-size: ${newSize}px`);
-        }
-      }
-    }
-    
-    if (lowerSuggestion.includes('decrease') || lowerSuggestion.includes('smaller') || lowerSuggestion.includes('reduce')) {
-      if ('paddingLeft' in targetNode) {
-        const frameNode = targetNode as FrameNode;
-        const decrease = Math.max(2, Math.round(frameNode.paddingLeft * 0.2));
-        frameNode.paddingLeft = Math.max(0, frameNode.paddingLeft - decrease);
-        frameNode.paddingRight = Math.max(0, frameNode.paddingRight - decrease);
-        frameNode.paddingTop = Math.max(0, frameNode.paddingTop - decrease);
-        frameNode.paddingBottom = Math.max(0, frameNode.paddingBottom - decrease);
-        appliedChanges.push(`decreased padding by ${decrease}px`);
-      } else if (targetNode.type === 'TEXT') {
-        const textNode = targetNode as TextNode;
-        if (textNode.fontSize !== figma.mixed) {
-          await figma.loadFontAsync(textNode.fontName as FontName);
-          const newSize = Math.max(8, Math.round((textNode.fontSize as number) * 0.8));
-          textNode.fontSize = newSize;
-          appliedChanges.push(`font-size: ${newSize}px`);
-        }
-      }
-    }
-    
-    if (appliedChanges.length > 0) {
-      figma.notify(`✅ Applied: ${appliedChanges.join(', ')}`);
-      return { success: true, applied: appliedChanges };
-    }
-    
-    // No changes could be applied automatically
-    figma.notify('ℹ️ This suggestion requires manual review - selecting element');
+    // No changes could be applied automatically - select for manual edit
+    figma.notify('ℹ️ Selecting element for manual edit');
     figma.currentPage.selection = [targetNode];
     figma.viewport.scrollAndZoomIntoView([targetNode]);
     return { success: true, applied: ['focused element for manual edit'] };
