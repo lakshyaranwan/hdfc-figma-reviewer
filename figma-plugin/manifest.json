@@ -1,6 +1,6 @@
 {
-  "name": "Design Analyzer",
-  "id": "design-analyzer-plugin",
+  "name": "HDFC Figma Reviewer",
+  "id": "hdfc-figma-reviewer-plugin",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
