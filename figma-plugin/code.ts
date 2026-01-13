@@ -222,99 +222,309 @@ async function postCommentToNode(nodeId: string | undefined, location: string | 
   }
 }
 
-// Apply a suggestion to a node (basic implementation)
-async function applySuggestionToNode(nodeId: string | undefined, location: string | undefined, suggestion: string): Promise<boolean> {
+// Parse design property values from suggestion text
+function parseDesignValues(suggestion: string): {
+  padding?: { top?: number; right?: number; bottom?: number; left?: number; all?: number };
+  spacing?: number;
+  cornerRadius?: number;
+  opacity?: number;
+  fontSize?: number;
+  width?: number;
+  height?: number;
+  color?: { r: number; g: number; b: number };
+  visible?: boolean;
+  text?: string;
+} {
+  const result: any = {};
+  const lowerSuggestion = suggestion.toLowerCase();
+  
+  // Parse padding values
+  const paddingAllMatch = suggestion.match(/padding[:\s]+(\d+)\s*px/i);
+  const paddingDetailMatch = suggestion.match(/padding[:\s]+(\d+)\s*px?\s+(\d+)\s*px?\s+(\d+)\s*px?\s+(\d+)\s*px?/i);
+  if (paddingDetailMatch) {
+    result.padding = {
+      top: parseInt(paddingDetailMatch[1]),
+      right: parseInt(paddingDetailMatch[2]),
+      bottom: parseInt(paddingDetailMatch[3]),
+      left: parseInt(paddingDetailMatch[4])
+    };
+  } else if (paddingAllMatch) {
+    result.padding = { all: parseInt(paddingAllMatch[1]) };
+  }
+  
+  // Parse spacing/gap
+  const spacingMatch = suggestion.match(/(?:spacing|gap|item-spacing)[:\s]+(\d+)\s*px/i);
+  if (spacingMatch) result.spacing = parseInt(spacingMatch[1]);
+  
+  // Parse corner radius
+  const radiusMatch = suggestion.match(/(?:corner[- ]?radius|border[- ]?radius|radius)[:\s]+(\d+)\s*px/i);
+  if (radiusMatch) result.cornerRadius = parseInt(radiusMatch[1]);
+  
+  // Parse opacity
+  const opacityPercentMatch = suggestion.match(/opacity[:\s]+(\d+)\s*%/i);
+  const opacityDecimalMatch = suggestion.match(/opacity[:\s]+(0\.\d+)/i);
+  if (opacityPercentMatch) result.opacity = parseInt(opacityPercentMatch[1]) / 100;
+  else if (opacityDecimalMatch) result.opacity = parseFloat(opacityDecimalMatch[1]);
+  
+  // Parse font size
+  const fontSizeMatch = suggestion.match(/font[- ]?size[:\s]+(\d+)\s*px/i);
+  if (fontSizeMatch) result.fontSize = parseInt(fontSizeMatch[1]);
+  
+  // Parse dimensions
+  const widthMatch = suggestion.match(/width[:\s]+(\d+)\s*px/i);
+  const heightMatch = suggestion.match(/height[:\s]+(\d+)\s*px/i);
+  if (widthMatch) result.width = parseInt(widthMatch[1]);
+  if (heightMatch) result.height = parseInt(heightMatch[1]);
+  
+  // Parse hex color
+  const hexMatch = suggestion.match(/#([0-9a-f]{6})/i);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    result.color = {
+      r: parseInt(hex.substring(0, 2), 16) / 255,
+      g: parseInt(hex.substring(2, 4), 16) / 255,
+      b: parseInt(hex.substring(4, 6), 16) / 255
+    };
+  }
+  
+  // Parse visibility
+  if (lowerSuggestion.includes('hide') || lowerSuggestion.includes('hidden') || lowerSuggestion.includes('remove')) {
+    result.visible = false;
+  } else if (lowerSuggestion.includes('show') || lowerSuggestion.includes('visible')) {
+    result.visible = true;
+  }
+  
+  return result;
+}
+
+// Apply a suggestion to a node with comprehensive design changes
+async function applySuggestionToNode(nodeId: string | undefined, location: string | undefined, suggestion: string, title?: string): Promise<{ success: boolean; applied: string[] }> {
+  const appliedChanges: string[] = [];
+  
   try {
     let targetNode: SceneNode | null = null;
     
-    // Try to find the node
+    // Try to find the node by ID
     if (nodeId) {
       targetNode = findNodeById(nodeId);
     }
+    // Try by location/name
     if (!targetNode && location) {
       targetNode = findNodeByName(location);
     }
+    // Use first selected node as fallback
     if (!targetNode && figma.currentPage.selection.length > 0) {
       targetNode = figma.currentPage.selection[0];
     }
     
     if (!targetNode) {
-      figma.notify('⚠️ Could not find target element');
-      return false;
+      figma.notify('⚠️ Could not find target element. Select it first.');
+      return { success: false, applied: [] };
     }
     
-    // Parse the suggestion and try to apply common fixes
+    // Parse all design values from suggestion
+    const values = parseDesignValues(suggestion);
     const lowerSuggestion = suggestion.toLowerCase();
+    const lowerTitle = (title || '').toLowerCase();
     
-    // Apply padding fixes
-    if (lowerSuggestion.includes('padding') && 'paddingLeft' in targetNode) {
+    // Apply visibility changes
+    if (values.visible !== undefined) {
+      targetNode.visible = values.visible;
+      appliedChanges.push(`visibility: ${values.visible ? 'shown' : 'hidden'}`);
+    }
+    
+    // Apply padding (for frames/components)
+    if (values.padding && 'paddingLeft' in targetNode) {
       const frameNode = targetNode as FrameNode;
-      const paddingMatch = suggestion.match(/(\d+)\s*px/);
-      if (paddingMatch) {
-        const padding = parseInt(paddingMatch[1]);
-        frameNode.paddingLeft = padding;
-        frameNode.paddingRight = padding;
-        frameNode.paddingTop = padding;
-        frameNode.paddingBottom = padding;
-        figma.notify(`✅ Applied padding: ${padding}px`);
-        return true;
+      if (values.padding.all !== undefined) {
+        frameNode.paddingLeft = values.padding.all;
+        frameNode.paddingRight = values.padding.all;
+        frameNode.paddingTop = values.padding.all;
+        frameNode.paddingBottom = values.padding.all;
+        appliedChanges.push(`padding: ${values.padding.all}px`);
+      } else {
+        if (values.padding.top !== undefined) frameNode.paddingTop = values.padding.top;
+        if (values.padding.right !== undefined) frameNode.paddingRight = values.padding.right;
+        if (values.padding.bottom !== undefined) frameNode.paddingBottom = values.padding.bottom;
+        if (values.padding.left !== undefined) frameNode.paddingLeft = values.padding.left;
+        appliedChanges.push(`padding: ${values.padding.top || 0} ${values.padding.right || 0} ${values.padding.bottom || 0} ${values.padding.left || 0}`);
       }
     }
     
-    // Apply spacing fixes
-    if (lowerSuggestion.includes('spacing') && 'itemSpacing' in targetNode) {
+    // Apply item spacing (for auto-layout frames)
+    if (values.spacing !== undefined && 'itemSpacing' in targetNode) {
       const frameNode = targetNode as FrameNode;
-      const spacingMatch = suggestion.match(/(\d+)\s*px/);
-      if (spacingMatch) {
-        frameNode.itemSpacing = parseInt(spacingMatch[1]);
-        figma.notify(`✅ Applied spacing: ${spacingMatch[1]}px`);
-        return true;
+      frameNode.itemSpacing = values.spacing;
+      appliedChanges.push(`spacing: ${values.spacing}px`);
+    }
+    
+    // Apply corner radius
+    if (values.cornerRadius !== undefined && 'cornerRadius' in targetNode) {
+      (targetNode as any).cornerRadius = values.cornerRadius;
+      appliedChanges.push(`corner-radius: ${values.cornerRadius}px`);
+    }
+    
+    // Apply opacity
+    if (values.opacity !== undefined && 'opacity' in targetNode) {
+      targetNode.opacity = values.opacity;
+      appliedChanges.push(`opacity: ${Math.round(values.opacity * 100)}%`);
+    }
+    
+    // Apply dimensions
+    if (values.width !== undefined && 'resize' in targetNode) {
+      const resizeNode = targetNode as FrameNode;
+      resizeNode.resize(values.width, resizeNode.height);
+      appliedChanges.push(`width: ${values.width}px`);
+    }
+    if (values.height !== undefined && 'resize' in targetNode) {
+      const resizeNode = targetNode as FrameNode;
+      resizeNode.resize(resizeNode.width, values.height);
+      appliedChanges.push(`height: ${values.height}px`);
+    }
+    
+    // Apply fill color
+    if (values.color && 'fills' in targetNode) {
+      const fillableNode = targetNode as GeometryMixin;
+      fillableNode.fills = [{ type: 'SOLID', color: values.color }];
+      appliedChanges.push(`fill color applied`);
+    }
+    
+    // Apply font size (for text nodes)
+    if (values.fontSize !== undefined && targetNode.type === 'TEXT') {
+      const textNode = targetNode as TextNode;
+      try {
+        await figma.loadFontAsync(textNode.fontName as FontName);
+        textNode.fontSize = values.fontSize;
+        appliedChanges.push(`font-size: ${values.fontSize}px`);
+      } catch (e) {
+        console.error('Font load failed:', e);
       }
     }
     
-    // Apply corner radius fixes
-    if (lowerSuggestion.includes('corner') || lowerSuggestion.includes('radius')) {
-      if ('cornerRadius' in targetNode) {
-        const radiusMatch = suggestion.match(/(\d+)\s*px/);
-        if (radiusMatch) {
-          (targetNode as any).cornerRadius = parseInt(radiusMatch[1]);
-          figma.notify(`✅ Applied corner radius: ${radiusMatch[1]}px`);
-          return true;
+    // Handle text-related suggestions for TEXT nodes
+    if (targetNode.type === 'TEXT') {
+      const textNode = targetNode as TextNode;
+      
+      // Rename/change text content
+      const renameMatch = suggestion.match(/rename[d]?\s+(?:to\s+)?['"]([^'"]+)['"]/i) ||
+                          suggestion.match(/change\s+(?:to\s+)?['"]([^'"]+)['"]/i) ||
+                          suggestion.match(/update\s+(?:to\s+)?['"]([^'"]+)['"]/i) ||
+                          suggestion.match(/replace\s+(?:with\s+)?['"]([^'"]+)['"]/i);
+      if (renameMatch) {
+        try {
+          await figma.loadFontAsync(textNode.fontName as FontName);
+          textNode.characters = renameMatch[1];
+          appliedChanges.push(`text: "${renameMatch[1]}"`);
+        } catch (e) {
+          console.error('Text update failed:', e);
+        }
+      }
+      
+      // Handle alignment suggestions
+      if (lowerSuggestion.includes('align') || lowerSuggestion.includes('center')) {
+        try {
+          await figma.loadFontAsync(textNode.fontName as FontName);
+          if (lowerSuggestion.includes('center')) {
+            textNode.textAlignHorizontal = 'CENTER';
+            appliedChanges.push('text-align: center');
+          } else if (lowerSuggestion.includes('left')) {
+            textNode.textAlignHorizontal = 'LEFT';
+            appliedChanges.push('text-align: left');
+          } else if (lowerSuggestion.includes('right')) {
+            textNode.textAlignHorizontal = 'RIGHT';
+            appliedChanges.push('text-align: right');
+          }
+        } catch (e) {
+          console.error('Alignment failed:', e);
         }
       }
     }
     
-    // Apply opacity fixes
-    if (lowerSuggestion.includes('opacity') && 'opacity' in targetNode) {
-      const opacityMatch = suggestion.match(/(\d+(?:\.\d+)?)\s*%?/) || suggestion.match(/0\.\d+/);
-      if (opacityMatch) {
-        let opacity = parseFloat(opacityMatch[1]);
-        if (opacity > 1) opacity = opacity / 100;
-        targetNode.opacity = opacity;
-        figma.notify(`✅ Applied opacity: ${Math.round(opacity * 100)}%`);
-        return true;
+    // Handle auto-layout suggestions
+    if ('layoutMode' in targetNode && lowerSuggestion.includes('auto-layout')) {
+      const frameNode = targetNode as FrameNode;
+      if (lowerSuggestion.includes('horizontal') || lowerSuggestion.includes('row')) {
+        frameNode.layoutMode = 'HORIZONTAL';
+        appliedChanges.push('layout: horizontal');
+      } else if (lowerSuggestion.includes('vertical') || lowerSuggestion.includes('column')) {
+        frameNode.layoutMode = 'VERTICAL';
+        appliedChanges.push('layout: vertical');
       }
     }
     
-    // Apply font size fixes for text nodes
-    if (lowerSuggestion.includes('font') && targetNode.type === 'TEXT') {
-      const textNode = targetNode as TextNode;
-      const sizeMatch = suggestion.match(/(\d+)\s*px/);
-      if (sizeMatch) {
-        await figma.loadFontAsync(textNode.fontName as FontName);
-        textNode.fontSize = parseInt(sizeMatch[1]);
-        figma.notify(`✅ Applied font size: ${sizeMatch[1]}px`);
-        return true;
+    // Handle alignment in auto-layout
+    if ('primaryAxisAlignItems' in targetNode) {
+      const frameNode = targetNode as FrameNode;
+      if (lowerSuggestion.includes('center') && lowerSuggestion.includes('align')) {
+        frameNode.primaryAxisAlignItems = 'CENTER';
+        frameNode.counterAxisAlignItems = 'CENTER';
+        appliedChanges.push('alignment: centered');
       }
     }
     
-    // If no specific fix was applied, add a note
-    figma.notify('ℹ️ Suggestion noted - manual review recommended');
-    return true;
+    // If we made changes, notify and return success
+    if (appliedChanges.length > 0) {
+      figma.notify(`✅ Applied: ${appliedChanges.join(', ')}`);
+      return { success: true, applied: appliedChanges };
+    }
+    
+    // If no structured values found, try to interpret common phrases
+    if (lowerSuggestion.includes('increase') || lowerSuggestion.includes('larger') || lowerSuggestion.includes('bigger')) {
+      // Try to increase common properties by 20%
+      if ('paddingLeft' in targetNode) {
+        const frameNode = targetNode as FrameNode;
+        const increase = Math.max(4, Math.round(frameNode.paddingLeft * 0.2));
+        frameNode.paddingLeft += increase;
+        frameNode.paddingRight += increase;
+        frameNode.paddingTop += increase;
+        frameNode.paddingBottom += increase;
+        appliedChanges.push(`increased padding by ${increase}px`);
+      } else if (targetNode.type === 'TEXT') {
+        const textNode = targetNode as TextNode;
+        if (textNode.fontSize !== figma.mixed) {
+          await figma.loadFontAsync(textNode.fontName as FontName);
+          const newSize = Math.round((textNode.fontSize as number) * 1.2);
+          textNode.fontSize = newSize;
+          appliedChanges.push(`font-size: ${newSize}px`);
+        }
+      }
+    }
+    
+    if (lowerSuggestion.includes('decrease') || lowerSuggestion.includes('smaller') || lowerSuggestion.includes('reduce')) {
+      if ('paddingLeft' in targetNode) {
+        const frameNode = targetNode as FrameNode;
+        const decrease = Math.max(2, Math.round(frameNode.paddingLeft * 0.2));
+        frameNode.paddingLeft = Math.max(0, frameNode.paddingLeft - decrease);
+        frameNode.paddingRight = Math.max(0, frameNode.paddingRight - decrease);
+        frameNode.paddingTop = Math.max(0, frameNode.paddingTop - decrease);
+        frameNode.paddingBottom = Math.max(0, frameNode.paddingBottom - decrease);
+        appliedChanges.push(`decreased padding by ${decrease}px`);
+      } else if (targetNode.type === 'TEXT') {
+        const textNode = targetNode as TextNode;
+        if (textNode.fontSize !== figma.mixed) {
+          await figma.loadFontAsync(textNode.fontName as FontName);
+          const newSize = Math.max(8, Math.round((textNode.fontSize as number) * 0.8));
+          textNode.fontSize = newSize;
+          appliedChanges.push(`font-size: ${newSize}px`);
+        }
+      }
+    }
+    
+    if (appliedChanges.length > 0) {
+      figma.notify(`✅ Applied: ${appliedChanges.join(', ')}`);
+      return { success: true, applied: appliedChanges };
+    }
+    
+    // No changes could be applied automatically
+    figma.notify('ℹ️ This suggestion requires manual review - selecting element');
+    figma.currentPage.selection = [targetNode];
+    figma.viewport.scrollAndZoomIntoView([targetNode]);
+    return { success: true, applied: ['focused element for manual edit'] };
     
   } catch (error) {
     console.error('Error applying suggestion:', error);
-    return false;
+    figma.notify('❌ Error applying suggestion: ' + (error as Error).message);
+    return { success: false, applied: [] };
   }
 }
 
@@ -371,16 +581,18 @@ figma.ui.onmessage = async (msg: any) => {
   }
 
   if (msg.type === 'apply-suggestion') {
-    const success = await applySuggestionToNode(
+    const result = await applySuggestionToNode(
       msg.nodeId,
       msg.location,
-      msg.suggestion
+      msg.suggestion,
+      msg.title
     );
     figma.ui.postMessage({
       type: 'apply-complete',
-      success,
+      success: result.success,
       itemId: msg.itemId,
-      error: success ? null : 'Failed to apply suggestion'
+      appliedChanges: result.applied,
+      error: result.success ? null : 'Failed to apply suggestion'
     });
   }
 
