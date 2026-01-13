@@ -338,6 +338,13 @@
       padding: 12px;
       margin-bottom: 8px;
       border-left: 3px solid #ddd;
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.1s;
+    }
+    
+    .feedback-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transform: translateX(2px);
     }
     
     .feedback-item:last-child {
@@ -1018,23 +1025,26 @@
     function renderFeedbackItem(item) {
       const isCommented = commentedItems.has(item.id);
       const isApplied = appliedItems.has(item.id);
+      const escapedId = escapeHtml(item.id);
       
       return `
-        <div class="feedback-item ${item.severity || 'low'}">
+        <div class="feedback-item ${item.severity || 'low'}" onclick="focusNode('${escapedId}')">
           <div class="feedback-title">${escapeHtml(item.title)}</div>
           <div class="feedback-desc">${escapeHtml(item.description)}</div>
+          ${item.suggestion ? `<div class="feedback-desc" style="margin-top: 6px; color: #0066cc; font-style: italic;">💡 ${escapeHtml(item.suggestion)}</div>` : ''}
           <div class="feedback-meta">
             <span class="feedback-category">${item.category || 'general'}</span>
             <span class="feedback-severity ${item.severity || 'low'}">${item.severity || 'low'}</span>
-            ${item.location ? `<span style="color: #888">${escapeHtml(item.location)}</span>` : ''}
+            ${item.location ? `<span style="color: #888">📍 ${escapeHtml(item.location)}</span>` : ''}
+            ${item.nodeId ? `<span style="color: #0d99ff; font-size: 9px;">🔗 Click to focus</span>` : ''}
           </div>
-          <div class="feedback-actions">
+          <div class="feedback-actions" onclick="event.stopPropagation()">
             <button class="btn btn-small ${isCommented ? 'btn-applied' : 'btn-comment'}" 
-                    onclick="postComment('${item.id}')" ${isCommented ? 'disabled' : ''}>
+                    onclick="event.stopPropagation(); postComment('${escapedId}')" ${isCommented ? 'disabled' : ''}>
               ${isCommented ? '✓ Commented' : '💬 Drop Comment'}
             </button>
             <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}" 
-                    onclick="applySuggestion('${item.id}')" ${isApplied ? 'disabled' : ''}>
+                    onclick="event.stopPropagation(); applySuggestion('${escapedId}')" ${isApplied ? 'disabled' : ''}>
               ${isApplied ? '✓ Applied' : '✨ Apply'}
             </button>
           </div>
@@ -1058,14 +1068,17 @@
     
     function postComment(itemId) {
       const item = analysisResults.find(f => f.id === itemId);
-      if (!item) return;
+      if (!item) {
+        showToast('Could not find feedback item', 'error');
+        return;
+      }
       
       parent.postMessage({ 
         pluginMessage: { 
           type: 'post-comment',
           itemId: itemId,
           title: item.title,
-          description: item.description,
+          description: item.description + (item.suggestion ? '\n\n💡 Suggestion: ' + item.suggestion : ''),
           severity: item.severity,
           location: item.location,
           nodeId: item.nodeId
@@ -1075,7 +1088,10 @@
     
     function applySuggestion(itemId) {
       const item = analysisResults.find(f => f.id === itemId);
-      if (!item) return;
+      if (!item) {
+        showToast('Could not find feedback item', 'error');
+        return;
+      }
       
       parent.postMessage({ 
         pluginMessage: { 
@@ -1084,6 +1100,19 @@
           title: item.title,
           description: item.description,
           suggestion: item.suggestion || item.description,
+          nodeId: item.nodeId,
+          location: item.location
+        } 
+      }, '*');
+    }
+    
+    function focusNode(itemId) {
+      const item = analysisResults.find(f => f.id === itemId);
+      if (!item) return;
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'focus-node',
           nodeId: item.nodeId,
           location: item.location
         } 

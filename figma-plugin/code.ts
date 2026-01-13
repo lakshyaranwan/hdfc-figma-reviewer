@@ -384,6 +384,29 @@ figma.ui.onmessage = async (msg: any) => {
     });
   }
 
+  if (msg.type === 'focus-node') {
+    let targetNode: SceneNode | null = null;
+    
+    // Try to find the node by ID first
+    if (msg.nodeId) {
+      targetNode = findNodeById(msg.nodeId);
+    }
+    
+    // If not found, try by location/name
+    if (!targetNode && msg.location) {
+      targetNode = findNodeByName(msg.location);
+    }
+    
+    if (targetNode) {
+      // Select and zoom to the node
+      figma.currentPage.selection = [targetNode];
+      figma.viewport.scrollAndZoomIntoView([targetNode]);
+      figma.notify(`🎯 Focused on: ${targetNode.name}`);
+    } else {
+      figma.notify('⚠️ Could not find the element. It may have been deleted or renamed.');
+    }
+  }
+
   if (msg.type === 'notify') {
     figma.notify(msg.message);
   }
