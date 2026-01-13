@@ -1046,6 +1046,7 @@
       if (msg.type === 'selection-data') {
         selectionData = msg.data;
         updateSelectionUI();
+        handleSelectionReceived(msg.data);
       }
       
       if (msg.type === 'analyze-data') {
@@ -1127,8 +1128,17 @@
     }
     
     function requestSelection() {
-      // Request the current selection from Figma
+      // Request the current selection from Figma - only captures on click
       parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
+    }
+    
+    // Handle selection data received from plugin
+    function handleSelectionReceived(data) {
+      if (data.hasSelection) {
+        showToast(`Selected: ${data.nodes.length} item${data.nodes.length > 1 ? 's' : ''}`, 'success');
+      } else {
+        showToast('No frame selected. Select a frame in Figma first.', 'error');
+      }
     }
     
     function showError(message) {
