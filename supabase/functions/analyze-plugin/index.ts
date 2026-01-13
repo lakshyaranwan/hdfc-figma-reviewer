@@ -12,6 +12,8 @@ interface FeedbackItem {
   description: string;
   severity: "low" | "medium" | "high";
   location?: string;
+  nodeId?: string;
+  suggestion?: string;
 }
 
 serve(async (req) => {
@@ -20,12 +22,14 @@ serve(async (req) => {
   }
 
   try {
-    const { designData, prompt, fileName, pageName } = await req.json();
+    const { designData, prompt, categories, isCustom, fileName, pageName } = await req.json();
     
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
     console.log("Page:", pageName);
     console.log("Nodes to analyze:", designData?.length || 0);
+    console.log("Categories:", categories);
+    console.log("Is custom prompt:", isCustom);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
@@ -37,42 +41,112 @@ serve(async (req) => {
       throw new Error("No design data provided. Please select a frame in Figma.");
     }
 
-    // Build the analysis prompt
+    // Build the analysis prompt - matching webapp logic
     const designContext = JSON.stringify(designData, null, 2);
     
-    const systemPrompt = `You are an expert UX/UI designer providing professional design feedback. 
-You are analyzing design data extracted directly from a Figma plugin.
+    // Map category IDs to labels (matching webapp)
+    const categoryLabels: Record<string, string> = {
+      consistency: "Consistency across flows regarding UI",
+      ux: "UX Review",
+      ui: "UI Review",
+      accessibility: "Accessibility Issues",
+      design_system: "Design System Adherence",
+      ux_writing: "Typos & Inconsistent UX Writing",
+      high_level: "High Level Review About and the Why? Questioning the basics.",
+    };
+
+    // Determine allowed categories
+    let allowedCategories = categories || ["ux", "ui", "consistency"];
+    if (isCustom) {
+      allowedCategories = ["ux", "ui", "consistency", "accessibility", "design_system", "ux_writing", "high_level", "improvement"];
+    }
+
+    const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
+
+    const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
 CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
 Do not include markdown code blocks, explanations, or any text outside the JSON array.
 Start your response with [ and end with ].`;
 
-    const analysisPrompt = `Analyze this Figma design structure and provide detailed feedback.
+    const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
 
-Design Data (extracted from Figma):
+Design Structure from Figma Plugin (with node IDs):
 ${designContext}
 
-User's Request: ${prompt}
+File: ${fileName}
+Page: ${pageName}
 
-For each issue found, provide feedback in this JSON format:
+CRITICAL NODE ID INSTRUCTIONS:
+- You MUST use the EXACT node IDs from the design data above
+- Choose the MOST SPECIFIC node ID for each piece of feedback
+- For a button issue, use the button's node ID, NOT its parent frame
+- Include the nodeId field for every feedback item`;
+
+    const formatInstructions = `
+For each issue found, provide:
+- A clear, actionable title (NO technical IDs or brackets)
+- Detailed description of the issue AND specific actionable suggestions on how to fix it
+- Severity (low, medium, high)
+- The EXACT node ID from the design data for the specific element
+- Component/frame name (user-friendly name only)
+- A concrete suggestion field with the fix
+
+CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
+Only use these exact category values: ${categoryOptions}
+
+CRITICAL BALANCE & LIMIT REQUIREMENT:
+- Provide UP TO 20 feedback items per category (max 20 per category)
+- Distribute feedback EVENLY across ALL requested categories
+- For ${allowedCategories.length} categories, aim for approximately ${Math.min(20, Math.floor(80 / allowedCategories.length))} items per category
+- Do NOT skip any category
+
+Format your response as a JSON array with this structure:
 [{
-  "category": "ux" | "ui" | "consistency" | "accessibility" | "typography" | "ux_writing",
-  "title": "Clear, actionable issue title",
-  "description": "Detailed description with specific suggestions for improvement",
+  "category": ${categoryOptions},
+  "title": "Issue title (clean, no IDs)",
+  "description": "Detailed description with explanation (clean, no IDs)",
+  "suggestion": "Specific actionable fix with exact values when possible (e.g., 'Increase padding to 16px')",
   "severity": "low" | "medium" | "high",
-  "location": "Component or element name where the issue was found"
+  "location": "User-friendly component name (e.g., 'Login Button')",
+  "nodeId": "exact_node_id_from_design_data"
 }]
 
-Guidelines:
-- Focus on actionable, specific feedback
-- Reference actual element names from the design data
-- Prioritize high-impact issues
-- Include concrete suggestions for each issue
-- Be thorough but concise
-- Consider colors, spacing, typography, layout, and hierarchy
-- Check for accessibility issues (contrast, touch targets, etc.)
-- Look for inconsistencies in the design
+CRITICAL: 
+- NEVER include technical IDs like [123:456] in title or description
+- Always include the nodeId field with the exact ID from the design data
+- For the location field, use ONLY user-friendly names
+- The suggestion field should contain specific, actionable fixes
+- Keep all user-facing text clean and readable
+- For EACH issue, include specific suggestions on how to fix it
 
-Provide 5-15 feedback items based on the complexity of the design.`;
+${allowedCategories.includes("consistency") ? `
+SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
+- Compare ALL elements for inconsistent patterns
+- Look for text variations (e.g., "Send Money" vs "Send Money2")
+- Check for inconsistent heading styles, button labels, spacing
+- Flag ALL instances of inconsistency
+` : ""}
+
+${allowedCategories.includes("ux_writing") ? `
+SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
+- Scan ALL text content thoroughly
+- Check EVERY button label, heading, paragraph, placeholder
+- Look for typos, spelling errors, grammatical mistakes
+- Identify inconsistent terminology
+- Be comprehensive - catch ALL text issues
+` : ""}
+
+${allowedCategories.includes("accessibility") ? `
+SPECIAL INSTRUCTIONS FOR ACCESSIBILITY REVIEW:
+- Check color contrast ratios
+- Verify touch target sizes (minimum 44x44px)
+- Look for missing labels on interactive elements
+- Check text readability and font sizes
+` : ""}`;
+
+    const analysisPrompt = isCustom
+      ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
+      : `${baseContext}\n\n${prompt}\n${formatInstructions}`;
 
     console.log("Sending to AI for analysis...");
     
@@ -83,12 +157,12 @@ Provide 5-15 feedback items based on the complexity of the design.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: analysisPrompt },
         ],
-        max_tokens: 8000,
+        max_tokens: 16000,
       }),
     });
 
@@ -124,7 +198,7 @@ Provide 5-15 feedback items based on the complexity of the design.`;
     // Parse the JSON response
     let feedback: FeedbackItem[];
     try {
-      // Clean up the response - remove markdown code blocks if present
+      // Clean up the response
       let cleanContent = content.trim();
       if (cleanContent.startsWith("```json")) {
         cleanContent = cleanContent.slice(7);
@@ -146,6 +220,14 @@ Provide 5-15 feedback items based on the complexity of the design.`;
       throw new Error("Failed to parse AI analysis results");
     }
 
+    // Limit to 20 items per category
+    const categoryCount: Record<string, number> = {};
+    feedback = feedback.filter(item => {
+      const cat = item.category || 'general';
+      categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+      return categoryCount[cat] <= 20;
+    });
+
     // Add IDs to feedback items
     feedback = feedback.map((item, index) => ({
       ...item,
@@ -153,17 +235,22 @@ Provide 5-15 feedback items based on the complexity of the design.`;
     }));
 
     console.log(`Analysis complete: ${feedback.length} feedback items`);
+    console.log("Category distribution:", categoryCount);
+
+    // Calculate summary
+    const summary = {
+      total: feedback.length,
+      high: feedback.filter(f => f.severity === "high").length,
+      medium: feedback.filter(f => f.severity === "medium").length,
+      low: feedback.filter(f => f.severity === "low").length,
+      byCategory: categoryCount,
+    };
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         feedback,
-        summary: {
-          total: feedback.length,
-          high: feedback.filter(f => f.severity === "high").length,
-          medium: feedback.filter(f => f.severity === "medium").length,
-          low: feedback.filter(f => f.severity === "low").length,
-        }
+        summary
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

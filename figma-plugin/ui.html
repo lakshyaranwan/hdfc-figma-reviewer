@@ -163,6 +163,39 @@
       background: #e5e5e5;
     }
     
+    .btn-small {
+      width: auto;
+      padding: 6px 10px;
+      font-size: 10px;
+      border-radius: 4px;
+    }
+    
+    .btn-comment {
+      background: #f0f4ff;
+      color: #0066cc;
+      border: 1px solid #cce0ff;
+    }
+    
+    .btn-comment:hover {
+      background: #e0ebff;
+    }
+    
+    .btn-apply {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+    
+    .btn-apply:hover {
+      background: #dcfce7;
+    }
+    
+    .btn-applied {
+      background: #22c55e;
+      color: white;
+      border: none;
+    }
+    
     .loading {
       display: none;
       text-align: center;
@@ -201,12 +234,114 @@
       display: block;
     }
     
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .sort-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    
+    .sort-btn {
+      padding: 4px 8px;
+      font-size: 10px;
+      border: 1px solid #ddd;
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .sort-btn.active {
+      background: #0d99ff;
+      color: white;
+      border-color: #0d99ff;
+    }
+    
+    .filter-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px;
+      background: #f5f5f5;
+      border-radius: 6px;
+    }
+    
+    .filter-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    
+    .category-section {
+      margin-bottom: 16px;
+    }
+    
+    .category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: #f5f5f5;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      border: 1px solid #e5e5e5;
+      border-bottom: none;
+    }
+    
+    .category-header:hover {
+      background: #eee;
+    }
+    
+    .category-header.collapsed {
+      border-radius: 8px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    
+    .category-title {
+      font-weight: 600;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .category-count {
+      background: #e5e5e5;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    
+    .category-content {
+      border: 1px solid #e5e5e5;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      padding: 8px;
+    }
+    
+    .category-content.hidden {
+      display: none;
+    }
+    
     .feedback-item {
       background: #f9f9f9;
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 8px;
       border-left: 3px solid #ddd;
+    }
+    
+    .feedback-item:last-child {
+      margin-bottom: 0;
     }
     
     .feedback-item.high {
@@ -242,6 +377,8 @@
       gap: 8px;
       margin-top: 8px;
       font-size: 10px;
+      flex-wrap: wrap;
+      align-items: center;
     }
     
     .feedback-category {
@@ -271,6 +408,12 @@
     .feedback-severity.low {
       background: #dcfce7;
       color: #16a34a;
+    }
+    
+    .feedback-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
     }
     
     .error {
@@ -368,8 +511,48 @@
     }
     
     .scroll-area {
-      max-height: 300px;
+      max-height: 350px;
       overflow-y: auto;
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background: #333;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      z-index: 1000;
+      display: none;
+    }
+    
+    .toast.active {
+      display: block;
+      animation: slideUp 0.3s ease;
+    }
+    
+    .toast.success {
+      background: #16a34a;
+    }
+    
+    .toast.error {
+      background: #dc2626;
+    }
+    
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .chevron {
+      transition: transform 0.2s;
+    }
+    
+    .chevron.collapsed {
+      transform: rotate(-90deg);
     }
   </style>
 </head>
@@ -388,41 +571,46 @@
   
   <div id="analysisSection">
     <div class="tabs">
-      <button class="tab active" data-tab="categories">Categories</button>
-      <button class="tab" data-tab="custom">Custom Prompt</button>
+      <button class="tab active" data-tab="categories">Simple</button>
+      <button class="tab" data-tab="custom">Manual</button>
     </div>
     
     <div class="tab-content active" id="categoriesTab">
+      <div class="section-title">Choose what to review:</div>
       <div class="categories" id="categories">
         <label class="category-chip selected">
           <input type="checkbox" value="consistency" checked>
-          <span>Consistency</span>
+          <span>Consistency across flows</span>
         </label>
         <label class="category-chip selected">
           <input type="checkbox" value="ux" checked>
-          <span>UX</span>
+          <span>UX Review</span>
         </label>
         <label class="category-chip selected">
-          <input type="checkbox" value="accessibility" checked>
+          <input type="checkbox" value="ui" checked>
+          <span>UI Review</span>
+        </label>
+        <label class="category-chip">
+          <input type="checkbox" value="accessibility">
           <span>Accessibility</span>
         </label>
         <label class="category-chip">
-          <input type="checkbox" value="ui">
-          <span>UI</span>
-        </label>
-        <label class="category-chip">
-          <input type="checkbox" value="typography">
-          <span>Typography</span>
+          <input type="checkbox" value="design_system">
+          <span>Design System</span>
         </label>
         <label class="category-chip">
           <input type="checkbox" value="ux_writing">
           <span>UX Writing</span>
         </label>
+        <label class="category-chip">
+          <input type="checkbox" value="high_level">
+          <span>High Level Review</span>
+        </label>
       </div>
     </div>
     
     <div class="tab-content" id="customTab">
-      <textarea id="customPrompt" placeholder="Enter your custom analysis prompt...&#10;&#10;Example: Check if buttons have consistent styles and proper touch targets"></textarea>
+      <textarea id="customPrompt" placeholder="Enter your custom analysis prompt...&#10;&#10;Example: Focus on mobile responsiveness and button states. Check if all CTAs are clearly visible..."></textarea>
       <div class="checkbox-row">
         <input type="checkbox" id="includeSuggestions" checked>
         <label for="includeSuggestions">Include improvement suggestions</label>
@@ -438,13 +626,31 @@
   </div>
   
   <div class="results" id="results">
-    <div class="section-title">Analysis Results</div>
+    <div class="results-header">
+      <div class="section-title">Analysis Results</div>
+      <div class="sort-controls">
+        <span style="font-size: 10px; color: #666;">Sort:</span>
+        <button class="sort-btn active" data-sort="priority">Priority</button>
+        <button class="sort-btn" data-sort="category">Category</button>
+      </div>
+    </div>
+    
     <div class="summary-stats" id="summaryStats"></div>
+    
+    <div class="filter-controls">
+      <label class="filter-toggle">
+        <input type="checkbox" id="hideLowSeverity">
+        <span>Hide low severity</span>
+      </label>
+    </div>
+    
     <div class="scroll-area">
       <div id="feedbackList"></div>
     </div>
     <button class="btn btn-primary" id="newAnalysisBtn" style="margin-top: 12px;">Analyze Again</button>
   </div>
+  
+  <div class="toast" id="toast"></div>
   
   <script>
     // Backend URL - uses your Supabase project
@@ -453,6 +659,24 @@
     
     let selectionData = null;
     let analysisResults = [];
+    let currentSort = 'priority';
+    let appliedItems = new Set();
+    let commentedItems = new Set();
+    let collapsedCategories = new Set();
+    
+    // Category config matching webapp
+    const categoryConfig = {
+      consistency: { label: 'Consistency across flows regarding UI', icon: '✓' },
+      ux: { label: 'UX Review', icon: '🎯' },
+      ui: { label: 'UI Review', icon: '⚠' },
+      accessibility: { label: 'Accessibility Issues', icon: '♿' },
+      design_system: { label: 'Design System Adherence', icon: '📐' },
+      ux_writing: { label: 'Typos & Inconsistent UX Writing', icon: '✍' },
+      high_level: { label: 'High Level Review', icon: '💡' },
+      improvement: { label: 'Improvement', icon: '✨' }
+    };
+    
+    const categoryOrder = ['consistency', 'ux', 'ui', 'accessibility', 'design_system', 'ux_writing', 'high_level', 'improvement'];
     
     // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {
@@ -473,6 +697,19 @@
       });
     });
     
+    // Sort controls
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSort = btn.dataset.sort;
+        displayResults();
+      });
+    });
+    
+    // Filter controls
+    document.getElementById('hideLowSeverity').addEventListener('change', displayResults);
+    
     // Listen for messages from plugin code
     window.onmessage = (event) => {
       const msg = event.data.pluginMessage;
@@ -484,10 +721,36 @@
       }
       
       if (msg.type === 'analyze-data') {
-        // This is triggered when we request analysis
         runAnalysis(msg.data);
       }
+      
+      if (msg.type === 'comment-posted') {
+        if (msg.success) {
+          commentedItems.add(msg.itemId);
+          showToast('Comment added to Figma!', 'success');
+          displayResults();
+        } else {
+          showToast('Failed to add comment: ' + msg.error, 'error');
+        }
+      }
+      
+      if (msg.type === 'apply-complete') {
+        if (msg.success) {
+          appliedItems.add(msg.itemId);
+          showToast('Suggestion applied!', 'success');
+          displayResults();
+        } else {
+          showToast('Failed to apply: ' + msg.error, 'error');
+        }
+      }
     };
+    
+    function showToast(message, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast active ' + type;
+      setTimeout(() => toast.classList.remove('active'), 3000);
+    }
     
     function updateSelectionUI() {
       const box = document.getElementById('selectionBox');
@@ -550,9 +813,9 @@
         let prompt = document.getElementById('customPrompt').value.trim();
         if (!prompt) return null;
         if (document.getElementById('includeSuggestions').checked) {
-          prompt += '\n\nPlease include specific improvement suggestions for each issue found.';
+          prompt += '\n\nFor each issue, provide specific actionable suggestions on how to fix it.';
         }
-        return prompt;
+        return { prompt, categories: null, isCustom: true };
       }
       
       const selectedCategories = [];
@@ -565,24 +828,19 @@
       }
       
       const categoryLabels = {
-        consistency: 'Design consistency (colors, spacing, fonts)',
-        ux: 'User experience and usability',
-        accessibility: 'Accessibility (contrast, touch targets, labels)',
-        ui: 'Visual design and aesthetics',
-        typography: 'Typography and readability',
-        ux_writing: 'UX writing and microcopy'
+        consistency: 'Consistency across flows regarding UI',
+        ux: 'UX Review',
+        ui: 'UI Review',
+        accessibility: 'Accessibility Issues',
+        design_system: 'Design System Adherence',
+        ux_writing: 'Typos & Inconsistent UX Writing',
+        high_level: 'High Level Review About and the Why? Questioning the basics.'
       };
       
       const categoryDescriptions = selectedCategories.map(c => categoryLabels[c]).join(', ');
+      const prompt = `I am a UI UX designer who lacks attention to detail and makes a lot of mistakes. Act as my manager and reviewer. Provide me feedback on the following areas: ${categoryDescriptions}. For each issue, provide specific actionable suggestions on how to fix it.`;
       
-      return `Analyze this design for the following aspects: ${categoryDescriptions}. 
-              For each issue found, provide:
-              1. A clear title
-              2. A detailed description of the problem
-              3. The severity (low, medium, high)
-              4. The category
-              5. Specific location in the design if identifiable
-              6. A concrete suggestion for improvement`;
+      return { prompt, categories: selectedCategories, isCustom: false };
     }
     
     async function analyze() {
@@ -593,21 +851,22 @@
         return;
       }
       
-      const prompt = buildPrompt();
-      if (!prompt) {
+      const promptData = buildPrompt();
+      if (!promptData) {
         showError('Please select at least one category or enter a custom prompt');
         return;
       }
       
-      // Request the latest selection data and trigger analysis
       parent.postMessage({ pluginMessage: { type: 'analyze' } }, '*');
     }
     
     async function runAnalysis(data) {
-      const prompt = buildPrompt();
-      if (!prompt) return;
+      const promptData = buildPrompt();
+      if (!promptData) return;
       
       showLoading(true);
+      appliedItems.clear();
+      commentedItems.clear();
       
       try {
         const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
@@ -618,7 +877,9 @@
           },
           body: JSON.stringify({
             designData: data.nodes,
-            prompt: prompt,
+            prompt: promptData.prompt,
+            categories: promptData.categories,
+            isCustom: promptData.isCustom,
             fileName: data.fileName,
             pageName: data.pageName
           })
@@ -649,10 +910,16 @@
       const feedbackList = document.getElementById('feedbackList');
       const summaryStats = document.getElementById('summaryStats');
       const analysisSection = document.getElementById('analysisSection');
+      const hideLow = document.getElementById('hideLowSeverity').checked;
       
       analysisSection.style.display = 'none';
       
-      if (analysisResults.length === 0) {
+      // Filter
+      let filteredResults = hideLow 
+        ? analysisResults.filter(f => f.severity !== 'low')
+        : [...analysisResults];
+      
+      if (filteredResults.length === 0 && analysisResults.length === 0) {
         feedbackList.innerHTML = '<div style="text-align: center; color: #22c55e; padding: 20px;">✅ No issues found! Your design looks great.</div>';
         summaryStats.innerHTML = '';
         resultsEl.classList.add('active');
@@ -677,34 +944,158 @@
           <div class="stat-value" style="color: #16a34a">${lowCount}</div>
           <div class="stat-label">Low</div>
         </div>
+        <div class="stat">
+          <div class="stat-value">${filteredResults.length}</div>
+          <div class="stat-label">Showing</div>
+        </div>
       `;
       
-      // Sort by severity
-      const severityOrder = { high: 0, medium: 1, low: 2 };
-      const sortedResults = [...analysisResults].sort((a, b) => 
-        (severityOrder[a.severity] || 2) - (severityOrder[b.severity] || 2)
-      );
+      if (currentSort === 'priority') {
+        // Sort by severity
+        const severityOrder = { high: 0, medium: 1, low: 2 };
+        filteredResults.sort((a, b) => 
+          (severityOrder[a.severity] || 2) - (severityOrder[b.severity] || 2)
+        );
+        
+        feedbackList.innerHTML = filteredResults.map(item => renderFeedbackItem(item)).join('');
+      } else {
+        // Group by category
+        const grouped = {};
+        filteredResults.forEach(item => {
+          const cat = item.category || 'general';
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push(item);
+        });
+        
+        let html = '';
+        categoryOrder.forEach(cat => {
+          if (grouped[cat] && grouped[cat].length > 0) {
+            const config = categoryConfig[cat] || { label: cat, icon: '📋' };
+            const isCollapsed = collapsedCategories.has(cat);
+            html += `
+              <div class="category-section">
+                <div class="category-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCategory('${cat}')">
+                  <span class="category-title">
+                    <span>${config.icon}</span>
+                    <span>${config.label}</span>
+                  </span>
+                  <span class="category-count">${grouped[cat].length}</span>
+                </div>
+                <div class="category-content ${isCollapsed ? 'hidden' : ''}">
+                  ${grouped[cat].map(item => renderFeedbackItem(item)).join('')}
+                </div>
+              </div>
+            `;
+          }
+        });
+        
+        // Handle unknown categories
+        Object.keys(grouped).forEach(cat => {
+          if (!categoryOrder.includes(cat)) {
+            html += `
+              <div class="category-section">
+                <div class="category-header" onclick="toggleCategory('${cat}')">
+                  <span class="category-title">
+                    <span>📋</span>
+                    <span>${cat}</span>
+                  </span>
+                  <span class="category-count">${grouped[cat].length}</span>
+                </div>
+                <div class="category-content">
+                  ${grouped[cat].map(item => renderFeedbackItem(item)).join('')}
+                </div>
+              </div>
+            `;
+          }
+        });
+        
+        feedbackList.innerHTML = html;
+      }
       
-      // Feedback items
-      feedbackList.innerHTML = sortedResults.map(item => `
+      resultsEl.classList.add('active');
+    }
+    
+    function renderFeedbackItem(item) {
+      const isCommented = commentedItems.has(item.id);
+      const isApplied = appliedItems.has(item.id);
+      
+      return `
         <div class="feedback-item ${item.severity || 'low'}">
-          <div class="feedback-title">${item.title}</div>
-          <div class="feedback-desc">${item.description}</div>
+          <div class="feedback-title">${escapeHtml(item.title)}</div>
+          <div class="feedback-desc">${escapeHtml(item.description)}</div>
           <div class="feedback-meta">
             <span class="feedback-category">${item.category || 'general'}</span>
             <span class="feedback-severity ${item.severity || 'low'}">${item.severity || 'low'}</span>
-            ${item.location ? `<span style="color: #888">${item.location}</span>` : ''}
+            ${item.location ? `<span style="color: #888">${escapeHtml(item.location)}</span>` : ''}
+          </div>
+          <div class="feedback-actions">
+            <button class="btn btn-small ${isCommented ? 'btn-applied' : 'btn-comment'}" 
+                    onclick="postComment('${item.id}')" ${isCommented ? 'disabled' : ''}>
+              ${isCommented ? '✓ Commented' : '💬 Drop Comment'}
+            </button>
+            <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}" 
+                    onclick="applySuggestion('${item.id}')" ${isApplied ? 'disabled' : ''}>
+              ${isApplied ? '✓ Applied' : '✨ Apply'}
+            </button>
           </div>
         </div>
-      `).join('');
+      `;
+    }
+    
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    function toggleCategory(cat) {
+      if (collapsedCategories.has(cat)) {
+        collapsedCategories.delete(cat);
+      } else {
+        collapsedCategories.add(cat);
+      }
+      displayResults();
+    }
+    
+    function postComment(itemId) {
+      const item = analysisResults.find(f => f.id === itemId);
+      if (!item) return;
       
-      resultsEl.classList.add('active');
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'post-comment',
+          itemId: itemId,
+          title: item.title,
+          description: item.description,
+          severity: item.severity,
+          location: item.location,
+          nodeId: item.nodeId
+        } 
+      }, '*');
+    }
+    
+    function applySuggestion(itemId) {
+      const item = analysisResults.find(f => f.id === itemId);
+      if (!item) return;
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'apply-suggestion',
+          itemId: itemId,
+          title: item.title,
+          description: item.description,
+          suggestion: item.suggestion || item.description,
+          nodeId: item.nodeId,
+          location: item.location
+        } 
+      }, '*');
     }
     
     function resetToAnalysis() {
       document.getElementById('results').classList.remove('active');
       document.getElementById('analysisSection').style.display = 'block';
       analysisResults = [];
+      appliedItems.clear();
+      commentedItems.clear();
     }
     
     // Event listeners
