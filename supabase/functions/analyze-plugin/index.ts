@@ -62,6 +62,7 @@ serve(async (req) => {
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
     const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
+You provide THOROUGH and COMPREHENSIVE feedback - typically 10+ issues per category.
 CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
 Do not include markdown code blocks, explanations, or any text outside the JSON array.
 Start your response with [ and end with ].`;
@@ -92,11 +93,14 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
 Only use these exact category values: ${categoryOptions}
 
-FEEDBACK GUIDELINES:
-- Provide comprehensive feedback for ALL requested categories
-- Aim for around 15-20 items per category when issues exist (soft limit)
-- Do NOT skip any category - provide thorough analysis for each
-- Focus on quality and actionable feedback
+CRITICAL VOLUME REQUIREMENT - THIS IS MANDATORY:
+- You MUST provide AT LEAST 10 feedback items per category (minimum 10 per category!)
+- Aim for 10-15 items per category - be thorough and comprehensive
+- Total feedback should be around 50-100 items depending on categories selected
+- Do NOT skip any category - provide extensive analysis for each
+- Look for EVERY possible issue, even minor ones
+- Be thorough - scan every element, every text, every spacing issue
+- If you find fewer than 10 issues in a category, look harder - there are always improvements to be made
 
 Format your response as a JSON array with this structure:
 [{
@@ -212,13 +216,11 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
       throw new Error("Failed to parse AI analysis results");
     }
 
-    // Soft limit: ~20 items per category (allow some flexibility)
+    // Count items per category (no hard limit - show all issues)
     const categoryCount: Record<string, number> = {};
-    feedback = feedback.filter(item => {
+    feedback.forEach(item => {
       const cat = item.category || 'general';
       categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-      // Soft limit - allow up to 25 per category for flexibility
-      return categoryCount[cat] <= 25;
     });
 
     // Add IDs to feedback items
