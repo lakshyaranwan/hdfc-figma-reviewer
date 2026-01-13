@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Trash2, Check, Zap, DollarSign } from "lucide-react";
+import { ArrowLeft, Trash2, Check, Zap, DollarSign, Download, Puzzle } from "lucide-react";
 import hdfcLogo from "@/assets/hdfc-logo.png";
 
 const STORAGE_KEY = "hdfc_selected_api_key_id";
@@ -295,6 +295,48 @@ const Settings = () => {
       </header>
 
       <main className="container mx-auto px-6 py-8 max-w-4xl">
+        {/* Figma Plugin Download */}
+        <Card className="p-6 mb-6 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Puzzle className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+                Figma Plugin
+                <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">New</span>
+              </h2>
+              <p className="text-muted-foreground mb-4">
+                Analyze your designs directly inside Figma! Select any frame and get instant AI feedback without leaving your design tool.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <a 
+                  href="/figma-plugin.zip" 
+                  download="hdfc-design-analyzer-plugin.zip"
+                  className="inline-flex"
+                >
+                  <Button className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Download Plugin
+                  </Button>
+                </a>
+                <a 
+                  href="https://help.figma.com/hc/en-us/articles/360042786733-Import-plugins-from-the-manifest-file"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" className="gap-2">
+                    Installation Guide
+                  </Button>
+                </a>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                To install: Unzip → In Figma go to Plugins → Development → Import plugin from manifest → Select manifest.json
+              </p>
+            </div>
+          </div>
+        </Card>
+
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">AI Model Selection</h2>
           <p className="text-muted-foreground mb-6">
