@@ -589,14 +589,6 @@
           <span>UI Review</span>
         </label>
         <label class="category-chip">
-          <input type="checkbox" value="accessibility">
-          <span>Accessibility</span>
-        </label>
-        <label class="category-chip">
-          <input type="checkbox" value="design_system">
-          <span>Design System</span>
-        </label>
-        <label class="category-chip">
           <input type="checkbox" value="ux_writing">
           <span>UX Writing</span>
         </label>
@@ -666,14 +658,12 @@
       consistency: { label: 'Consistency across flows regarding UI', icon: '✓' },
       ux: { label: 'UX Review', icon: '🎯' },
       ui: { label: 'UI Review', icon: '⚠' },
-      accessibility: { label: 'Accessibility Issues', icon: '♿' },
-      design_system: { label: 'Design System Adherence', icon: '📐' },
       ux_writing: { label: 'Typos & Inconsistent UX Writing', icon: '✍' },
       high_level: { label: 'High Level Review', icon: '💡' },
       improvement: { label: 'Improvement', icon: '✨' }
     };
     
-    const categoryOrder = ['consistency', 'ux', 'ui', 'accessibility', 'design_system', 'ux_writing', 'high_level', 'improvement'];
+    const categoryOrder = ['consistency', 'ux', 'ui', 'ux_writing', 'high_level', 'improvement'];
     
     // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {

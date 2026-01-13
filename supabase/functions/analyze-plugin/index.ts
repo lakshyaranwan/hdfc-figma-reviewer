@@ -49,8 +49,6 @@ serve(async (req) => {
       consistency: "Consistency across flows regarding UI",
       ux: "UX Review",
       ui: "UI Review",
-      accessibility: "Accessibility Issues",
-      design_system: "Design System Adherence",
       ux_writing: "Typos & Inconsistent UX Writing",
       high_level: "High Level Review About and the Why? Questioning the basics.",
     };
@@ -58,7 +56,7 @@ serve(async (req) => {
     // Determine allowed categories
     let allowedCategories = categories || ["ux", "ui", "consistency"];
     if (isCustom) {
-      allowedCategories = ["ux", "ui", "consistency", "accessibility", "design_system", "ux_writing", "high_level", "improvement"];
+      allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
     }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
@@ -94,11 +92,11 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
 Only use these exact category values: ${categoryOptions}
 
-CRITICAL BALANCE & LIMIT REQUIREMENT:
-- Provide UP TO 20 feedback items per category (max 20 per category)
-- Distribute feedback EVENLY across ALL requested categories
-- For ${allowedCategories.length} categories, aim for approximately ${Math.min(20, Math.floor(80 / allowedCategories.length))} items per category
-- Do NOT skip any category
+FEEDBACK GUIDELINES:
+- Provide comprehensive feedback for ALL requested categories
+- Aim for around 15-20 items per category when issues exist (soft limit)
+- Do NOT skip any category - provide thorough analysis for each
+- Focus on quality and actionable feedback
 
 Format your response as a JSON array with this structure:
 [{
@@ -136,13 +134,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Be comprehensive - catch ALL text issues
 ` : ""}
 
-${allowedCategories.includes("accessibility") ? `
-SPECIAL INSTRUCTIONS FOR ACCESSIBILITY REVIEW:
-- Check color contrast ratios
-- Verify touch target sizes (minimum 44x44px)
-- Look for missing labels on interactive elements
-- Check text readability and font sizes
-` : ""}`;
+`;
 
     const analysisPrompt = isCustom
       ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
@@ -220,12 +212,13 @@ SPECIAL INSTRUCTIONS FOR ACCESSIBILITY REVIEW:
       throw new Error("Failed to parse AI analysis results");
     }
 
-    // Limit to 20 items per category
+    // Soft limit: ~20 items per category (allow some flexibility)
     const categoryCount: Record<string, number> = {};
     feedback = feedback.filter(item => {
       const cat = item.category || 'general';
       categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-      return categoryCount[cat] <= 20;
+      // Soft limit - allow up to 25 per category for flexibility
+      return categoryCount[cat] <= 25;
     });
 
     // Add IDs to feedback items
