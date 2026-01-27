@@ -868,6 +868,178 @@
       font-size: 13px;
       color: var(--text-secondary);
     }
+
+    /* Feedback Button */
+    .feedback-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: var(--white);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .feedback-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(8, 23, 59, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+    
+    .modal-overlay.active {
+      display: flex;
+    }
+    
+    .modal {
+      background: var(--white);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 400px;
+      box-shadow: var(--shadow-lg);
+      animation: modalIn 0.2s ease;
+    }
+    
+    @keyframes modalIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 4px;
+      line-height: 1;
+    }
+    
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+    
+    .modal-body {
+      padding: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--hdfc-primary);
+    }
+    
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--white);
+      cursor: pointer;
+    }
+    
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+    
+    .btn-cancel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    
+    .btn-cancel:hover {
+      background: var(--hdfc-surface);
+    }
+    
+    .btn-submit {
+      background: var(--hdfc-primary);
+      border: none;
+      color: var(--white);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .btn-submit:hover {
+      background: var(--hdfc-dark);
+    }
+    
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -886,6 +1058,42 @@
     <div class="header-content">
       <h1>HDFC Figma Reviewer</h1>
       <div class="header-subtitle">AI-powered design analysis</div>
+    </div>
+    <button class="feedback-btn" onclick="openFeedbackModal()">
+      💬 Feedback
+    </button>
+  </div>
+  
+  <!-- Feedback Modal -->
+  <div class="modal-overlay" id="feedbackModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Share Your Feedback</span>
+        <button class="modal-close" onclick="closeFeedbackModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Your Name</label>
+          <input type="text" class="form-input" id="feedbackName" placeholder="Enter your name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="feedbackType">
+            <option value="suggestion">💡 Suggestion</option>
+            <option value="bug">🐛 Bug Report</option>
+            <option value="feature">✨ Feature Request</option>
+            <option value="other">📝 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Feedback</label>
+          <textarea class="form-input form-textarea" id="feedbackText" placeholder="Share your thoughts, suggestions, or report issues..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeFeedbackModal()">Cancel</button>
+        <button class="btn-submit" id="submitFeedbackBtn" onclick="submitFeedback()">Submit Feedback</button>
+      </div>
     </div>
   </div>
   
@@ -1436,12 +1644,80 @@
       }, '*');
     }
     
+    // Feedback Modal Functions
+    function openFeedbackModal() {
+      document.getElementById('feedbackModal').classList.add('active');
+    }
+    
+    function closeFeedbackModal() {
+      document.getElementById('feedbackModal').classList.remove('active');
+      // Reset form
+      document.getElementById('feedbackName').value = '';
+      document.getElementById('feedbackText').value = '';
+      document.getElementById('feedbackType').value = 'suggestion';
+    }
+    
+    async function submitFeedback() {
+      const name = document.getElementById('feedbackName').value.trim();
+      const feedback = document.getElementById('feedbackText').value.trim();
+      const feedbackType = document.getElementById('feedbackType').value;
+      const submitBtn = document.getElementById('submitFeedbackBtn');
+      
+      if (!name) {
+        showToast('Please enter your name', 'error');
+        return;
+      }
+      
+      if (!feedback) {
+        showToast('Please enter your feedback', 'error');
+        return;
+      }
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+      
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            userName: name,
+            feedback: feedback,
+            feedbackType: feedbackType
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to submit feedback');
+        }
+        
+        showToast('Thank you for your feedback!', 'success');
+        closeFeedbackModal();
+      } catch (error) {
+        console.error('Feedback error:', error);
+        showToast('Failed to submit feedback. Please try again.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Feedback';
+      }
+    }
+    
     // Button events
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
     document.getElementById('newAnalysisBtn').addEventListener('click', () => {
       document.getElementById('results').classList.remove('active');
       document.getElementById('analysisSection').style.display = 'block';
       analysisResults = [];
+    });
+    
+    // Close modal on overlay click
+    document.getElementById('feedbackModal').addEventListener('click', (e) => {
+      if (e.target.id === 'feedbackModal') {
+        closeFeedbackModal();
+      }
     });
     
     // Initial UI
