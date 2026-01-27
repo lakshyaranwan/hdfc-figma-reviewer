@@ -35,6 +35,30 @@ export type Database = {
         }
         Relationships: []
       }
+      plugin_feedback: {
+        Row: {
+          created_at: string
+          feedback: string
+          feedback_type: string
+          id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          feedback: string
+          feedback_type?: string
+          id?: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          feedback?: string
+          feedback_type?: string
+          id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       shared_api_keys: {
         Row: {
           created_at: string
