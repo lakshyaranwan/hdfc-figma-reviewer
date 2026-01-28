@@ -1,4 +1,4 @@
-# Design Analyzer - Figma Plugin
+# HDFC Design Reviewer - Figma Plugin
 
 A Figma plugin that analyzes your designs using AI - **no API key required!**
 
