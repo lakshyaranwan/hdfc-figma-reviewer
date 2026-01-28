@@ -1,4 +1,4 @@
-# HDFC Design Analyzer - Figma Plugin
+# HDFC Design Reviewer - Figma Plugin
 
 ## Installation
 
