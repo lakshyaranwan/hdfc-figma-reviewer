@@ -157,9 +157,17 @@ function getSelectionData() {
   };
 }
 
-// Find a node by ID in the current page
+// Find a node by ID using Figma's direct lookup (O(1) instead of tree traversal)
 function findNodeById(nodeId: string): SceneNode | null {
-  return figma.currentPage.findOne(n => n.id === nodeId);
+  try {
+    const node = figma.getNodeById(nodeId);
+    if (node && node.type !== 'PAGE' && node.type !== 'DOCUMENT') {
+      return node as SceneNode;
+    }
+  } catch (e) {
+    // fallback silently
+  }
+  return null;
 }
 
 // Find a node by name in the selection or current page
