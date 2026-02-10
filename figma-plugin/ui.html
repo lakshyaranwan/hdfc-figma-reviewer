@@ -1621,7 +1621,10 @@
       `;
     }
     
+    let _focusDebounce = null;
     function focusNode(nodeId, location) {
+      if (_focusDebounce) return; // prevent rapid clicks
+      _focusDebounce = setTimeout(() => { _focusDebounce = null; }, 300);
       parent.postMessage({ 
         pluginMessage: { 
           type: 'focus-node', 
