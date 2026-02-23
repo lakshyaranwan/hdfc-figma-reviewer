@@ -1820,6 +1820,10 @@
       parent.postMessage({ pluginMessage: { type: 'run-accessibility-check' } }, '*');
     }
     
+    let a11yIssues = [];
+    let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
+    let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
+    
     function displayAccessibilityResults(issues, error) {
       const btn = document.getElementById('a11yRunBtn');
       btn.disabled = false;
@@ -1830,6 +1834,22 @@
         return;
       }
       
+      a11yIssues = issues;
+      renderA11yResults();
+    }
+    
+    function setA11ySort(sort) {
+      a11ySort = sort;
+      renderA11yResults();
+    }
+    
+    function setA11yFilter(filter) {
+      a11yFilter = filter;
+      renderA11yResults();
+    }
+    
+    function renderA11yResults() {
+      const issues = a11yIssues;
       const analysisSection = document.getElementById('analysisSection');
       const resultsEl = document.getElementById('results');
       const feedbackList = document.getElementById('feedbackList');
@@ -1837,22 +1857,35 @@
       
       analysisSection.style.display = 'none';
       
+      const textCount = issues.filter(i => i.type === 'text_contrast').length;
+      const iconCount = issues.filter(i => i.type === 'icon_contrast').length;
       const failCount = issues.filter(i => !i.pass).length;
       const passCount = issues.filter(i => i.pass).length;
       
       summaryStats.innerHTML = `
-        <div class="a11y-summary" style="grid-column: 1/-1; display: grid; grid-template-columns: 1fr 1fr 1fr;">
-          <div class="a11y-stat">
-            <div class="a11y-stat-val" style="color: var(--error);">${failCount}</div>
-            <div class="a11y-stat-label">Fail</div>
+        <div style="grid-column: 1/-1;">
+          <div class="a11y-summary" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='all'?1:0.5};" onclick="setA11yFilter('all')">
+              <div class="a11y-stat-val">${issues.length}</div>
+              <div class="a11y-stat-label">All</div>
+            </div>
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='fail'?1:0.5};" onclick="setA11yFilter('fail')">
+              <div class="a11y-stat-val" style="color: var(--error);">${failCount}</div>
+              <div class="a11y-stat-label">Fail</div>
+            </div>
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='pass'?1:0.5};" onclick="setA11yFilter('pass')">
+              <div class="a11y-stat-val" style="color: var(--success);">${passCount}</div>
+              <div class="a11y-stat-label">Pass</div>
+            </div>
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='text'?1:0.5};" onclick="setA11yFilter('text')">
+              <div class="a11y-stat-val" style="color: var(--hdfc-primary);">${textCount}</div>
+              <div class="a11y-stat-label">Text</div>
+            </div>
           </div>
-          <div class="a11y-stat">
-            <div class="a11y-stat-val" style="color: var(--success);">${passCount}</div>
-            <div class="a11y-stat-label">Pass</div>
-          </div>
-          <div class="a11y-stat">
-            <div class="a11y-stat-val">${issues.length}</div>
-            <div class="a11y-stat-label">Total</div>
+          <div style="display: flex; gap: 4px; background: var(--white); padding: 3px; border-radius: 6px; border: 1px solid var(--border);">
+            <button class="sort-btn ${a11ySort==='type'?'active':''}" onclick="setA11ySort('type')" style="${a11ySort==='type'?'background:var(--hdfc-primary);color:white;':''}">Group by Type</button>
+            <button class="sort-btn ${a11ySort==='ratio'?'active':''}" onclick="setA11ySort('ratio')" style="${a11ySort==='ratio'?'background:var(--hdfc-primary);color:white;':''}">By Ratio</button>
+            <button class="sort-btn ${a11ySort==='status'?'active':''}" onclick="setA11ySort('status')" style="${a11ySort==='status'?'background:var(--hdfc-primary);color:white;':''}">By Status</button>
           </div>
         </div>
       `;
@@ -1861,45 +1894,85 @@
       document.querySelector('.sort-controls').style.display = 'none';
       document.querySelector('.filter-controls').style.display = 'none';
       
-      if (issues.length === 0) {
+      // Filter
+      let filtered = [...issues];
+      if (a11yFilter === 'fail') filtered = filtered.filter(i => !i.pass);
+      else if (a11yFilter === 'pass') filtered = filtered.filter(i => i.pass);
+      else if (a11yFilter === 'text') filtered = filtered.filter(i => i.type === 'text_contrast');
+      else if (a11yFilter === 'icon') filtered = filtered.filter(i => i.type === 'icon_contrast');
+      
+      if (filtered.length === 0) {
         feedbackList.innerHTML = `
           <div class="success-message">
             <div class="success-icon">✓</div>
-            <div class="success-title">No text found</div>
-            <div class="success-subtitle">No text layers found in the selection.</div>
+            <div class="success-title">${issues.length === 0 ? 'No elements found' : 'No matching issues'}</div>
+            <div class="success-subtitle">${issues.length === 0 ? 'No checkable layers found in the selection.' : 'Try a different filter.'}</div>
           </div>
         `;
-      } else {
-        // Sort: fails first
-        issues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+        resultsEl.classList.add('active');
+        return;
+      }
+      
+      if (a11ySort === 'type') {
+        // Group by text vs icon
+        const textIssues = filtered.filter(i => i.type === 'text_contrast');
+        const iconIssues = filtered.filter(i => i.type === 'icon_contrast');
+        textIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+        iconIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
         
-        feedbackList.innerHTML = issues.map(issue => `
-          <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div style="flex: 1; min-width: 0;">
-                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                  <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
-                  <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
-                </div>
-                <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
-              </div>
-              <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
-                <div class="a11y-ratio ${issue.pass ? 'pass' : 'fail'}">${issue.ratio}:1</div>
-                <div style="font-size: 10px; color: var(--text-muted);">need ${issue.required}:1</div>
-              </div>
-            </div>
-            <div class="a11y-colors">
-              <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
-              <span style="font-size: 11px; color: var(--text-muted);">on</span>
-              <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
-              <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
-              <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
-            </div>
-          </div>
-        `).join('');
+        let html = '';
+        if (textIssues.length > 0) {
+          const textFails = textIssues.filter(i => !i.pass).length;
+          html += `<div style="font-weight:700;font-size:12px;color:var(--text-secondary);margin:12px 0 8px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;">🔤</span> Text Contrast <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${textIssues.length} items${textFails > 0 ? ', <span style=color:var(--error)>' + textFails + ' fail</span>' : ''}</span>
+          </div>`;
+          html += textIssues.map(renderA11yItem).join('');
+        }
+        if (iconIssues.length > 0) {
+          const iconFails = iconIssues.filter(i => !i.pass).length;
+          html += `<div style="font-weight:700;font-size:12px;color:var(--text-secondary);margin:16px 0 8px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;">🎨</span> Icon Contrast <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${iconIssues.length} items${iconFails > 0 ? ', <span style=color:var(--error)>' + iconFails + ' fail</span>' : ''}</span>
+          </div>`;
+          html += iconIssues.map(renderA11yItem).join('');
+        }
+        feedbackList.innerHTML = html;
+      } else if (a11ySort === 'ratio') {
+        filtered.sort((a, b) => a.ratio - b.ratio);
+        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
+      } else {
+        // status: fails first
+        filtered.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
       }
       
       resultsEl.classList.add('active');
+    }
+    
+    function renderA11yItem(issue) {
+      return `
+        <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
+                <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
+            </div>
+            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
+              <div class="a11y-ratio ${issue.pass ? 'pass' : 'fail'}">${issue.ratio}:1</div>
+              <div style="font-size: 10px; color: var(--text-muted);">need ${issue.required}:1</div>
+            </div>
+          </div>
+          <div class="a11y-colors">
+            <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
+            <span style="font-size: 11px; color: var(--text-muted);">on</span>
+            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
+            <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
+            <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
+          </div>
+        </div>
+      `;
     }
     
     // Override newAnalysisBtn to restore a11y UI state
