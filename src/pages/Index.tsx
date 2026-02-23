@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisForm } from "@/components/AnalysisForm";
 import { FeedbackDisplay } from "@/components/FeedbackDisplay";
-import { Settings, Key } from "lucide-react";
+import { Settings, Key, BarChart3 } from "lucide-react";
 import hdfcLogo from "@/assets/hdfc-logo.png";
 
 export type FeedbackItem = {
@@ -100,6 +100,10 @@ const Index = () => {
                   No keys
                 </Badge>
               )}
+              <Button variant="ghost" size="sm" onClick={() => navigate("/usage")}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Usage
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
                 <Settings className="h-4 w-4 mr-2" />
                 Manage Keys
