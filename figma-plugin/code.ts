@@ -168,7 +168,6 @@ function getSelectionData() {
     nodes,
     pageName: figma.currentPage.name,
     fileName: figma.root.name,
-    userName: figma.currentUser?.name || "unknown",
   };
 }
 
