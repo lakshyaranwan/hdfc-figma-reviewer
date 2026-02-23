@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_chunks: {
+        Row: {
+          chunk_data: Json
+          chunk_index: number
+          created_at: string | null
+          id: string
+          job_id: string
+          result: Json | null
+          status: string | null
+        }
+        Insert: {
+          chunk_data: Json
+          chunk_index: number
+          created_at?: string | null
+          id?: string
+          job_id: string
+          result?: Json | null
+          status?: string | null
+        }
+        Update: {
+          chunk_data?: Json
+          chunk_index?: number
+          created_at?: string | null
+          id?: string
+          job_id?: string
+          result?: Json | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           created_at: string | null
