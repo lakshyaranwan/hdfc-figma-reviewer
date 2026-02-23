@@ -681,6 +681,122 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
   }
 }
 
+// ========== ACCESSIBILITY: Contrast Checking ==========
+
+// Convert sRGB channel (0-1) to linear
+function sRGBtoLinear(c: number): number {
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+// Relative luminance per WCAG 2.x
+function relativeLuminance(r: number, g: number, b: number): number {
+  return 0.2126 * sRGBtoLinear(r) + 0.7152 * sRGBtoLinear(g) + 0.0722 * sRGBtoLinear(b);
+}
+
+// Contrast ratio between two luminances (returns value >= 1)
+function contrastRatio(l1: number, l2: number): number {
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Get the effective solid fill color from a node (first visible solid fill)
+function getNodeFillColor(node: SceneNode): { r: number; g: number; b: number } | null {
+  if (!('fills' in node)) return null;
+  const fills = node.fills;
+  if (fills === figma.mixed || !Array.isArray(fills)) return null;
+  for (const fill of fills as readonly Paint[]) {
+    if (fill.type === 'SOLID' && fill.visible !== false) {
+      const opacity = fill.opacity ?? 1;
+      return { r: fill.color.r * opacity, g: fill.color.g * opacity, b: fill.color.b * opacity };
+    }
+  }
+  return null;
+}
+
+// Walk up parent chain to find background color
+function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } {
+  let current: BaseNode | null = node.parent;
+  while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
+    const color = getNodeFillColor(current as SceneNode);
+    if (color) return color;
+    current = current.parent;
+  }
+  // Default to white if no background found
+  return { r: 1, g: 1, b: 1 };
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+interface AccessibilityIssue {
+  nodeId: string;
+  nodeName: string;
+  type: 'text_contrast';
+  text: string;
+  ratio: number;
+  required: number;
+  fgColor: string;
+  bgColor: string;
+  fontSize: number;
+  pass: boolean;
+}
+
+// Run text contrast audit on selected nodes
+function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
+  const issues: AccessibilityIssue[] = [];
+
+  function walk(node: SceneNode) {
+    if (!node.visible) return;
+    if ('opacity' in node && node.opacity === 0) return;
+
+    if (node.type === 'TEXT') {
+      const textNode = node as TextNode;
+      const fgColor = getNodeFillColor(textNode);
+      if (!fgColor) return; // no fill to check
+
+      const bgColor = getBackgroundColor(textNode);
+      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+      const ratio = contrastRatio(fgLum, bgLum);
+
+      // WCAG AA: 4.5:1 for normal text, 3:1 for large text (>=18pt or >=14pt bold)
+      const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
+      const fontStyle = textNode.fontName !== figma.mixed ? (textNode.fontName as FontName).style.toLowerCase() : '';
+      const isBold = fontStyle.includes('bold') || fontStyle.includes('black') || fontStyle.includes('heavy');
+      const isLargeText = fontSize >= 24 || (fontSize >= 18.66 && isBold); // 18pt = 24px, 14pt = 18.66px
+      const required = isLargeText ? 3 : 4.5;
+
+      issues.push({
+        nodeId: textNode.id,
+        nodeName: textNode.name,
+        type: 'text_contrast',
+        text: textNode.characters.substring(0, 60),
+        ratio: Math.round(ratio * 100) / 100,
+        required,
+        fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
+        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+        fontSize: Math.round(fontSize),
+        pass: ratio >= required,
+      });
+    }
+
+    if ('children' in node) {
+      for (const child of (node as FrameNode).children) {
+        walk(child);
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    walk(node);
+  }
+
+  return issues;
+}
+
 // Do NOT send initial selection data - selection is captured on-demand only
 // when user clicks the selection box in the UI
 
@@ -746,6 +862,18 @@ figma.ui.onmessage = async (msg: any) => {
     } else {
       figma.notify('⚠️ Could not find the element. It may have been deleted or renamed.');
     }
+  }
+
+  if (msg.type === 'run-accessibility-check') {
+    const selection = figma.currentPage.selection;
+    if (selection.length === 0) {
+      figma.ui.postMessage({ type: 'accessibility-results', issues: [], error: 'No selection. Select a frame first.' });
+      return;
+    }
+    const issues = runTextContrastAudit(selection);
+    figma.ui.postMessage({ type: 'accessibility-results', issues });
+    const failCount = issues.filter(i => !i.pass).length;
+    figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All text passes contrast check');
   }
 
   if (msg.type === 'notify') {
