@@ -16,29 +16,97 @@ interface FeedbackItem {
   suggestion?: string;
 }
 
-// Helper to estimate token count
+// Estimate token count from string length
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-// Chunk design data into smaller groups
-function chunkDesignData(designData: any[], maxTokens: number): any[][] {
-  const fullJson = JSON.stringify(designData, null, 2);
-  const totalTokens = estimateTokens(fullJson);
+// Flatten deeply nested design data into a flat array of simplified nodes
+function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
+  const flat: any[] = [];
 
-  if (totalTokens <= maxTokens) {
-    return [designData];
+  function traverse(node: any, path: string, depth: number) {
+    if (!node || depth > maxDepth) return;
+    if (node.visible === false) return;
+
+    const currentPath = path ? `${path} > ${node.name || node.type || "unknown"}` : (node.name || node.type || "unknown");
+
+    const simplified: any = {
+      id: node.id,
+      name: node.name,
+      type: node.type,
+      path: currentPath,
+    };
+
+    // Include text content
+    if (node.characters) simplified.text = node.characters;
+
+    // Include key style properties only (not full nested style objects)
+    if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
+      simplified.fills = node.fills.map((f: any) => ({
+        type: f.type,
+        color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
+      }));
+    }
+    if (node.fontSize) simplified.fontSize = node.fontSize;
+    if (node.fontName) simplified.fontName = node.fontName;
+    if (node.cornerRadius) simplified.cornerRadius = node.cornerRadius;
+    if (node.opacity !== undefined && node.opacity !== 1) simplified.opacity = node.opacity;
+    if (node.constraints) simplified.constraints = node.constraints;
+    if (node.layoutMode) simplified.layoutMode = node.layoutMode;
+    if (node.itemSpacing) simplified.itemSpacing = node.itemSpacing;
+    if (node.paddingLeft || node.paddingTop || node.paddingRight || node.paddingBottom) {
+      simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
+    }
+
+    // Include size
+    if (node.absoluteBoundingBox) {
+      simplified.size = { w: node.absoluteBoundingBox.width, h: node.absoluteBoundingBox.height };
+    } else if (node.width !== undefined) {
+      simplified.size = { w: node.width, h: node.height };
+    }
+
+    flat.push(simplified);
+
+    // Recurse into children
+    const children = node.children || node.nodes;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        traverse(child, currentPath, depth + 1);
+      }
+    }
   }
 
-  const ratio = totalTokens / maxTokens;
-  const numChunks = Math.ceil(ratio);
-  const chunkSize = Math.ceil(designData.length / numChunks);
+  for (const node of nodes) {
+    traverse(node, "", 0);
+  }
 
+  return flat;
+}
+
+// Chunk flat nodes by estimated token size
+function chunkByTokens(nodes: any[], maxTokensPerChunk: number): any[][] {
   const chunks: any[][] = [];
-  for (let i = 0; i < designData.length; i += chunkSize) {
-    chunks.push(designData.slice(i, i + chunkSize));
+  let currentChunk: any[] = [];
+  let currentTokens = 0;
+
+  for (const node of nodes) {
+    const nodeTokens = estimateTokens(JSON.stringify(node));
+    if (currentChunk.length > 0 && currentTokens + nodeTokens > maxTokensPerChunk) {
+      chunks.push(currentChunk);
+      currentChunk = [node];
+      currentTokens = nodeTokens;
+    } else {
+      currentChunk.push(node);
+      currentTokens += nodeTokens;
+    }
   }
-  return chunks;
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.length > 0 ? chunks : [[]];
 }
 
 // DB helpers for chunk tracking
@@ -94,7 +162,7 @@ serve(async (req) => {
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
     console.log("Page:", pageName);
-    console.log("Nodes to analyze:", designData?.length || 0);
+    console.log("Raw nodes received:", designData?.length || 0);
     console.log("Categories:", categories);
     console.log("Is custom prompt:", isCustom);
 
@@ -110,15 +178,18 @@ serve(async (req) => {
       throw new Error("No design data provided. Please select a frame in Figma.");
     }
 
-    // Chunk design data if too large
-    const TOKEN_LIMIT = 12000;
-    const chunks = chunkDesignData(designData, TOKEN_LIMIT);
+    // Step 1: Flatten deeply nested design data into simplified flat nodes
+    const flatNodes = flattenDesignData(designData);
+    console.log("Flattened to", flatNodes.length, "nodes");
+    console.log("Estimated total tokens:", estimateTokens(JSON.stringify(flatNodes)));
+
+    // Step 2: Chunk by actual token size (not node count)
+    const TOKEN_LIMIT = 80000; // ~80k tokens per chunk to stay well within 1M context
+    const chunks = chunkByTokens(flatNodes, TOKEN_LIMIT);
     const isChunked = chunks.length > 1;
     const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    if (isChunked) {
-      console.log(`Design data too large. Split into ${chunks.length} chunks.`);
-    }
+    console.log(`Split into ${chunks.length} chunk(s)`);
 
     // Store chunks in DB for tracking
     if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
@@ -130,7 +201,7 @@ serve(async (req) => {
       }
     }
 
-    // Category setup (shared across chunks)
+    // Category setup
     const categoryLabels: Record<string, string> = {
       consistency: "Consistency across flows regarding UI",
       ux: "UX Review",
@@ -158,7 +229,7 @@ Start your response with [ and end with ].`;
     for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
       const chunk = chunks[chunkIdx];
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
-      console.log(`Processing${chunkLabel}: ${chunk.length} nodes...`);
+      console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
       const itemsPerCategory = isChunked
         ? Math.max(3, Math.floor(10 / chunks.length))
@@ -168,7 +239,7 @@ Start your response with [ and end with ].`;
 
       const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
 
-Design Structure from Figma Plugin${chunkLabel} (with node IDs):
+Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
 ${designContext}
 
 File: ${fileName}
@@ -230,6 +301,9 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
         ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
         : `${baseContext}\n\n${prompt}\n${formatInstructions}`;
 
+      const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
+      console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
+
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -255,7 +329,6 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
           try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed"); } catch (e) { /* ignore */ }
         }
 
-        // If 400 (token limit) on a chunk, skip and continue
         if (aiResponse.status === 400 && isChunked) {
           console.warn(`Chunk ${chunkIdx + 1} hit token limit, skipping...`);
           continue;
@@ -287,7 +360,6 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
         throw new Error("No content in AI response");
       }
 
-      // Parse chunk feedback
       try {
         let cleanContent = content.trim();
         if (cleanContent.startsWith("```json")) cleanContent = cleanContent.slice(7);
@@ -314,7 +386,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
       }
     }
 
-    // Clean up chunk records from DB
+    // Clean up chunk records
     if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         await cleanupChunks(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId);
@@ -324,14 +396,12 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
       }
     }
 
-    // Count items per category
     const categoryCount: Record<string, number> = {};
     allFeedback.forEach(item => {
       const cat = item.category || 'general';
       categoryCount[cat] = (categoryCount[cat] || 0) + 1;
     });
 
-    // Re-index feedback IDs
     const feedback = allFeedback.map((item, index) => ({
       ...item,
       id: `feedback-${index}-${Date.now()}`,
