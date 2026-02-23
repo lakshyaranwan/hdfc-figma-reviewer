@@ -762,12 +762,9 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
       const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
       const ratio = contrastRatio(fgLum, bgLum);
 
-      // WCAG AA: 4.5:1 for normal text, 3:1 for large text (>=18pt or >=14pt bold)
+      // WCAG AA: 4.5:1 for ALL text (no large text exception)
       const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
-      const fontStyle = textNode.fontName !== figma.mixed ? (textNode.fontName as FontName).style.toLowerCase() : '';
-      const isBold = fontStyle.includes('bold') || fontStyle.includes('black') || fontStyle.includes('heavy');
-      const isLargeText = fontSize >= 24 || (fontSize >= 18.66 && isBold); // 18pt = 24px, 14pt = 18.66px
-      const required = isLargeText ? 3 : 4.5;
+      const required = 4.5;
 
       issues.push({
         nodeId: textNode.id,
