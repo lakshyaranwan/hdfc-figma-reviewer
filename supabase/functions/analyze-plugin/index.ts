@@ -41,68 +41,8 @@ serve(async (req) => {
       throw new Error("No design data provided. Please select a frame in Figma.");
     }
 
-    // Compress design data to fit within AI token limits (~1M tokens ≈ ~4M chars)
-    const MAX_CHARS = 3_500_000; // Leave room for prompt + output tokens
-    
-    function compressNode(node: any): any {
-      if (!node) return node;
-      // Remove large binary/irrelevant fields
-      const { exportSettings, absoluteBoundingBox, absoluteRenderBounds, 
-              constraints, layoutAlign, layoutGrow, effects, strokes,
-              strokeWeight, strokeAlign, cornerRadius, rectangleCornerRadii,
-              blendMode, isMask, clipsContent, preserveRatio,
-              ...essential } = node;
-      
-      // Recursively compress children
-      if (essential.children && Array.isArray(essential.children)) {
-        essential.children = essential.children.map(compressNode);
-      }
-      return essential;
-    }
-    
-    let processedData = designData;
-    let designContext = JSON.stringify(processedData, null, 2);
-    
-    // If too large, compress by removing non-essential properties
-    if (designContext.length > MAX_CHARS) {
-      console.log(`Design data too large (${designContext.length} chars), compressing...`);
-      processedData = Array.isArray(designData) 
-        ? designData.map(compressNode) 
-        : compressNode(designData);
-      designContext = JSON.stringify(processedData, null, 2);
-      console.log(`After compression: ${designContext.length} chars`);
-    }
-    
-    // If still too large, use compact JSON (no whitespace)
-    if (designContext.length > MAX_CHARS) {
-      console.log(`Still too large, removing whitespace...`);
-      designContext = JSON.stringify(processedData);
-      console.log(`After compact: ${designContext.length} chars`);
-    }
-    
-    // If STILL too large, truncate children depth
-    if (designContext.length > MAX_CHARS) {
-      console.log(`Still too large, truncating to fit...`);
-      function truncateDepth(node: any, depth: number): any {
-        if (!node || depth <= 0) return { id: node?.id, name: node?.name, type: node?.type, characters: node?.characters };
-        const result = { ...node };
-        if (result.children && Array.isArray(result.children)) {
-          result.children = result.children.map((c: any) => truncateDepth(c, depth - 1));
-        }
-        return result;
-      }
-      // Try progressively shallower depths
-      for (let depth = 8; depth >= 2; depth--) {
-        const truncated = Array.isArray(designData)
-          ? designData.map((d: any) => truncateDepth(d, depth))
-          : truncateDepth(designData, depth);
-        designContext = JSON.stringify(truncated);
-        console.log(`Depth ${depth}: ${designContext.length} chars`);
-        if (designContext.length <= MAX_CHARS) break;
-      }
-    }
-    
-    console.log(`Final design context: ${designContext.length} chars`);
+    // Build the analysis prompt - matching webapp logic
+    const designContext = JSON.stringify(designData, null, 2);
     
     // Map category IDs to labels (matching webapp)
     const categoryLabels: Record<string, string> = {
