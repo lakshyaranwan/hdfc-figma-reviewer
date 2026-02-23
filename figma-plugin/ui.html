@@ -1185,11 +1185,23 @@
             <div style="display: flex; gap: 16px; margin-bottom: 4px;">
               <div style="flex: 1; background: var(--hdfc-surface); border-radius: 6px; padding: 10px 12px; text-align: center;">
                 <div style="font-weight: 700; font-size: 16px; color: var(--text-primary);">4.5:1</div>
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Normal text</div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">All text</div>
               </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom: 16px;">
+          <div style="background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+            <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">🎨</span> Icon / Non-Text Contrast (WCAG AA)
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+              Checks icons and shape elements against WCAG 2.x AA non-text contrast:
+            </div>
+            <div style="display: flex; gap: 16px; margin-bottom: 4px;">
               <div style="flex: 1; background: var(--hdfc-surface); border-radius: 6px; padding: 10px 12px; text-align: center;">
                 <div style="font-weight: 700; font-size: 16px; color: var(--text-primary);">3:1</div>
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Large text (≥18pt)</div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Icons &amp; UI components</div>
               </div>
             </div>
           </div>
@@ -1865,8 +1877,11 @@
           <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div style="flex: 1; min-width: 0;">
-                <div style="font-weight: 600; font-size: 13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</div>
-                <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">"${issue.text}"</div>
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                  <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
+                  <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
               </div>
               <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
                 <div class="a11y-ratio ${issue.pass ? 'pass' : 'fail'}">${issue.ratio}:1</div>
@@ -1874,7 +1889,7 @@
               </div>
             </div>
             <div class="a11y-colors">
-              <div class="a11y-swatch" style="background:${issue.fgColor};" title="Text: ${issue.fgColor}"></div>
+              <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
               <span style="font-size: 11px; color: var(--text-muted);">on</span>
               <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
               <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>

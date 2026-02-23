@@ -734,7 +734,7 @@ function rgbToHex(r: number, g: number, b: number): string {
 interface AccessibilityIssue {
   nodeId: string;
   nodeName: string;
-  type: 'text_contrast';
+  type: 'text_contrast' | 'icon_contrast';
   text: string;
   ratio: number;
   required: number;
@@ -776,6 +776,56 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
         fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
         bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
         fontSize: Math.round(fontSize),
+        pass: ratio >= required,
+      });
+    }
+
+    if ('children' in node) {
+      for (const child of (node as FrameNode).children) {
+        walk(child);
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    walk(node);
+  }
+
+  return issues;
+}
+
+// Icon / non-text contrast audit (3:1 for shapes, vectors, icons)
+function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
+  const issues: AccessibilityIssue[] = [];
+  const iconTypes: string[] = ['VECTOR', 'STAR', 'POLYGON', 'ELLIPSE', 'RECTANGLE', 'LINE', 'BOOLEAN_OPERATION'];
+
+  function walk(node: SceneNode) {
+    if (!node.visible) return;
+    if ('opacity' in node && node.opacity === 0) return;
+
+    if (iconTypes.includes(node.type)) {
+      const fgColor = getNodeFillColor(node);
+      if (!fgColor) return;
+
+      const bgColor = getBackgroundColor(node);
+      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+      const ratio = contrastRatio(fgLum, bgLum);
+      const required = 3;
+
+      const w = 'width' in node ? (node as any).width : 0;
+      const h = 'height' in node ? (node as any).height : 0;
+
+      issues.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        type: 'icon_contrast',
+        text: `${Math.round(w)}×${Math.round(h)}`,
+        ratio: Math.round(ratio * 100) / 100,
+        required,
+        fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
+        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+        fontSize: 0,
         pass: ratio >= required,
       });
     }
@@ -867,10 +917,12 @@ figma.ui.onmessage = async (msg: any) => {
       figma.ui.postMessage({ type: 'accessibility-results', issues: [], error: 'No selection. Select a frame first.' });
       return;
     }
-    const issues = runTextContrastAudit(selection);
+    const textIssues = runTextContrastAudit(selection);
+    const iconIssues = runIconContrastAudit(selection);
+    const issues = [...textIssues, ...iconIssues];
     figma.ui.postMessage({ type: 'accessibility-results', issues });
     const failCount = issues.filter(i => !i.pass).length;
-    figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All text passes contrast check');
+    figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
   }
 
   if (msg.type === 'notify') {
