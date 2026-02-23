@@ -410,6 +410,29 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
     console.log(`Analysis complete: ${feedback.length} feedback items`);
     console.log("Category distribution:", categoryCount);
 
+    // Track usage
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/plugin_usage`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+          },
+          body: JSON.stringify({
+            user_name: fileName || "unknown",
+            action: "analyze",
+            node_count: flatNodes.length,
+            category_count: allowedCategories.length,
+          }),
+        });
+      } catch (e) {
+        console.error("Failed to track usage:", e);
+      }
+    }
+
     const summary = {
       total: feedback.length,
       high: feedback.filter(f => f.severity === "high").length,

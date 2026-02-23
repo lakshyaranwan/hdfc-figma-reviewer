@@ -89,6 +89,33 @@ export type Database = {
         }
         Relationships: []
       }
+      plugin_usage: {
+        Row: {
+          action: string
+          category_count: number | null
+          created_at: string
+          id: string
+          node_count: number | null
+          user_name: string
+        }
+        Insert: {
+          action?: string
+          category_count?: number | null
+          created_at?: string
+          id?: string
+          node_count?: number | null
+          user_name?: string
+        }
+        Update: {
+          action?: string
+          category_count?: number | null
+          created_at?: string
+          id?: string
+          node_count?: number | null
+          user_name?: string
+        }
+        Relationships: []
+      }
       shared_api_keys: {
         Row: {
           created_at: string
