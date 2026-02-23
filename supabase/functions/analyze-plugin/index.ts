@@ -157,7 +157,7 @@ serve(async (req) => {
   }
 
   try {
-    const { designData, prompt, categories, isCustom, fileName, pageName } = await req.json();
+    const { designData, prompt, categories, isCustom, fileName, pageName, userName } = await req.json();
     
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
@@ -422,7 +422,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
             "Prefer": "return=minimal",
           },
           body: JSON.stringify({
-            user_name: fileName || "unknown",
+            user_name: userName || "unknown",
             action: "analyze",
             node_count: flatNodes.length,
             category_count: allowedCategories.length,
