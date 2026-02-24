@@ -643,7 +643,7 @@
     .feedback-item {
       background: var(--white);
       border-radius: var(--radius-sm);
-      padding: 16px;
+      padding: 12px 16px;
       margin-bottom: 10px;
       border-left: 4px solid var(--border);
       cursor: pointer;
@@ -678,9 +678,16 @@
     .feedback-title {
       font-weight: 600;
       font-size: 13px;
-      margin-bottom: 6px;
       color: var(--text-primary);
       line-height: 1.4;
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .feedback-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
     .feedback-desc {
@@ -709,8 +716,8 @@
     
     .feedback-meta {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: 6px;
+      margin-top: 6px;
       font-size: 11px;
       flex-wrap: wrap;
       align-items: center;
@@ -755,7 +762,7 @@
     .feedback-actions {
       display: flex;
       gap: 8px;
-      margin-top: 14px;
+      flex-shrink: 0;
     }
     
     /* Error */
@@ -1688,15 +1695,8 @@
       
       return `
         <div class="feedback-item ${severity}" onclick="focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
+        <div class="feedback-header">
           <div class="feedback-title">${item.title || 'Issue'}</div>
-          ${item.description ? `
-            <div class="feedback-desc" id="${uniqueId}">${item.description}</div>
-            <button class="feedback-expand-btn" onclick="event.stopPropagation(); toggleDesc('${uniqueId}', this)">Show more ▾</button>
-          ` : ''}
-          <div class="feedback-meta">
-            <span class="feedback-severity ${severity}">${severity}</span>
-            ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
-          </div>
           <div class="feedback-actions">
             ${item.suggestion ? `
               <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}" 
@@ -1705,6 +1705,15 @@
                 ${isApplied ? '✓ Applied' : '⚡ Apply'}
               </button>
             ` : ''}
+          </div>
+        </div>
+          ${item.description ? `
+            <div class="feedback-desc" id="${uniqueId}">${item.description}</div>
+            <button class="feedback-expand-btn" onclick="event.stopPropagation(); toggleDesc('${uniqueId}', this)">Show more ▾</button>
+          ` : ''}
+          <div class="feedback-meta">
+            <span class="feedback-severity ${severity}">${severity}</span>
+            ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
           </div>
         </div>
       `;
