@@ -700,15 +700,30 @@ function contrastRatio(l1: number, l2: number): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-// Get the effective solid fill color from a node (first visible solid fill)
+// Get the effective fill color from a node (solid or gradient)
 function getNodeFillColor(node: SceneNode): { r: number; g: number; b: number } | null {
   if (!('fills' in node)) return null;
   const fills = node.fills;
   if (fills === figma.mixed || !Array.isArray(fills)) return null;
   for (const fill of fills as readonly Paint[]) {
-    if (fill.type === 'SOLID' && fill.visible !== false) {
-      const opacity = fill.opacity ?? 1;
+    if (fill.visible === false) continue;
+    const opacity = fill.opacity ?? 1;
+    if (fill.type === 'SOLID') {
       return { r: fill.color.r * opacity, g: fill.color.g * opacity, b: fill.color.b * opacity };
+    }
+    // Handle gradients by averaging the color stops
+    if (fill.type === 'GRADIENT_LINEAR' || fill.type === 'GRADIENT_RADIAL' || fill.type === 'GRADIENT_ANGULAR' || fill.type === 'GRADIENT_DIAMOND') {
+      const stops = (fill as GradientPaint).gradientStops;
+      if (stops && stops.length > 0) {
+        let r = 0, g = 0, b = 0;
+        for (const stop of stops) {
+          r += stop.color.r;
+          g += stop.color.g;
+          b += stop.color.b;
+        }
+        const n = stops.length;
+        return { r: (r / n) * opacity, g: (g / n) * opacity, b: (b / n) * opacity };
+      }
     }
   }
   return null;
