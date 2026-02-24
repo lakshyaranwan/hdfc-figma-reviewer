@@ -756,15 +756,31 @@ function getNodeFillColor(node: SceneNode): { r: number; g: number; b: number } 
   return null;
 }
 
+// Check if a node has an image or video fill (non-deterministic background)
+function hasImageFill(node: SceneNode): boolean {
+  if (!('fills' in node)) return false;
+  const fills = node.fills;
+  if (fills === figma.mixed || !Array.isArray(fills)) return false;
+  for (const fill of fills as readonly Paint[]) {
+    if (fill.visible === false) continue;
+    if (fill.type === 'IMAGE' || fill.type === 'VIDEO') return true;
+  }
+  return false;
+}
+
 // Walk up parent chain to find background color
-function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } {
+// Returns null if background is indeterminate (image fill, etc.)
+function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
-    const color = getNodeFillColor(current as SceneNode);
+    const sceneNode = current as SceneNode;
+    // If parent has an image/video fill, we can't determine the color
+    if (hasImageFill(sceneNode)) return null;
+    const color = getNodeFillColor(sceneNode);
     if (color) return color;
     current = current.parent;
   }
-  // Default to white if no background found
+  // Default to white if no background found (page background)
   return { r: 1, g: 1, b: 1 };
 }
 
@@ -800,6 +816,7 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
       if (!fgColor) return; // no fill to check
 
       const bgColor = getBackgroundColor(textNode);
+      if (!bgColor) return; // indeterminate background (image/video fill)
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
       const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
       const ratio = contrastRatio(fgLum, bgLum);
@@ -850,6 +867,7 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
       if (!fgColor) return;
 
       const bgColor = getBackgroundColor(node);
+      if (!bgColor) return; // indeterminate background (image/video fill)
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
       const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
       const ratio = contrastRatio(fgLum, bgLum);
