@@ -858,11 +858,47 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
   const issues: AccessibilityIssue[] = [];
   const iconTypes: string[] = ['VECTOR', 'STAR', 'POLYGON', 'ELLIPSE', 'RECTANGLE', 'LINE', 'BOOLEAN_OPERATION'];
 
+  // Check if a vector node looks like an outlined text glyph (flattened text)
+  function isOutlinedTextGlyph(node: SceneNode): boolean {
+    if (node.type !== 'VECTOR') return false;
+    const parent = node.parent;
+    if (!parent || parent.type === 'PAGE' || parent.type === 'DOCUMENT') return false;
+
+    // Single-character generic names like "Vector", letter names, or digit names suggest outlined text
+    const name = node.name.trim();
+    const isGenericName = name === 'Vector' || name.length === 1;
+
+    // Check if parent is a group/frame with multiple similar small vectors (typical of outlined text)
+    if ('children' in parent) {
+      const siblings = (parent as FrameNode).children;
+      if (siblings.length >= 2) {
+        const vectorSiblings = siblings.filter(s => s.type === 'VECTOR' && s.visible);
+        // If most siblings are vectors with generic names, this is likely outlined text
+        if (vectorSiblings.length >= 2) {
+          const genericCount = vectorSiblings.filter(s => s.name.trim() === 'Vector' || s.name.trim().length === 1).length;
+          if (genericCount >= vectorSiblings.length * 0.5) return true;
+        }
+      }
+    }
+
+    // Very small vectors (< 24px in both dimensions) with generic "Vector" name inside a group
+    if (isGenericName) {
+      const w = 'width' in node ? (node as any).width : 0;
+      const h = 'height' in node ? (node as any).height : 0;
+      if (w < 24 && h < 24 && parent.type === 'GROUP') return true;
+    }
+
+    return false;
+  }
+
   function walk(node: SceneNode) {
     if (!node.visible) return;
     if ('opacity' in node && node.opacity === 0) return;
 
     if (iconTypes.includes(node.type)) {
+      // Skip vectors that are part of outlined/flattened text
+      if (isOutlinedTextGlyph(node)) return;
+
       const fgColor = getNodeFillColor(node);
       if (!fgColor) return;
 
