@@ -756,16 +756,32 @@ function getNodeFillColor(node: SceneNode): { r: number; g: number; b: number } 
   return null;
 }
 
+// Check if a node has an image fill (which we can't resolve to a color)
+function hasImageFill(node: SceneNode): boolean {
+  if (!('fills' in node)) return false;
+  const fills = node.fills;
+  if (fills === figma.mixed || !Array.isArray(fills)) return false;
+  for (const fill of fills as readonly Paint[]) {
+    if (fill.visible === false) continue;
+    if (fill.type === 'IMAGE') return true;
+  }
+  return false;
+}
+
 // Walk up parent chain to find background color
-function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } {
+// Returns null if background cannot be determined (image fills, no fills at all)
+function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
-    const color = getNodeFillColor(current as SceneNode);
+    const sceneNode = current as SceneNode;
+    // If a parent has an image fill, we can't determine the bg color
+    if (hasImageFill(sceneNode)) return null;
+    const color = getNodeFillColor(sceneNode);
     if (color) return color;
     current = current.parent;
   }
-  // Default to white if no background found
-  return { r: 1, g: 1, b: 1 };
+  // No background found at all - return null instead of assuming white
+  return null;
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -800,6 +816,7 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
       if (!fgColor) return; // no fill to check
 
       const bgColor = getBackgroundColor(textNode);
+      if (!bgColor) return; // Can't determine background (image fill, etc.) - skip to avoid false positives
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
       const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
       const ratio = contrastRatio(fgLum, bgLum);
@@ -850,6 +867,7 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
       if (!fgColor) return;
 
       const bgColor = getBackgroundColor(node);
+      if (!bgColor) return; // Can't determine background - skip to avoid false positives
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
       const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
       const ratio = contrastRatio(fgLum, bgLum);
