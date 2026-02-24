@@ -184,16 +184,37 @@ function findNodeById(nodeId: string): SceneNode | null {
   return null;
 }
 
-// Cache for node name lookups (populated during selection)
-const _nodeNameCache: Map<string, string> = new Map();
+// Cache for node name lookups (populated during selection) - supports duplicate names
+const _nodeNameCache: Map<string, string[]> = new Map();
+// Store the root node IDs from the last analysis to disambiguate duplicates
+let _analysisRootIds: string[] = [];
+
+// Helper: check if a node is a descendant of any analysis root
+function isDescendantOfRoot(node: BaseNode): boolean {
+  if (_analysisRootIds.length === 0) return false;
+  let current: BaseNode | null = node;
+  while (current) {
+    if (_analysisRootIds.includes(current.id)) return true;
+    current = current.parent;
+  }
+  return false;
+}
 
 // Find a node by name - uses cache first, then limited search
 function findNodeByName(name: string): SceneNode | null {
-  // Check cache first (O(1))
-  const cachedId = _nodeNameCache.get(name);
-  if (cachedId) {
-    const node = findNodeById(cachedId);
-    if (node) return node;
+  // Check cache first
+  const cachedIds = _nodeNameCache.get(name);
+  if (cachedIds && cachedIds.length > 0) {
+    // Prefer nodes that are descendants of the analysis root
+    for (const id of cachedIds) {
+      const node = findNodeById(id);
+      if (node && isDescendantOfRoot(node)) return node;
+    }
+    // Fallback to first valid
+    for (const id of cachedIds) {
+      const node = findNodeById(id);
+      if (node) return node;
+    }
   }
   
   // Check current selection only (avoid full page scan)
@@ -202,7 +223,9 @@ function findNodeByName(name: string): SceneNode | null {
     if ('findOne' in node) {
       const found = (node as FrameNode).findOne(n => n.name === name);
       if (found) {
-        _nodeNameCache.set(name, found.id);
+        const existing = _nodeNameCache.get(name) || [];
+        if (!existing.includes(found.id)) existing.push(found.id);
+        _nodeNameCache.set(name, existing);
         return found;
       }
     }
@@ -210,11 +233,15 @@ function findNodeByName(name: string): SceneNode | null {
   return null;
 }
 
-// Build name cache from extracted nodes
+// Build name cache from extracted nodes (supports multiple IDs per name)
 function cacheNodeNames(nodes: DesignNode[]) {
   _nodeNameCache.clear();
   function walk(node: DesignNode) {
-    if (node.name && node.id) _nodeNameCache.set(node.name, node.id);
+    if (node.name && node.id) {
+      const existing = _nodeNameCache.get(node.name) || [];
+      existing.push(node.id);
+      _nodeNameCache.set(node.name, existing);
+    }
     if (node.children) node.children.forEach(walk);
   }
   nodes.forEach(walk);
@@ -867,6 +894,7 @@ figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'get-selection') {
     const data = getSelectionData();
     if (data.nodes) cacheNodeNames(data.nodes);
+    _analysisRootIds = figma.currentPage.selection.map(n => n.id);
     figma.ui.postMessage({
       type: 'selection-data',
       data,
@@ -877,6 +905,7 @@ figma.ui.onmessage = async (msg: any) => {
     // Send current selection data for analysis
     const selectionData = getSelectionData();
     if (selectionData.nodes) cacheNodeNames(selectionData.nodes);
+    _analysisRootIds = figma.currentPage.selection.map(n => n.id);
     figma.ui.postMessage({
       type: 'analyze-data',
       data: selectionData,
@@ -921,21 +950,38 @@ figma.ui.onmessage = async (msg: any) => {
       }
     }
     
-    // Try the name cache (populated during extraction, independent of current selection)
+    // Try the name cache - prefer nodes under the analysis root
     if (!targetNode && msg.location) {
-      const cachedId = _nodeNameCache.get(msg.location);
-      if (cachedId) {
-        targetNode = findNodeById(cachedId);
-      }
-      // Also try partial cache match
-      if (!targetNode) {
-        const searchLower = msg.location.toLowerCase();
-        for (const [name, id] of _nodeNameCache.entries()) {
-          if (name.toLowerCase() === searchLower || name.toLowerCase().includes(searchLower) || searchLower.includes(name.toLowerCase())) {
-            const found = findNodeById(id);
-            if (found) { targetNode = found; break; }
+      const cachedIds = _nodeNameCache.get(msg.location);
+      if (cachedIds) {
+        // Prefer descendant of analysis root
+        for (const id of cachedIds) {
+          const node = findNodeById(id);
+          if (node && isDescendantOfRoot(node)) { targetNode = node; break; }
+        }
+        if (!targetNode) {
+          for (const id of cachedIds) {
+            const node = findNodeById(id);
+            if (node) { targetNode = node; break; }
           }
         }
+      }
+      // Partial cache match - prefer descendants of root
+      if (!targetNode) {
+        const searchLower = msg.location.toLowerCase();
+        let fallback: SceneNode | null = null;
+        for (const [name, ids] of _nodeNameCache.entries()) {
+          const nameLower = name.toLowerCase();
+          if (nameLower === searchLower || nameLower.includes(searchLower) || searchLower.includes(nameLower)) {
+            for (const id of ids) {
+              const found = findNodeById(id);
+              if (found && isDescendantOfRoot(found)) { targetNode = found; break; }
+              if (found && !fallback) fallback = found;
+            }
+            if (targetNode) break;
+          }
+        }
+        if (!targetNode && fallback) targetNode = fallback;
       }
     }
     
@@ -944,16 +990,21 @@ figma.ui.onmessage = async (msg: any) => {
       targetNode = findNodeByName(msg.location);
     }
     
-    // Search the entire current page by name (exact then partial)
+    // Search the entire current page - prefer descendants of analysis root
     if (!targetNode && msg.location) {
       const searchName = msg.location.toLowerCase();
       try {
-        const found = figma.currentPage.findOne(n => 
-          n.name.toLowerCase() === searchName || 
-          n.name.toLowerCase().includes(searchName) ||
-          searchName.includes(n.name.toLowerCase())
-        );
-        if (found) targetNode = found;
+        let fallback: SceneNode | null = null;
+        figma.currentPage.findOne(n => {
+          const nLower = n.name.toLowerCase();
+          const match = nLower === searchName || nLower.includes(searchName) || searchName.includes(nLower);
+          if (match) {
+            if (isDescendantOfRoot(n)) { targetNode = n; return true; }
+            if (!fallback) fallback = n;
+          }
+          return false;
+        });
+        if (!targetNode && fallback) targetNode = fallback;
       } catch (e) {
         // Page-level search may fail on very large files
       }
