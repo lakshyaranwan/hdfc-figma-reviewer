@@ -28,6 +28,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   function traverse(node: any, path: string, depth: number) {
     if (!node || depth > maxDepth) return;
     if (node.visible === false) return;
+    if (node.opacity !== undefined && node.opacity === 0) return;
 
     const currentPath = path ? `${path} > ${node.name || node.type || "unknown"}` : (node.name || node.type || "unknown");
 
