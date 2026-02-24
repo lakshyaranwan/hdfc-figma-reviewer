@@ -914,7 +914,6 @@ figma.ui.onmessage = async (msg: any) => {
       if (!targetNode && (msg.nodeId.startsWith('I') || msg.nodeId.includes(';'))) {
         const cleanId = msg.nodeId.startsWith('I') ? msg.nodeId.substring(1) : msg.nodeId;
         const parts = cleanId.split(';');
-        // Try from most specific (last) to least specific (first)
         for (let i = parts.length - 1; i >= 0; i--) {
           targetNode = findNodeById(parts[i]);
           if (targetNode) break;
@@ -922,18 +921,37 @@ figma.ui.onmessage = async (msg: any) => {
       }
     }
     
-    // If not found by ID, try by location/name within current selection
+    // Try the name cache (populated during extraction, independent of current selection)
+    if (!targetNode && msg.location) {
+      const cachedId = _nodeNameCache.get(msg.location);
+      if (cachedId) {
+        targetNode = findNodeById(cachedId);
+      }
+      // Also try partial cache match
+      if (!targetNode) {
+        const searchLower = msg.location.toLowerCase();
+        for (const [name, id] of _nodeNameCache.entries()) {
+          if (name.toLowerCase() === searchLower || name.toLowerCase().includes(searchLower) || searchLower.includes(name.toLowerCase())) {
+            const found = findNodeById(id);
+            if (found) { targetNode = found; break; }
+          }
+        }
+      }
+    }
+    
+    // Try by location/name within current selection
     if (!targetNode && msg.location) {
       targetNode = findNodeByName(msg.location);
     }
     
-    // If still not found, search the entire current page by name
+    // Search the entire current page by name (exact then partial)
     if (!targetNode && msg.location) {
       const searchName = msg.location.toLowerCase();
       try {
         const found = figma.currentPage.findOne(n => 
           n.name.toLowerCase() === searchName || 
-          n.name.toLowerCase().includes(searchName)
+          n.name.toLowerCase().includes(searchName) ||
+          searchName.includes(n.name.toLowerCase())
         );
         if (found) targetNode = found;
       } catch (e) {
@@ -942,7 +960,6 @@ figma.ui.onmessage = async (msg: any) => {
     }
     
     if (targetNode) {
-      // Select and zoom to the node
       figma.currentPage.selection = [targetNode];
       figma.viewport.scrollAndZoomIntoView([targetNode]);
       figma.notify(`🎯 Focused on: ${targetNode.name}`);
