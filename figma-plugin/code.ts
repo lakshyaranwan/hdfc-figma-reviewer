@@ -932,8 +932,10 @@ figma.ui.onmessage = async (msg: any) => {
       figma.ui.postMessage({ type: 'accessibility-results', issues: [], error: 'No selection. Select a frame first.' });
       return;
     }
-    const textIssues = runTextContrastAudit(selection);
-    const iconIssues = runIconContrastAudit(selection);
+    const checkText = msg.checkText !== false;
+    const checkIcon = msg.checkIcon !== false;
+    const textIssues = checkText ? runTextContrastAudit(selection) : [];
+    const iconIssues = checkIcon ? runIconContrastAudit(selection) : [];
     const issues = [...textIssues, ...iconIssues];
     figma.ui.postMessage({ type: 'accessibility-results', issues });
     const failCount = issues.filter(i => !i.pass).length;

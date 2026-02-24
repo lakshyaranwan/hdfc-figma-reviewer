@@ -687,6 +687,28 @@
       font-size: 12px;
       color: var(--text-secondary);
       line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .feedback-desc.expanded {
+      -webkit-line-clamp: unset;
+      display: block;
+    }
+    .feedback-expand-btn {
+      font-size: 11px;
+      color: var(--hdfc-primary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 0 0;
+      font-weight: 500;
+    }
+    .feedback-expand-btn:hover {
+      text-decoration: underline;
     }
     
     .feedback-meta {
@@ -1173,38 +1195,26 @@
       </div>
       
       <div class="tab-content" id="accessibilityTab">
-        <div class="section-title">Accessibility Checks</div>
-        <div style="margin-bottom: 16px;">
-          <div style="background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
-            <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">🔤</span> Text Contrast (WCAG AA)
-            </div>
-            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
-              Checks text elements against WCAG 2.x AA contrast requirements:
-            </div>
-            <div style="display: flex; gap: 16px; margin-bottom: 4px;">
-              <div style="flex: 1; background: var(--hdfc-surface); border-radius: 6px; padding: 10px 12px; text-align: center;">
-                <div style="font-weight: 700; font-size: 16px; color: var(--text-primary);">4.5:1</div>
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">All text</div>
+        <div class="section-title">Choose what to check</div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" id="a11yCheckText" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <span>🔤</span> Text Contrast
               </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 4.5:1 for all text</div>
             </div>
-          </div>
-        </div>
-        <div style="margin-bottom: 16px;">
-          <div style="background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
-            <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">🎨</span> Icon / Non-Text Contrast (WCAG AA)
-            </div>
-            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
-              Checks icons and shape elements against WCAG 2.x AA non-text contrast:
-            </div>
-            <div style="display: flex; gap: 16px; margin-bottom: 4px;">
-              <div style="flex: 1; background: var(--hdfc-surface); border-radius: 6px; padding: 10px 12px; text-align: center;">
-                <div style="font-weight: 700; font-size: 16px; color: var(--text-primary);">3:1</div>
-                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Icons &amp; UI components</div>
+          </label>
+          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" id="a11yCheckIcon" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <span>🎨</span> Icon / Non-Text Contrast
               </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 3:1 for icons & UI components</div>
             </div>
-          </div>
+          </label>
         </div>
         <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
           <span>♿</span>
@@ -1678,11 +1688,15 @@
       const severity = (item.severity || 'low').toLowerCase();
       const isApplied = appliedItems.has(item.id || item.title);
       const itemId = item.id || item.title;
+      const uniqueId = 'desc-' + Math.random().toString(36).substr(2, 9);
       
       return `
         <div class="feedback-item ${severity}" onclick="focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
           <div class="feedback-title">${item.title || 'Issue'}</div>
-          <div class="feedback-desc">${item.description || ''}</div>
+          ${item.description ? `
+            <div class="feedback-desc" id="${uniqueId}">${item.description}</div>
+            <button class="feedback-expand-btn" onclick="event.stopPropagation(); toggleDesc('${uniqueId}', this)">Show more ▾</button>
+          ` : ''}
           <div class="feedback-meta">
             <span class="feedback-severity ${severity}">${severity}</span>
             ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
@@ -1701,6 +1715,17 @@
           </div>
         </div>
       `;
+    }
+    
+    function toggleDesc(id, btn) {
+      const el = document.getElementById(id);
+      if (el.classList.contains('expanded')) {
+        el.classList.remove('expanded');
+        btn.textContent = 'Show more ▾';
+      } else {
+        el.classList.add('expanded');
+        btn.textContent = 'Show less ▴';
+      }
     }
     
     let _focusDebounce = null;
@@ -1814,15 +1839,22 @@
         showError('Please select a frame first');
         return;
       }
+      const checkText = document.getElementById('a11yCheckText').checked;
+      const checkIcon = document.getElementById('a11yCheckIcon').checked;
+      if (!checkText && !checkIcon) {
+        showToast('Select at least one check type', 'error');
+        return;
+      }
       const btn = document.getElementById('a11yRunBtn');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;"></span><span>Checking...</span>';
-      parent.postMessage({ pluginMessage: { type: 'run-accessibility-check' } }, '*');
+      parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon } }, '*');
     }
     
     let a11yIssues = [];
     let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
     let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
+    let a11yCollapsed = new Set(); // collapsed a11y groups
     
     function displayAccessibilityResults(issues, error) {
       const btn = document.getElementById('a11yRunBtn');
@@ -1923,17 +1955,37 @@
         let html = '';
         if (textIssues.length > 0) {
           const textFails = textIssues.filter(i => !i.pass).length;
-          html += `<div style="font-weight:700;font-size:12px;color:var(--text-secondary);margin:12px 0 8px;display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;">🔤</span> Text Contrast <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${textIssues.length} items${textFails > 0 ? ', <span style=color:var(--error)>' + textFails + ' fail</span>' : ''}</span>
+          const textCollapsed = a11yCollapsed.has('text');
+          html += `<div class="category-section">
+            <div class="category-header ${textCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('text')">
+              <span class="category-title">
+                <span class="category-icon">🔤</span>
+                <span>Text Contrast</span>
+                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${textIssues.length} items${textFails > 0 ? ', <span style=color:var(--error)>' + textFails + ' fail</span>' : ''}</span>
+              </span>
+              <span class="chevron ${textCollapsed ? 'collapsed' : ''}">▼</span>
+            </div>
+            <div class="category-content ${textCollapsed ? 'hidden' : ''}">
+              ${textIssues.map(renderA11yItem).join('')}
+            </div>
           </div>`;
-          html += textIssues.map(renderA11yItem).join('');
         }
         if (iconIssues.length > 0) {
           const iconFails = iconIssues.filter(i => !i.pass).length;
-          html += `<div style="font-weight:700;font-size:12px;color:var(--text-secondary);margin:16px 0 8px;display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;">🎨</span> Icon Contrast <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${iconIssues.length} items${iconFails > 0 ? ', <span style=color:var(--error)>' + iconFails + ' fail</span>' : ''}</span>
+          const iconCollapsed = a11yCollapsed.has('icon');
+          html += `<div class="category-section">
+            <div class="category-header ${iconCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('icon')">
+              <span class="category-title">
+                <span class="category-icon">🎨</span>
+                <span>Icon Contrast</span>
+                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${iconIssues.length} items${iconFails > 0 ? ', <span style=color:var(--error)>' + iconFails + ' fail</span>' : ''}</span>
+              </span>
+              <span class="chevron ${iconCollapsed ? 'collapsed' : ''}">▼</span>
+            </div>
+            <div class="category-content ${iconCollapsed ? 'hidden' : ''}">
+              ${iconIssues.map(renderA11yItem).join('')}
+            </div>
           </div>`;
-          html += iconIssues.map(renderA11yItem).join('');
         }
         feedbackList.innerHTML = html;
       } else if (a11ySort === 'ratio') {
@@ -1973,6 +2025,15 @@
           </div>
         </div>
       `;
+    }
+    
+    function toggleA11yGroup(group) {
+      if (a11yCollapsed.has(group)) {
+        a11yCollapsed.delete(group);
+      } else {
+        a11yCollapsed.add(group);
+      }
+      renderA11yResults();
     }
     
     // Override newAnalysisBtn to restore a11y UI state
