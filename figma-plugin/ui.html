@@ -687,15 +687,11 @@
       font-size: 12px;
       color: var(--text-secondary);
       line-height: 1.6;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      display: none;
       cursor: pointer;
       transition: all 0.2s;
     }
     .feedback-desc.expanded {
-      -webkit-line-clamp: unset;
       display: block;
     }
     .feedback-expand-btn {
@@ -1702,9 +1698,6 @@
             ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
           </div>
           <div class="feedback-actions">
-            <button class="btn btn-small btn-focus" onclick="event.stopPropagation(); focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
-              🔍 Focus
-            </button>
             ${item.suggestion ? `
               <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}" 
                 onclick="event.stopPropagation(); applySuggestion('${itemId.replace(/'/g, "\\'")}', '${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}', '${(item.suggestion || item.description || '').replace(/'/g, "\\'")}', '${(item.title || '').replace(/'/g, "\\'")}')"
