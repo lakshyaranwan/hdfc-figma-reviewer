@@ -909,11 +909,36 @@ figma.ui.onmessage = async (msg: any) => {
     // Try to find the node by ID first
     if (msg.nodeId) {
       targetNode = findNodeById(msg.nodeId);
+      
+      // Handle instance node IDs like "I9:123;456:789" - try each part
+      if (!targetNode && (msg.nodeId.startsWith('I') || msg.nodeId.includes(';'))) {
+        const cleanId = msg.nodeId.startsWith('I') ? msg.nodeId.substring(1) : msg.nodeId;
+        const parts = cleanId.split(';');
+        // Try from most specific (last) to least specific (first)
+        for (let i = parts.length - 1; i >= 0; i--) {
+          targetNode = findNodeById(parts[i]);
+          if (targetNode) break;
+        }
+      }
     }
     
-    // If not found, try by location/name
+    // If not found by ID, try by location/name within current selection
     if (!targetNode && msg.location) {
       targetNode = findNodeByName(msg.location);
+    }
+    
+    // If still not found, search the entire current page by name
+    if (!targetNode && msg.location) {
+      const searchName = msg.location.toLowerCase();
+      try {
+        const found = figma.currentPage.findOne(n => 
+          n.name.toLowerCase() === searchName || 
+          n.name.toLowerCase().includes(searchName)
+        );
+        if (found) targetNode = found;
+      } catch (e) {
+        // Page-level search may fail on very large files
+      }
     }
     
     if (targetNode) {
