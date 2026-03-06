@@ -1383,6 +1383,14 @@
       if (msg.type === 'accessibility-results') {
         displayAccessibilityResults(msg.issues, msg.error);
       }
+
+      if (msg.type === 'selection-for-a11y-ai') {
+        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus);
+      }
+
+      if (msg.type === 'a11y-ai-annotate-done') {
+        showToast(msg.message || 'Annotations written to Figma!', 'success');
+      }
     };
     
     function showToast(message, type = '') {
