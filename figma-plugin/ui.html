@@ -1905,7 +1905,145 @@
     let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
     let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
     let a11yCollapsed = new Set(); // collapsed a11y groups
-    
+    let a11yAIResults = { aria: null, focus_order: null }; // AI check results
+
+    // ====== AI ACCESSIBILITY CHECK ======
+    async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
+      const types = [];
+      if (checkAria) types.push('aria');
+      if (checkFocus) types.push('focus_order');
+
+      for (const checkType of types) {
+        try {
+          const label = checkType === 'aria' ? 'ARIA Labels' : 'Focus Order';
+          showToast(`🤖 Generating ${label} with AI...`);
+
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-a11y`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              designData: data.nodes,
+              checkType,
+              fileName: data.fileName,
+              pageName: data.pageName
+            })
+          });
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `AI check failed (${response.status})`);
+          }
+
+          const result = await response.json();
+          a11yAIResults[checkType === 'focus_order' ? 'focus_order' : 'aria'] = result.results;
+
+          // Tell plugin code to write annotations to Figma
+          parent.postMessage({
+            pluginMessage: {
+              type: 'write-a11y-annotations',
+              checkType,
+              results: result.results
+            }
+          }, '*');
+
+          displayAIAccessibilityResults(checkType, result.results);
+          showToast(`✅ ${label} generated & written to Figma!`, 'success');
+        } catch (error) {
+          showError(error.message || `AI ${checkType} check failed`);
+        }
+      }
+
+      // Re-enable button
+      const btn = document.getElementById('a11yRunBtn');
+      btn.disabled = false;
+      btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
+    }
+
+    function displayAIAccessibilityResults(checkType, results) {
+      const feedbackList = document.getElementById('feedbackList');
+      const resultsEl = document.getElementById('results');
+      const summaryStats = document.getElementById('summaryStats');
+      const analysisSection = document.getElementById('analysisSection');
+
+      analysisSection.style.display = 'none';
+
+      const isAria = checkType === 'aria';
+      const label = isAria ? 'ARIA Labels' : 'Focus Order';
+      const icon = isAria ? '🏷️' : '🔢';
+
+      document.querySelector('.results-title').textContent = `${icon} ${label} — AI Generated`;
+      document.querySelector('.sort-controls').style.display = 'none';
+      document.querySelector('.filter-controls').style.display = 'none';
+
+      summaryStats.innerHTML = `
+        <div style="grid-column: 1/-1; padding: 14px 16px; background: var(--hdfc-light); border-radius: var(--radius-sm); border: 1px solid rgba(28,63,202,0.15);">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hdfc-primary);">
+            <span style="font-size: 18px;">${icon}</span>
+            <span>${results.length} elements annotated in Figma</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">AI has generated ${label.toLowerCase()} and written them directly into your Figma file as annotations.</div>
+        </div>
+      `;
+
+      if (isAria) {
+        // Group by role
+        const grouped = {};
+        results.forEach(r => {
+          const role = r.role || 'other';
+          if (!grouped[role]) grouped[role] = [];
+          grouped[role].push(r);
+        });
+
+        const roleIcons = { button: '🔘', tab: '📑', navigation: '🧭', listitem: '📋', img: '🖼️', input: '✏️', status: '🏷️', link: '🔗', heading: '📰', checkbox: '☑️', radiobutton: '🔵', combobox: '📂', menuitem: '📌' };
+
+        let html = '';
+        Object.entries(grouped).sort((a, b) => b[1].length - a[1].length).forEach(([role, items]) => {
+          html += `
+            <div class="category-section">
+              <div class="category-header" onclick="this.classList.toggle('collapsed'); this.nextElementSibling.classList.toggle('hidden');">
+                <span class="category-title">
+                  <span class="category-icon">${roleIcons[role] || '🏷️'}</span>
+                  <span style="text-transform: capitalize;">${role}</span>
+                </span>
+                <span class="category-count">${items.length}</span>
+              </div>
+              <div class="category-content">
+                ${items.map(r => `
+                  <div class="a11y-item pass" style="cursor:pointer;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
+                    <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">${r.nodeName || 'Unknown'}</div>
+                    <div style="font-size: 12px; color: var(--hdfc-primary); font-style: italic; margin-bottom: 4px;">"${r.ariaLabel}"</div>
+                    ${r.context ? `<div style="font-size: 11px; color: var(--text-muted);">${r.context}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        });
+        feedbackList.innerHTML = html;
+      } else {
+        // Focus order — show as numbered list
+        const sorted = [...results].sort((a, b) => (a.focusIndex || 0) - (b.focusIndex || 0));
+        feedbackList.innerHTML = sorted.map(r => `
+          <div class="a11y-item pass" style="cursor:pointer; display: flex; align-items: flex-start; gap: 12px;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--hdfc-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">${r.focusIndex}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 2px;">${r.nodeName || 'Unknown'}</div>
+              <div style="font-size: 12px; color: var(--hdfc-primary); margin-bottom: 2px;">${r.ariaLabel || ''}</div>
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px;">
+                <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--hdfc-light); color: var(--hdfc-primary); font-weight: 600; text-transform: capitalize;">${r.role || ''}</span>
+                ${r.rationale ? `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">${r.rationale}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      resultsEl.classList.add('active');
+    }
+
     function displayAccessibilityResults(issues, error) {
       const btn = document.getElementById('a11yRunBtn');
       btn.disabled = false;
