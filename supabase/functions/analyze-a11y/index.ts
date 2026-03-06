@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Flatten deeply nested design data into a flat array of simplified nodes (visible only)
+// Flatten design data — prioritise text content over node names
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
@@ -14,24 +14,43 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
 
-    const currentPath = path
-      ? `${path} > ${node.name || node.type || "unknown"}`
-      : node.name || node.type || "unknown";
+    // Use actual text content for path labels when available
+    const displayLabel = node.characters?.trim() || node.name || node.type || "unknown";
+    const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
     const simplified: any = {
       id: node.id,
-      name: node.name,
+      // Provide both so AI can see discrepancy between layer name and actual content
+      layerName: node.name,
       type: node.type,
       path: currentPath,
     };
 
-    if (node.characters) simplified.text = node.characters;
+    // TEXT CONTENT IS THE SOURCE OF TRUTH — always include it prominently
+    if (node.characters) {
+      simplified.textContent = node.characters.trim();
+    }
     if (node.fontSize) simplified.fontSize = node.fontSize;
-    if (node.x !== undefined) simplified.x = node.x;
-    if (node.y !== undefined) simplified.y = node.y;
-    if (node.width !== undefined) simplified.width = node.width;
-    if (node.height !== undefined) simplified.height = node.height;
+
+    // Spatial data — critical for reading order and inferring interactive elements
+    if (node.x !== undefined) simplified.x = Math.round(node.x);
+    if (node.y !== undefined) simplified.y = Math.round(node.y);
+    if (node.width !== undefined) simplified.width = Math.round(node.width);
+    if (node.height !== undefined) simplified.height = Math.round(node.height);
+
     if (node.layoutMode) simplified.layoutMode = node.layoutMode;
+
+    // Corner radius helps identify interactive elements (rounded = likely tappable)
+    if (node.cornerRadius !== undefined && node.cornerRadius > 0) {
+      simplified.cornerRadius = node.cornerRadius;
+    }
+
+    // Fill type hints (solid color vs image vs gradient)
+    if (Array.isArray(node.fills) && node.fills.length > 0) {
+      simplified.fillTypes = node.fills
+        .filter((f: any) => f.visible !== false)
+        .map((f: any) => f.type);
+    }
 
     flat.push(simplified);
 
@@ -48,6 +67,36 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   }
 
   return flat;
+}
+
+// Build a spatial summary to give the AI a high-level map of the screen layout
+function buildSpatialSummary(nodes: any[]): string {
+  const flat = flattenDesignData(nodes, 3); // shallow pass for layout overview
+  
+  // Group nodes into rough screen regions based on x position
+  // Assume typical screen width ~375-1440px; split into left/right halves
+  const withPos = flat.filter(n => n.x !== undefined && n.y !== undefined);
+  if (withPos.length === 0) return "";
+
+  const maxX = Math.max(...withPos.map(n => n.x + (n.width || 0)));
+  const midX = maxX / 2;
+
+  const leftRegion = withPos.filter(n => n.x < midX).slice(0, 20);
+  const rightRegion = withPos.filter(n => n.x >= midX).slice(0, 20);
+
+  const summarise = (group: any[]) =>
+    group
+      .map(n => `  [y=${n.y}, x=${n.x}, ${n.width}×${n.height}] ${n.textContent ? `"${n.textContent}"` : n.layerName} (${n.type})`)
+      .join("\n");
+
+  return `
+SPATIAL LAYOUT OVERVIEW (left half | right half of screen):
+LEFT REGION (x < ${Math.round(midX)}):
+${summarise(leftRegion) || "  (empty)"}
+
+RIGHT REGION (x >= ${Math.round(midX)}):
+${summarise(rightRegion) || "  (empty)"}
+`;
 }
 
 serve(async (req) => {
@@ -74,80 +123,118 @@ serve(async (req) => {
     const flatNodes = flattenDesignData(designData);
     console.log(`Flattened to ${flatNodes.length} nodes`);
 
+    const spatialSummary = buildSpatialSummary(designData);
     const designContext = JSON.stringify(flatNodes, null, 2);
 
     let systemPrompt = "";
     let userPrompt = "";
 
     if (checkType === "aria") {
-      systemPrompt = `You are an expert accessibility engineer specializing in WCAG 2.1 and ARIA best practices for mobile and web banking applications.
-You MUST respond with ONLY a valid JSON array — no markdown, no explanation.
-Start your response with [ and end with ].`;
+      systemPrompt = `You are a senior accessibility engineer with deep expertise in WCAG 2.1, ARIA 1.2, and banking/fintech UI patterns.
 
-      userPrompt = `Analyze this Figma design from a screen called "${pageName}" in "${fileName}" and generate descriptive ARIA labels for every interactive or meaningful visual element.
+CRITICAL RULES:
+1. Always use the "textContent" field as the source of truth for what an element says. The "layerName" is a Figma layer name that is often wrong, generic, or auto-generated — NEVER use it as the basis for an ARIA label.
+2. Use spatial position (x, y, width, height) to understand the visual layout and group related elements.
+3. Infer element type from: corner radius (rounded = button/card), fontSize (large = heading), layoutMode, fill types, and textContent patterns.
+4. NEVER skip calendar date cells — a grid of short numeric text nodes (1-31) inside a calendar-like parent is ALWAYS interactive.
+5. You MUST respond with ONLY a valid JSON array — no markdown, no explanation. Start with [ and end with ].`;
 
-Design nodes (flattened, with IDs, names, paths, types, positions, and text content):
+      userPrompt = `Analyze this Figma screen: "${pageName}" from file "${fileName}".
+
+${spatialSummary}
+
+FULL NODE DATA (id, layerName, textContent, type, position, size):
 ${designContext}
 
-Identify and generate ARIA labels for these element types:
-- Buttons (e.g. Pay Now, View Details, Submit)
-- Tabs and navigation items
-- Calendar dates
-- Cards (bill cards, event cards, promo banners)
-- Icons (standalone or within interactive elements)
-- Input fields and filters
-- Overflow menus
-- Status badges (Paid, Overdue, Scheduled, etc.)
+YOUR TASK — generate descriptive ARIA labels for every interactive or meaningful visual element.
 
-Rules for ARIA label generation:
-- Labels must be descriptive and screen-reader friendly — not just the visible text
-- Include context (e.g. "Pay Now button for Personal Loan EMI — ₹4,200 due October 10")
-- For icons, describe the action/meaning (e.g. "Notifications button with 3 unread alerts")
-- For status badges, include the entity they belong to (e.g. "Paid status for Electricity Bill")
-- For calendar dates, include full date context (e.g. "October 4, 2024 — 2 events scheduled")
-- For cards, describe the content (e.g. "HDFC Credit Card bill — ₹12,500 due in 3 days")
+ELEMENT TYPES TO ALWAYS COVER (do not skip any):
+1. Navigation bar items and tabs (use textContent for the label, not layer name)
+2. Category filter chips/pills (e.g. "Money Transfer (2)", "Bills & Recharges (6)" — read the actual textContent)
+3. CALENDAR WIDGET — this is critical:
+   - The calendar grid (month/year header, prev/next month buttons, day-of-week headers, ALL date cells)
+   - Each date cell showing a number (1-31) is a focusable button. Look for TEXT nodes with values 1-31 inside a grid-like structure.
+   - Detect the month/year from nearby text (e.g. "October 2024") and construct "October 1, 2024" etc.
+   - If a date has a dot indicator below it, label it as having events scheduled.
+4. Buttons — use textContent ("Pay Now", "View Details") and include what entity/bill it belongs to by looking at sibling text nodes in the same card
+5. Status badges — look for text like "PAID", "OVERDUE", "SCHEDULED", "SmartPay Set" and include parent entity context
+6. Bill/event cards — the card itself as a listitem with a summary label
+7. Overflow menus (⋮ three-dot buttons) — include which card they belong to
+8. Amount text nodes within cards — these may need role="text" with full context
+9. Promo/event banners and their CTAs
 
-Only include nodes that genuinely need ARIA labels (skip decorative/structural frames, separators, background shapes).
+ARIA LABEL QUALITY RULES:
+- Base ALL labels on textContent, never on layerName
+- Add context from siblings: "Pay Now button for Personal Loan EMI — ₹6,885.00 — OVERDUE"
+- For calendar: "October 4, 2024 — selected, Wednesday — 1 event" (infer from dot indicators)
+- For filter chips: "Bills & Recharges filter — 6 items" (parse the number from textContent)
+- For overflow menus: "More options for Mom's Phone Bill"
+- Skip purely decorative dividers, background rectangles, shadow layers
 
-Return a JSON array where each item has:
+Return JSON array, each item:
 {
-  "nodeId": "exact_node_id_from_above",
-  "nodeName": "original node name",
-  "role": "button | tab | navigation | listitem | img | input | status | link | heading | checkbox | radiobutton | combobox | menuitem",
-  "ariaLabel": "Full descriptive ARIA label string",
-  "context": "Brief explanation of why this label was chosen",
-  "path": "component path from design data"
+  "nodeId": "exact id from data",
+  "nodeName": "the layerName value",
+  "textContent": "actual text content if any",
+  "role": "button | tab | navigation | listitem | img | input | status | link | heading | gridcell | menuitem",
+  "ariaLabel": "Full descriptive ARIA label",
+  "context": "Why this label + how you inferred it from textContent and position"
 }`;
+
     } else {
       // focus_order
-      systemPrompt = `You are an expert accessibility engineer specializing in keyboard navigation, focus management, and WCAG 2.1 success criteria for mobile and web banking applications.
-You MUST respond with ONLY a valid JSON array — no markdown, no explanation.
-Start your response with [ and end with ].`;
+      systemPrompt = `You are a senior accessibility engineer specialising in keyboard navigation, focus management, and WCAG 2.1 success criteria 2.4.3 (Focus Order) for fintech/banking apps.
 
-      userPrompt = `Analyze this Figma design from a screen called "${pageName}" in "${fileName}" and define a logical keyboard focus order for all interactive elements.
+CRITICAL RULES:
+1. Use "textContent" as the source of truth — not "layerName" which is a Figma internal name that may be wrong.
+2. Use x/y coordinates to determine visual reading order. Lower y = higher on screen = earlier in focus order. For same y, lower x = earlier.
+3. CALENDAR GRIDS ARE INTERACTIVE — every individual date cell in a calendar is a focusable element. Identify them by: numeric textContent (1-31), similar sizes, arranged in a 7-column grid pattern. Include ALL of them in sequence (left-to-right, row by row).
+4. Think about the WHOLE screen layout spatially: what is on the LEFT side vs RIGHT side, what is at the TOP vs BOTTOM. Both sides of a two-column layout need coverage.
+5. You MUST respond with ONLY a valid JSON array — no markdown, no explanation. Start with [ and end with ].`;
 
-Design nodes (flattened, with IDs, names, paths, types, positions x/y, and sizes):
+      userPrompt = `Analyze this Figma screen: "${pageName}" from file "${fileName}" and define a complete keyboard focus order.
+
+${spatialSummary}
+
+FULL NODE DATA (id, layerName, textContent, type, x, y, width, height):
 ${designContext}
 
-Define the focus order following these principles:
-- Move left-to-right, top-to-bottom following the natural reading flow
-- Respect component hierarchy (e.g. a card's CTA comes after the card header)
-- Global navigation → Search → Header actions (notifications, profile) → Page controls → Filters/tabs → Content areas → Cards and their actions → Overflow menus
-- Skip purely decorative or structural elements (frames, backgrounds, dividers)
-- Interactive elements include: buttons, tabs, links, inputs, selects, checkboxes, radio buttons, date pickers, overflow menus, cards with actions
+SPATIAL READING ORDER RULES:
+- Read the screen top-to-bottom, left-to-right
+- For two-column layouts: header spans full width → left column content → right column content (OR interleaved if columns share the same y-range)
+- The focus order should follow the DOM/visual flow a sighted user would naturally follow
 
-For each interactive element, provide:
+REQUIRED FOCUS SEQUENCE for a typical HDFC Calendar 360 screen:
+1. App/page header elements (back button, page title, header action buttons)
+2. Date navigation row (previous month button → current month/date label → next month button → today label)
+3. View toggle buttons (grid/list view switcher)
+4. Category filter chips — ALL of them left to right (Money Transfer, Bills & Recharges, Cards, Loans, Investments, Offers, Notifications, Others...)
+5. ← LEFT COLUMN: CALENDAR WIDGET (this is on the left side, do not skip it!)
+   - Previous month arrow
+   - Month/year heading (if interactive)
+   - Next month arrow
+   - Day-of-week column headers (SUN, MON, TUE, WED, THU, FRI, SAT) — these are usually not focusable, skip
+   - ALL date cells row by row: row 1 (1,2,3,4,5,6,7) → row 2 (8,9,10...) → etc.
+   - "Events" section heading
+   - Event cards in the calendar panel and their CTAs
+6. → RIGHT COLUMN: Bill/event cards (top-to-bottom)
+   - Each card: card focus itself → action button (View Details / Pay Now) → overflow menu (⋮)
+7. Add Event button (if present, usually top-right corner — include it in the header section)
+
+LABEL RULES: Use textContent to build the label. E.g. a date cell with textContent "4" and a dot indicator → "October 4, 2024 — has events".
+
+For each interactive element return:
 {
-  "nodeId": "exact_node_id_from_above",
-  "nodeName": "original node name",
+  "nodeId": "exact id from data",
+  "nodeName": "layerName value",
+  "textContent": "actual text if any",
   "focusIndex": 1,
-  "role": "button | tab | navigation | input | link | checkbox | radiobutton | combobox | menuitem | listitem",
-  "ariaLabel": "Short descriptive label for this element",
-  "path": "component path from design data",
-  "rationale": "Why this position in the focus order"
+  "role": "button | tab | link | input | gridcell | menuitem | listitem | navigation",
+  "ariaLabel": "Descriptive label based on textContent + context",
+  "rationale": "Why this position — reference x/y coordinates and visual region"
 }
 
-The focusIndex must start at 1 and increment sequentially. Return ALL interactive elements sorted by focusIndex.`;
+focusIndex starts at 1 and increments sequentially. Return ALL interactive elements sorted by focusIndex. Do NOT skip the calendar.`;
     }
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -162,7 +249,7 @@ The focusIndex must start at 1 and increment sequentially. Return ALL interactiv
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 16000,
+        max_tokens: 32000,
         temperature: 0,
       }),
     });
