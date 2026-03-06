@@ -1949,7 +1949,7 @@
             }
           }, '*');
 
-          displayAIAccessibilityResults(checkType, result.results);
+          displayAIAccessibilityResults();
           showToast(`✅ ${label} generated & written to Figma!`, 'success');
         } catch (error) {
           showError(error.message || `AI ${checkType} check failed`);
@@ -1962,44 +1962,51 @@
       btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
     }
 
-    function displayAIAccessibilityResults(checkType, results) {
+    function displayAIAccessibilityResults() {
       const feedbackList = document.getElementById('feedbackList');
       const resultsEl = document.getElementById('results');
       const summaryStats = document.getElementById('summaryStats');
       const analysisSection = document.getElementById('analysisSection');
 
       analysisSection.style.display = 'none';
-
-      const isAria = checkType === 'aria';
-      const label = isAria ? 'ARIA Labels' : 'Focus Order';
-      const icon = isAria ? '🏷️' : '🔢';
-
-      document.querySelector('.results-title').textContent = `${icon} ${label} — AI Generated`;
+      document.querySelector('.results-title').textContent = `🤖 AI Accessibility — Results`;
       document.querySelector('.sort-controls').style.display = 'none';
       document.querySelector('.filter-controls').style.display = 'none';
+
+      const ariaResults = a11yAIResults.aria;
+      const focusResults = a11yAIResults.focus_order;
+      const totalCount = (ariaResults ? ariaResults.length : 0) + (focusResults ? focusResults.length : 0);
 
       summaryStats.innerHTML = `
         <div style="grid-column: 1/-1; padding: 14px 16px; background: var(--hdfc-light); border-radius: var(--radius-sm); border: 1px solid rgba(28,63,202,0.15);">
           <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hdfc-primary);">
-            <span style="font-size: 18px;">${icon}</span>
-            <span>${results.length} elements annotated in Figma</span>
+            <span style="font-size: 18px;">🤖</span>
+            <span>${totalCount} elements annotated in Figma</span>
           </div>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">AI has generated ${label.toLowerCase()} and written them directly into your Figma file as annotations.</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">AI has generated accessibility metadata and written it directly into your Figma file.</div>
         </div>
       `;
 
-      if (isAria) {
-        // Group by role
+      const roleIcons = { button: '🔘', tab: '📑', navigation: '🧭', listitem: '📋', img: '🖼️', input: '✏️', status: '🏷️', link: '🔗', heading: '📰', checkbox: '☑️', radiobutton: '🔵', combobox: '📂', menuitem: '📌' };
+      let html = '';
+
+      // ---- ARIA LABELS SECTION ----
+      if (ariaResults && ariaResults.length > 0) {
         const grouped = {};
-        results.forEach(r => {
+        ariaResults.forEach(r => {
           const role = r.role || 'other';
           if (!grouped[role]) grouped[role] = [];
           grouped[role].push(r);
         });
 
-        const roleIcons = { button: '🔘', tab: '📑', navigation: '🧭', listitem: '📋', img: '🖼️', input: '✏️', status: '🏷️', link: '🔗', heading: '📰', checkbox: '☑️', radiobutton: '🔵', combobox: '📂', menuitem: '📌' };
+        html += `
+          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px;">
+            <span style="font-size: 16px;">🏷️</span>
+            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">ARIA Labels</span>
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${ariaResults.length} elements</span>
+          </div>
+        `;
 
-        let html = '';
         Object.entries(grouped).sort((a, b) => b[1].length - a[1].length).forEach(([role, items]) => {
           html += `
             <div class="category-section">
@@ -2022,17 +2029,27 @@
             </div>
           `;
         });
-        feedbackList.innerHTML = html;
-      } else {
-        // Focus order — show as numbered list
-        const sorted = [...results].sort((a, b) => (a.focusIndex || 0) - (b.focusIndex || 0));
-        feedbackList.innerHTML = sorted.map(r => `
+      }
+
+      // ---- FOCUS ORDER SECTION ----
+      if (focusResults && focusResults.length > 0) {
+        const sorted = [...focusResults].sort((a, b) => (a.focusIndex || 0) - (b.focusIndex || 0));
+
+        html += `
+          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px; margin-top: ${ariaResults && ariaResults.length > 0 ? '20px' : '0'};">
+            <span style="font-size: 16px;">🔢</span>
+            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">Focus Order</span>
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${sorted.length} elements</span>
+          </div>
+        `;
+
+        html += sorted.map(r => `
           <div class="a11y-item pass" style="cursor:pointer; display: flex; align-items: flex-start; gap: 12px;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
             <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--hdfc-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">${r.focusIndex}</div>
             <div style="flex: 1; min-width: 0;">
               <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 2px;">${r.nodeName || 'Unknown'}</div>
               <div style="font-size: 12px; color: var(--hdfc-primary); margin-bottom: 2px;">${r.ariaLabel || ''}</div>
-              <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px;">
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
                 <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--hdfc-light); color: var(--hdfc-primary); font-weight: 600; text-transform: capitalize;">${r.role || ''}</span>
                 ${r.rationale ? `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">${r.rationale}</span>` : ''}
               </div>
@@ -2041,6 +2058,7 @@
         `).join('');
       }
 
+      feedbackList.innerHTML = html;
       resultsEl.classList.add('active');
     }
 
