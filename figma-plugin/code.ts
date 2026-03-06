@@ -1089,6 +1089,69 @@ figma.ui.onmessage = async (msg: any) => {
     figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
   }
 
+  if (msg.type === 'get-selection-for-a11y-ai') {
+    const selection = figma.currentPage.selection;
+    if (selection.length === 0) {
+      figma.ui.postMessage({ type: 'accessibility-results', issues: [], error: 'No selection. Select a frame first.' });
+      return;
+    }
+    // Re-use extractNodeData to collect design data for AI
+    _extractedNodeCount = 0;
+    const nodes = [];
+    for (const node of selection) {
+      const data = extractNodeData(node);
+      if (data) nodes.push(data);
+    }
+    figma.ui.postMessage({
+      type: 'selection-for-a11y-ai',
+      data: {
+        nodes,
+        fileName: figma.root.name,
+        pageName: figma.currentPage.name,
+      },
+      checkAria: msg.checkAria,
+      checkFocus: msg.checkFocus,
+    });
+  }
+
+  if (msg.type === 'write-a11y-annotations') {
+    const results: any[] = msg.results || [];
+    const checkType: string = msg.checkType;
+    let annotated = 0;
+
+    for (const item of results) {
+      if (!item.nodeId) continue;
+      const node = figma.getNodeById(item.nodeId) as SceneNode | null;
+      if (!node) continue;
+
+      try {
+        if (checkType === 'aria') {
+          // Write ARIA label + role as plugin data on the node
+          node.setPluginData('ariaLabel', item.ariaLabel || '');
+          node.setPluginData('ariaRole', item.role || '');
+          node.setPluginData('ariaContext', item.context || '');
+          annotated++;
+        } else if (checkType === 'focus_order') {
+          // Write focus index, role, aria label as plugin data
+          node.setPluginData('focusIndex', String(item.focusIndex || ''));
+          node.setPluginData('focusRole', item.role || '');
+          node.setPluginData('focusAriaLabel', item.ariaLabel || '');
+          node.setPluginData('focusRationale', item.rationale || '');
+          annotated++;
+        }
+      } catch (e) {
+        // Some nodes may not support plugin data (e.g. locked/external)
+      }
+    }
+
+    const label = checkType === 'aria' ? 'ARIA labels' : 'focus order annotations';
+    figma.notify(`✅ ${annotated} ${label} written to ${annotated === 1 ? 'element' : 'elements'}`);
+    figma.ui.postMessage({
+      type: 'a11y-ai-annotate-done',
+      message: `${annotated} ${label} written to Figma`,
+    });
+  }
+
   if (msg.type === 'notify') {
     figma.notify(msg.message);
   }
