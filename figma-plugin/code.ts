@@ -1095,6 +1095,7 @@ figma.ui.onmessage = async (msg: any) => {
       figma.ui.postMessage({ type: 'accessibility-results', issues: [], error: 'No selection. Select a frame first.' });
       return;
     }
+
     // Re-use extractNodeData to collect design data for AI
     _extractedNodeCount = 0;
     const nodes = [];
@@ -1102,6 +1103,45 @@ figma.ui.onmessage = async (msg: any) => {
       const data = extractNodeData(node);
       if (data) nodes.push(data);
     }
+
+    // Post-process: annotate nodes with structural interactivity signals
+    function annotateInteractivity(node: any, siblings: any[] = []): void {
+      // Mark component instances — almost always interactive UI elements
+      if (node.type === 'INSTANCE' || node.type === 'COMPONENT') {
+        node._isComponent = true;
+      }
+
+      // Detect repeating sibling groups: siblings with very similar dimensions
+      // and y-positions likely represent grids of interactive elements (date cells,
+      // filter chips, tab items, menu items, list rows, etc.)
+      if (siblings.length >= 3) {
+        const sameSizeCount = siblings.filter(s =>
+          Math.abs((s.width || 0) - (node.width || 0)) < 8 &&
+          Math.abs((s.height || 0) - (node.height || 0)) < 8
+        ).length;
+        if (sameSizeCount >= 3) {
+          node._inRepeatingGroup = true;
+          node._repeatingSiblingCount = sameSizeCount;
+        }
+      }
+
+      // Detect leaf nodes (no children or only text children) — likely interactive targets
+      const children = node.children || [];
+      const hasOnlyTextChildren = children.length > 0 && children.every((c: any) => c.type === 'TEXT');
+      if (hasOnlyTextChildren || children.length === 0) {
+        node._isLeaf = true;
+      }
+
+      // Recurse
+      for (let i = 0; i < children.length; i++) {
+        annotateInteractivity(children[i], children);
+      }
+    }
+
+    for (const node of nodes) {
+      annotateInteractivity(node, []);
+    }
+
     figma.ui.postMessage({
       type: 'selection-for-a11y-ai',
       data: {
