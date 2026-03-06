@@ -1949,7 +1949,7 @@
             }
           }, '*');
 
-          displayAIAccessibilityResults(checkType, result.results);
+          displayAIAccessibilityResults();
           showToast(`✅ ${label} generated & written to Figma!`, 'success');
         } catch (error) {
           showError(error.message || `AI ${checkType} check failed`);
