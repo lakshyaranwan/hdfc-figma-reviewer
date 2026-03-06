@@ -1859,23 +1859,40 @@
     updateSelectionUI();
     
     // ========== ACCESSIBILITY ==========
-    function runAccessibilityCheck() {
+    async function runAccessibilityCheck() {
       if (!selectionData || !selectionData.hasSelection) {
         showError('Please select a frame first');
         return;
       }
       const checkText = document.getElementById('a11yCheckText').checked;
       const checkIcon = document.getElementById('a11yCheckIcon').checked;
-      if (!checkText && !checkIcon) {
+      const checkAria = document.getElementById('a11yCheckAria').checked;
+      const checkFocus = document.getElementById('a11yCheckFocus').checked;
+      if (!checkText && !checkIcon && !checkAria && !checkFocus) {
         showToast('Select at least one check type', 'error');
         return;
       }
       const btn = document.getElementById('a11yRunBtn');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;"></span><span>Checking...</span>';
-      parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon } }, '*');
+
+      // Run contrast checks (local, via plugin code)
+      if (checkText || checkIcon) {
+        parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
+      }
+
+      // Run AI checks (ARIA / Focus Order)
+      if (checkAria || checkFocus) {
+        // Only run AI checks (no contrast) — send data to edge function
+        parent.postMessage({ pluginMessage: { type: 'get-selection-for-a11y-ai', checkAria, checkFocus } }, '*');
+      }
+
+      // If only AI checks selected (no contrast), reset button after a moment placeholder
+      if (!checkText && !checkIcon) {
+        // button will be re-enabled after AI results come back
+      }
     }
-    
+
     let a11yIssues = [];
     let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
     let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
