@@ -5,6 +5,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Track usage in plugin_usage table
+async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: string, nodCount: number, fileName: string) {
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/plugin_usage`, {
+      method: "POST",
+      headers: {
+        "apikey": serviceRoleKey,
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify({
+        user_name: fileName || "unknown",
+        action,
+        node_count: nodCount,
+        category_count: 1,
+      }),
+    });
+  } catch (e) {
+    console.error("Failed to track usage:", e);
+  }
+}
+
 // Flatten design tree into a flat list, carrying structural interactivity signals
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
@@ -109,6 +132,9 @@ serve(async (req) => {
     console.log(`analyze-a11y: checkType=${checkType}, nodes=${designData?.length || 0}`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     if (!designData || designData.length === 0) {
@@ -121,26 +147,48 @@ serve(async (req) => {
     const flatNodes = flattenDesignData(designData);
     console.log(`Flattened to ${flatNodes.length} nodes`);
 
-    const spatialSummary   = buildSpatialSummary(flatNodes);
-    const repeatingGroups  = findRepeatingGroups(flatNodes);
-    const designContext    = JSON.stringify(flatNodes, null, 2);
+    const spatialSummary  = buildSpatialSummary(flatNodes);
+    const repeatingGroups = findRepeatingGroups(flatNodes);
+
+    // ── Build parent-context map so the AI knows what surrounds each node ───
+    // Map nodeId → list of ancestor textContents (closest first)
+    const parentContextMap: Record<string, string[]> = {};
+    function buildParentContext(nodes: any[], ancestors: string[] = []) {
+      for (const n of nodes) {
+        if (n.id) parentContextMap[n.id] = [...ancestors];
+        const childAncestors = n.textContent
+          ? [n.textContent, ...ancestors]
+          : ancestors;
+        if (n.children) buildParentContext(n.children, childAncestors);
+      }
+    }
+    buildParentContext(designData);
+
+    // Enrich flat nodes with parent context
+    const enrichedNodes = flatNodes.map(n => ({
+      ...n,
+      parentContext: (parentContextMap[n.id] || []).slice(0, 3),
+    }));
+
+    const designContext = JSON.stringify(enrichedNodes, null, 2);
 
     // ── Shared interactivity decision rules ─────────────────────────────────
     const interactivityRules = `
-HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE (apply universally, not just to known patterns):
-1. isComponent=true → almost always interactive (it is a reusable UI component in Figma)
-2. inRepeatingGroup=true → every member of the group is interactive (this is a grid/list/chip row — date cells, filter chips, nav tabs, menu items, list rows, thumbnails, etc.)
-3. type=FRAME/INSTANCE with cornerRadius > 0 AND a solid fill AND it is a leaf or near-leaf → likely a button or card
-4. textContent looks like a number 1–31 AND siblings share the same size AND they are arranged in a 7-column or grid layout → date picker cells, ALL are interactive gridcells
-5. textContent matches action words (e.g. "Pay Now", "View Details", "Explore", "Add", "Submit", "Apply") → button
-6. textContent matches navigation labels (e.g. "Home", "Bills", "Cards", "Profile") → navigation item
-7. Small square/circle element with no text but with a solid fill next to interactive content → icon button
-8. textContent matches a short label with a count like "Bills (6)" or "Offers(5)" → filter chip / tab
-9. Three-dot / "⋮" / "..." text or icon inside a card → overflow menu button
-10. Elements with very large fontSize (>= 24px) that describe a section → heading (role="heading")
-11. isLeaf=true inside a card that has action siblings → listitem
+HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE (apply universally):
+1. isComponent=true → almost always interactive (reusable UI component)
+2. inRepeatingGroup=true → EVERY member is interactive (grids, lists, chip rows, date cells, tabs, nav items, thumbnails, etc.) — include ALL of them without exception
+3. type=FRAME/INSTANCE with cornerRadius > 0 AND a solid fill AND leaf/near-leaf → likely a button or tappable card
+4. textContent is a 1–2 digit number AND siblings share the same size in a 7-col or grid layout → date-picker cells — ALL are gridcells
+5. textContent matches action words ("Pay Now", "View", "Apply", "Add", "Submit", "Explore", "Confirm") → button
+6. textContent matches nav labels ("Home", "Bills", "Cards", "Profile", "Pay", "Offers") → navigation item
+7. Small square/circle element (no text, solid fill) adjacent to interactive content → icon button
+8. Short label with count like "Bills (6)" or "Offers(5)" → filter chip / tab
+9. "⋮", "...", "more" inside a card → overflow menuitem
+10. fontSize >= 20px describing a section → heading
+11. isLeaf=true inside a card alongside action siblings → listitem / interactive card row
+12. parentContext contains card-level info (amount, name, status) → use it to enrich the ariaLabel
 
-IMPORTANT: Do NOT base decisions on layerName. It is a Figma internal name that is frequently wrong (e.g. "Frame 1234", "Group 5", "Rectangle"). Base all decisions on textContent, position, size, isComponent, inRepeatingGroup, cornerRadius, and fillTypes.`;
+CRITICAL: Do NOT use layerName as a decision signal. Layer names in Figma are often "Frame 1234" or "Group 5". Always use: textContent, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
 
     let systemPrompt = "";
     let userPrompt   = "";
@@ -160,17 +208,17 @@ ${interactivityRules}
 
 ARIA LABEL QUALITY RULES:
 - Use textContent as the label base — never the layerName
-- Add context from sibling/parent nodes to make the label fully self-contained for a screen reader:
+- Use parentContext to enrich labels with card-level context:
     "Pay Now button for Personal Loan EMI — ₹6,885.00 — OVERDUE"
     "Mom's Phone Bill — Mobile Postpaid — ₹885.00 — PAID — View Details button"
     "More options for Infinia Credit Card"
     "Bills & Recharges filter — 6 items"
-    "October 4, 2024 — Wednesday — 1 event scheduled"
+    "October 4, 2024 — Wednesday"
 - For status badges: include the entity they annotate: "OVERDUE status for Personal Loan EMI"
-- For icons with no text: describe the action from context ("Back", "Notifications — 2 unread", "Search")
-- Skip purely decorative nodes: dividers, background rectangles, shadow layers, illustration frames
+- For icons with no text: describe action from context ("Back", "Notifications — 2 unread", "Search")
+- Skip purely decorative nodes: dividers, background rectangles, shadow layers, illustration frames with no meaning
 
-FULL NODE DATA:
+FULL NODE DATA (includes parentContext for each node):
 ${designContext}
 
 Return a JSON array. Each item:
@@ -180,7 +228,7 @@ Return a JSON array. Each item:
   "textContent": "actual text if any",
   "role": "button | tab | navigation | listitem | gridcell | img | input | status | link | heading | menuitem | checkbox | radio | combobox",
   "ariaLabel": "Full descriptive label",
-  "context": "How you inferred this (signals used: textContent, isComponent, inRepeatingGroup, position, siblings)"
+  "context": "How you inferred this (signals used)"
 }`;
 
     } else {
@@ -189,7 +237,7 @@ Return a JSON array. Each item:
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
 Start your response with [ and end with ].`;
 
-      userPrompt = `Define a complete, logical keyboard focus order for this Figma screen: "${pageName}" (file: "${fileName}").
+      userPrompt = `Define a COMPLETE keyboard focus order for the Figma screen: "${pageName}" (file: "${fileName}").
 
 ${spatialSummary}
 
@@ -197,28 +245,36 @@ ${repeatingGroups}
 
 ${interactivityRules}
 
-FOCUS ORDER CONSTRUCTION RULES:
-1. Use x/y coordinates to determine reading order: lower y = earlier; same y → lower x = earlier
-2. Every member of a repeating group (inRepeatingGroup=true) MUST be included — they are all interactive. Include them in spatial order (left-to-right, top-to-bottom within the group).
-3. Every isComponent=true node should be evaluated — most are interactive.
-4. Reading flow: header / top bar → global navigation → search → secondary controls → content area (left-to-right across columns, then top-to-bottom within each column) → bottom navigation / FAB
-5. Within a card/list item: the item itself → primary action → secondary action → overflow menu
-6. Skip non-interactive structural nodes: background frames, separators, decorative shapes, containers that only exist for layout
+FOCUS ORDER RULES:
+1. Use x/y coordinates to sequence: lower y first; equal y → lower x first.
+2. inRepeatingGroup=true: EVERY member MUST appear — no skipping. Include left-to-right, top-to-bottom within the group.
+3. isComponent=true nodes must be evaluated individually — most are interactive.
+4. Canonical reading flow:
+   a. Status bar / notifications area (if present, top)
+   b. Header / app bar (back button → title → trailing icons)
+   c. Search / filter bar
+   d. Primary section headings (role=heading, not focusable but useful as landmarks)
+   e. Main content area — process each row/card in y-order:
+      • Card/row container → primary CTA → secondary CTA → overflow "⋮"
+   f. Floating action buttons (FAB), modals, drawers (if visible)
+   g. Bottom navigation bar
+5. Date/calendar grids: sequence cells row by row, left-to-right. A 5×7 grid → 35 entries.
+6. Tab bars / chip rows: sequence left-to-right.
+7. DO NOT skip items because they "seem structural" — if a node has isComponent or inRepeatingGroup, include it.
+8. DO NOT include nodes that are purely layout containers, background fills, dividers, or decorative shapes with no text or interactivity signal.
 
-IMPORTANT: Do not hardcode assumptions about which patterns exist on this specific screen. Derive everything from the node data, the spatial map, and the interactivity rules above.
-
-FULL NODE DATA:
+FULL NODE DATA (includes parentContext for contextual labels):
 ${designContext}
 
-Return a JSON array sorted by focusIndex. Each item:
+Return a JSON array sorted by focusIndex (1-based). Each item:
 {
   "nodeId": "exact id",
   "nodeName": "layerName value",
   "textContent": "actual text if any",
   "focusIndex": 1,
   "role": "button | tab | navigation | gridcell | input | link | listitem | menuitem | heading | checkbox | radio | combobox",
-  "ariaLabel": "Descriptive label based on textContent + context",
-  "rationale": "Why this focus position — cite x/y, isComponent, inRepeatingGroup, or sibling context"
+  "ariaLabel": "Descriptive label using textContent + parentContext",
+  "rationale": "Brief reason: cite x/y coords, isComponent, inRepeatingGroup, or parent card info"
 }`;
     }
 
@@ -271,6 +327,11 @@ Return a JSON array sorted by focusIndex. Each item:
     if (!Array.isArray(results)) throw new Error("Response is not an array");
 
     console.log(`${checkType} analysis complete: ${results.length} items`);
+
+    // Track usage for AI a11y checks
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      await trackUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, `a11y_${checkType}`, flatNodes.length, fileName || "unknown");
+    }
 
     return new Response(
       JSON.stringify({ success: true, results, checkType }),

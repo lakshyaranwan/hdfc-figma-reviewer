@@ -158,7 +158,35 @@ serve(async (req) => {
   }
 
   try {
-    const { designData, prompt, categories, isCustom, fileName, pageName } = await req.json();
+    const body = await req.json();
+    
+    // Handle lightweight usage-tracking-only calls from the UI (contrast checks etc.)
+    if (body._trackOnly) {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/plugin_usage`, {
+            method: "POST",
+            headers: {
+              "apikey": SUPABASE_SERVICE_ROLE_KEY,
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+              "Prefer": "return=minimal",
+            },
+            body: JSON.stringify({
+              user_name: body.fileName || "unknown",
+              action: body.action || "a11y_contrast",
+              node_count: body.nodeCount || 0,
+              category_count: 1,
+            }),
+          });
+        } catch (e) { /* ignore */ }
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    
+    const { designData, prompt, categories, isCustom, fileName, pageName } = body;
     
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);

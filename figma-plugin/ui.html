@@ -1237,6 +1237,9 @@
             </div>
           </label>
         </div>
+        <!-- Per-check status chips -->
+        <div id="a11yStatusChips" style="display:none; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
+
         <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
           <span>♿</span>
           <span>Run Accessibility Check</span>
@@ -1376,7 +1379,7 @@
       }
       
       if (msg.type === 'accessibility-results') {
-        displayAccessibilityResults(msg.issues, msg.error);
+        _origAccessibilityResults(msg.issues, msg.error);
       }
 
       if (msg.type === 'selection-for-a11y-ai') {
@@ -1862,6 +1865,61 @@
     updateSelectionUI();
     
     // ========== ACCESSIBILITY ==========
+
+    // Per-check status tracking: 'idle' | 'running' | 'done' | 'error'
+    let a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
+
+    function setCheckStatus(key, status, extra) {
+      a11yCheckStatus[key] = status;
+      renderCheckStatusChips();
+    }
+
+    function renderCheckStatusChips() {
+      const container = document.getElementById('a11yStatusChips');
+      if (!container) return;
+
+      const checks = [
+        { key: 'text',         label: '🔤 Text Contrast' },
+        { key: 'icon',         label: '🎨 Icon Contrast' },
+        { key: 'aria',         label: '🏷️ ARIA Labels' },
+        { key: 'focus_order',  label: '🔢 Focus Order' },
+      ];
+
+      const activeChecks = checks.filter(c => a11yCheckStatus[c.key] !== 'idle');
+      if (activeChecks.length === 0) { container.innerHTML = ''; return; }
+
+      const statusColors = {
+        running: '#E8EDFF',
+        done:    '#ECFDF5',
+        error:   '#FEF2F2',
+      };
+      const statusBorders = {
+        running: '#1C3FCA',
+        done:    '#10B981',
+        error:   '#EF4444',
+      };
+      const statusText = {
+        running: 'Processing…',
+        done:    'Done ✓',
+        error:   'Error ✗',
+      };
+
+      container.innerHTML = activeChecks.map(c => {
+        const s = a11yCheckStatus[c.key];
+        const bg   = statusColors[s]  || 'var(--white)';
+        const bdr  = statusBorders[s] || 'var(--border)';
+        const stxt = statusText[s]    || '';
+        const pulse = s === 'running' ? 'animation:pulse 1.2s ease-in-out infinite;' : '';
+        return `
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:${bg};border:1px solid ${bdr};border-radius:8px;${pulse}">
+            <span style="font-size:12px;font-weight:600;color:var(--text-primary);">${c.label}</span>
+            <span style="font-size:11px;color:${bdr};font-weight:500;">${stxt}</span>
+            ${s === 'running' ? `<span style="width:14px;height:14px;border:2px solid ${bdr};border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite;flex-shrink:0;"></span>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
     async function runAccessibilityCheck() {
       if (!selectionData || !selectionData.hasSelection) {
         showError('Please select a frame first');
@@ -1875,24 +1933,30 @@
         showToast('Select at least one check type', 'error');
         return;
       }
+
+      // Reset statuses
+      a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
+      if (checkText) setCheckStatus('text', 'running');
+      if (checkIcon) setCheckStatus('icon', 'running');
+      if (checkAria) setCheckStatus('aria', 'running');
+      if (checkFocus) setCheckStatus('focus_order', 'running');
+
       const btn = document.getElementById('a11yRunBtn');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;"></span><span>Checking...</span>';
 
-      // Run contrast checks (local, via plugin code)
+      // Show status chips area
+      const chipsEl = document.getElementById('a11yStatusChips');
+      if (chipsEl) chipsEl.style.display = 'flex';
+
+      // Run contrast checks (local, via plugin code) — instant
       if (checkText || checkIcon) {
         parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
       }
 
-      // Run AI checks (ARIA / Focus Order)
+      // Run AI checks in parallel
       if (checkAria || checkFocus) {
-        // Only run AI checks (no contrast) — send data to edge function
         parent.postMessage({ pluginMessage: { type: 'get-selection-for-a11y-ai', checkAria, checkFocus } }, '*');
-      }
-
-      // If only AI checks selected (no contrast), reset button after a moment placeholder
-      if (!checkText && !checkIcon) {
-        // button will be re-enabled after AI results come back
       }
     }
 
@@ -1902,17 +1966,13 @@
     let a11yCollapsed = new Set(); // collapsed a11y groups
     let a11yAIResults = { aria: null, focus_order: null }; // AI check results
 
-    // ====== AI ACCESSIBILITY CHECK ======
+    // ====== AI ACCESSIBILITY CHECK (parallel) ======
     async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
-      const types = [];
-      if (checkAria) types.push('aria');
-      if (checkFocus) types.push('focus_order');
+      const promises = [];
 
-      for (const checkType of types) {
+      const runCheck = async (checkType) => {
+        const label = checkType === 'aria' ? 'ARIA Labels' : 'Focus Order';
         try {
-          const label = checkType === 'aria' ? 'ARIA Labels' : 'Focus Order';
-          showToast(`🤖 Generating ${label} with AI...`);
-
           const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-a11y`, {
             method: 'POST',
             headers: {
@@ -1933,9 +1993,10 @@
           }
 
           const result = await response.json();
-          a11yAIResults[checkType === 'focus_order' ? 'focus_order' : 'aria'] = result.results;
+          const resultKey = checkType === 'focus_order' ? 'focus_order' : 'aria';
+          a11yAIResults[resultKey] = result.results;
 
-          // Tell plugin code to write annotations to Figma
+          // Write annotations to Figma
           parent.postMessage({
             pluginMessage: {
               type: 'write-a11y-annotations',
@@ -1944,18 +2005,75 @@
             }
           }, '*');
 
+          setCheckStatus(checkType, 'done');
           displayAIAccessibilityResults();
-          showToast(`✅ ${label} generated & written to Figma!`, 'success');
+          showToast(`✅ ${label} done — ${result.results.length} elements`, 'success');
         } catch (error) {
-          showError(error.message || `AI ${checkType} check failed`);
+          setCheckStatus(checkType, 'error');
+          showToast(`❌ ${label}: ${error.message || 'failed'}`, 'error');
         }
+      };
+
+      if (checkAria)  promises.push(runCheck('aria'));
+      if (checkFocus) promises.push(runCheck('focus_order'));
+
+      // Fire both in parallel
+      await Promise.all(promises);
+
+      // Re-enable button when all AI checks are done
+      if (!document.getElementById('a11yCheckText').checked && !document.getElementById('a11yCheckIcon').checked) {
+        const btn = document.getElementById('a11yRunBtn');
+        btn.disabled = false;
+        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
+      }
+    }
+
+    // ====== Contrast usage tracking ======
+    async function trackContrastUsage(fileName, nodeCount) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({ userName: fileName || 'unknown', feedback: `contrast_check nodes:${nodeCount}`, feedbackType: 'usage_track' })
+        });
+      } catch (_) {}
+      // Also call plugin_usage directly
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({ _trackOnly: true, action: 'a11y_contrast', fileName: fileName || 'unknown', nodeCount })
+        });
+      } catch (_) {}
+    }
+
+    // Handle contrast results arriving from plugin code
+    function onContrastResultsReceived(issues) {
+      const checkText = document.getElementById('a11yCheckText').checked;
+      const checkIcon = document.getElementById('a11yCheckIcon').checked;
+      if (checkText) setCheckStatus('text', 'done');
+      if (checkIcon) setCheckStatus('icon', 'done');
+
+      // Re-enable button if no AI checks are pending
+      const aria  = a11yCheckStatus.aria;
+      const focus = a11yCheckStatus.focus_order;
+      if (aria !== 'running' && focus !== 'running') {
+        const btn = document.getElementById('a11yRunBtn');
+        btn.disabled = false;
+        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
       }
 
-      // Re-enable button
-      const btn = document.getElementById('a11yRunBtn');
-      btn.disabled = false;
-      btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
+      // Track usage
+      if (selectionData && selectionData.nodes) {
+        trackContrastUsage(selectionData.fileName, issues.length).catch(() => {});
+      }
     }
+
+    // Intercept accessibility-results message to update status
+    const _origAccessibilityResults = (issues, error) => {
+      onContrastResultsReceived(issues || []);
+      displayAccessibilityResults(issues, error);
+    };
 
     function displayAIAccessibilityResults() {
       const feedbackList = document.getElementById('feedbackList');

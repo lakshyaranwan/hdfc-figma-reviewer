@@ -1096,28 +1096,79 @@ figma.ui.onmessage = async (msg: any) => {
       return;
     }
 
-    // Re-use extractNodeData to collect design data for AI
-    _extractedNodeCount = 0;
-    const nodes = [];
+    // Use a deeper extraction for A11y — more nodes, more depth, capture all interactive elements
+    const A11Y_MAX_DEPTH = 12;
+    const A11Y_MAX_NODES = 1200;
+    let a11yNodeCount = 0;
+
+    function extractA11yNode(node: SceneNode, depth: number, parentPathStr: string): any | null {
+      if (depth > A11Y_MAX_DEPTH) return null;
+      if (a11yNodeCount >= A11Y_MAX_NODES) return null;
+      if (!node.visible) return null;
+      if ('opacity' in node && node.opacity === 0) return null;
+
+      a11yNodeCount++;
+
+      const textContent = node.type === 'TEXT' ? (node as TextNode).characters.trim() : undefined;
+      const pathLabel = textContent || node.name || node.type;
+      const currentPath = parentPathStr ? `${parentPathStr} > ${pathLabel}` : pathLabel;
+
+      const n: any = {
+        id: node.id,
+        name: node.name,
+        type: node.type,
+        path: currentPath,
+      };
+
+      if (textContent) n.characters = textContent;
+      if ('x' in node) n.x = Math.round((node as any).x);
+      if ('y' in node) n.y = Math.round((node as any).y);
+      if ('width' in node) n.width = Math.round((node as any).width);
+      if ('height' in node) n.height = Math.round((node as any).height);
+      if (node.type === 'TEXT') {
+        const t = node as TextNode;
+        if (t.fontSize !== figma.mixed) n.fontSize = t.fontSize;
+      }
+      if ('cornerRadius' in node && (node as any).cornerRadius !== figma.mixed) {
+        n.cornerRadius = (node as any).cornerRadius;
+      }
+      if ('fills' in node && (node as any).fills !== figma.mixed) {
+        const fills = (node as any).fills as readonly Paint[];
+        n.fills = fills.filter(f => f.visible !== false).map(f => ({ type: f.type }));
+      }
+      if ('layoutMode' in node) n.layoutMode = (node as any).layoutMode;
+
+      if ('children' in node && a11yNodeCount < A11Y_MAX_NODES) {
+        const children: any[] = [];
+        for (const child of (node as FrameNode).children) {
+          if (a11yNodeCount >= A11Y_MAX_NODES) break;
+          const childData = extractA11yNode(child, depth + 1, currentPath);
+          if (childData) children.push(childData);
+        }
+        if (children.length > 0) n.children = children;
+      }
+
+      return n;
+    }
+
+    a11yNodeCount = 0;
+    const nodes: any[] = [];
     for (const node of selection) {
-      const data = extractNodeData(node);
+      if (a11yNodeCount >= A11Y_MAX_NODES) break;
+      const data = extractA11yNode(node, 0, '');
       if (data) nodes.push(data);
     }
 
     // Post-process: annotate nodes with structural interactivity signals
     function annotateInteractivity(node: any, siblings: any[] = []): void {
-      // Mark component instances — almost always interactive UI elements
       if (node.type === 'INSTANCE' || node.type === 'COMPONENT') {
         node._isComponent = true;
       }
 
-      // Detect repeating sibling groups: siblings with very similar dimensions
-      // and y-positions likely represent grids of interactive elements (date cells,
-      // filter chips, tab items, menu items, list rows, etc.)
       if (siblings.length >= 3) {
         const sameSizeCount = siblings.filter(s =>
-          Math.abs((s.width || 0) - (node.width || 0)) < 8 &&
-          Math.abs((s.height || 0) - (node.height || 0)) < 8
+          Math.abs((s.width || 0) - (node.width || 0)) < 10 &&
+          Math.abs((s.height || 0) - (node.height || 0)) < 10
         ).length;
         if (sameSizeCount >= 3) {
           node._inRepeatingGroup = true;
@@ -1125,14 +1176,12 @@ figma.ui.onmessage = async (msg: any) => {
         }
       }
 
-      // Detect leaf nodes (no children or only text children) — likely interactive targets
       const children = node.children || [];
       const hasOnlyTextChildren = children.length > 0 && children.every((c: any) => c.type === 'TEXT');
       if (hasOnlyTextChildren || children.length === 0) {
         node._isLeaf = true;
       }
 
-      // Recurse
       for (let i = 0; i < children.length; i++) {
         annotateInteractivity(children[i], children);
       }
