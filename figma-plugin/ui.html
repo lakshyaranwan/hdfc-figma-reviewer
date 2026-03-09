@@ -1319,6 +1319,21 @@
     let currentSort = 'priority';
     let appliedItems = new Set();
     let collapsedCategories = new Set();
+
+    // ── Ignore-chrome toggle wiring ──────────────────────────────────────────
+    const _ignoreChromeToggle = document.getElementById('ignoreChromeToggle');
+    const _ignoreChromeKnob   = document.getElementById('ignoreChromeKnob');
+    const _ignoreChromeSlider = document.getElementById('ignoreChromeSlider');
+
+    function getIgnoreChrome() { return _ignoreChromeToggle.checked; }
+
+    _ignoreChromeToggle.addEventListener('change', () => {
+      const on = _ignoreChromeToggle.checked;
+      _ignoreChromeKnob.style.transform  = on ? 'translateX(16px)' : 'translateX(0)';
+      _ignoreChromeSlider.style.background = on ? 'var(--hdfc-primary)' : 'var(--border)';
+    });
+    // Initialise knob position (default: checked = ignore ON)
+    _ignoreChromeKnob.style.transform = 'translateX(16px)';
     
     // Category config
     const categoryConfig = {
