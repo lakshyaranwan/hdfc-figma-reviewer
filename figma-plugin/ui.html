@@ -1157,6 +1157,23 @@
     </div>
     
     <div id="analysisSection">
+      <!-- Global ignore chrome toggle -->
+      <div id="ignoreChromeRow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:14px;">🙈</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text-primary);">Ignore headers, footers & nav bars</div>
+            <div style="font-size:11px;color:var(--text-muted);">Skip structural chrome — focus on content areas</div>
+          </div>
+        </div>
+        <label style="position:relative;display:inline-block;width:38px;height:22px;cursor:pointer;flex-shrink:0;">
+          <input type="checkbox" id="ignoreChromeToggle" checked style="opacity:0;width:0;height:0;">
+          <span id="ignoreChromeSlider" style="position:absolute;inset:0;background:var(--hdfc-primary);border-radius:22px;transition:background 0.2s;">
+            <span style="position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:white;border-radius:50%;transition:transform 0.2s;transform:translateX(16px);display:block;" id="ignoreChromeKnob"></span>
+          </span>
+        </label>
+      </div>
+
       <div class="tabs">
         <button class="tab active" data-tab="categories">Quick Review</button>
         <!-- <button class="tab" data-tab="custom">Custom Prompt</button> -->
@@ -1302,6 +1319,21 @@
     let currentSort = 'priority';
     let appliedItems = new Set();
     let collapsedCategories = new Set();
+
+    // ── Ignore-chrome toggle wiring ──────────────────────────────────────────
+    const _ignoreChromeToggle = document.getElementById('ignoreChromeToggle');
+    const _ignoreChromeKnob   = document.getElementById('ignoreChromeKnob');
+    const _ignoreChromeSlider = document.getElementById('ignoreChromeSlider');
+
+    function getIgnoreChrome() { return _ignoreChromeToggle.checked; }
+
+    _ignoreChromeToggle.addEventListener('change', () => {
+      const on = _ignoreChromeToggle.checked;
+      _ignoreChromeKnob.style.transform  = on ? 'translateX(16px)' : 'translateX(0)';
+      _ignoreChromeSlider.style.background = on ? 'var(--hdfc-primary)' : 'var(--border)';
+    });
+    // Initialise knob position (default: checked = ignore ON)
+    _ignoreChromeKnob.style.transform = 'translateX(16px)';
     
     // Category config
     const categoryConfig = {
@@ -1555,7 +1587,8 @@
             categories: promptData.categories,
             isCustom: promptData.isCustom,
             fileName: data.fileName,
-            pageName: data.pageName
+            pageName: data.pageName,
+            ignoreChrome: getIgnoreChrome()
           })
         });
         
@@ -1983,7 +2016,8 @@
               designData: data.nodes,
               checkType,
               fileName: data.fileName,
-              pageName: data.pageName
+              pageName: data.pageName,
+              ignoreChrome: getIgnoreChrome()
             })
           });
 
