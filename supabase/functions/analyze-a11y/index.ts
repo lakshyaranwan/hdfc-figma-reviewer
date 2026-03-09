@@ -127,7 +127,7 @@ serve(async (req) => {
   }
 
   try {
-    const { designData, checkType, fileName, pageName } = await req.json();
+    const { designData, checkType, fileName, pageName, ignoreChrome } = await req.json();
 
     console.log(`analyze-a11y: checkType=${checkType}, nodes=${designData?.length || 0}`);
 
