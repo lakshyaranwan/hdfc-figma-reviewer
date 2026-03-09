@@ -186,7 +186,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     
-    const { designData, prompt, categories, isCustom, fileName, pageName } = body;
+    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome } = body;
     
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
