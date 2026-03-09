@@ -193,6 +193,13 @@ CRITICAL: Do NOT use layerName as a decision signal. Layer names in Figma are of
     let systemPrompt = "";
     let userPrompt   = "";
 
+    // Shared chrome-ignore instruction
+    const ignoreChromeInstruction = ignoreChrome ? `
+IGNORE CHROME / STRUCTURAL ELEMENTS:
+- Do NOT annotate or include in results: status bars, app bars, top headers, bottom nav bars, tab bars, footers, navigation drawers, or any other shell/chrome element that wraps the main content.
+- Only process the content area — the unique, screen-specific elements the designer controls.
+` : "";
+
     if (checkType === "aria") {
       systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1, ARIA 1.2, and mobile/web UI.
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
@@ -203,6 +210,7 @@ Start your response with [ and end with ].`;
 ${spatialSummary}
 
 ${repeatingGroups}
+${ignoreChromeInstruction}
 
 ${interactivityRules}
 
