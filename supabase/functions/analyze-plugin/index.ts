@@ -311,6 +311,13 @@ CRITICAL:
 - Always include nodeId with exact ID from design data
 - Location must be user-friendly names only
 
+${ignoreChrome ? `
+IGNORE CHROME ELEMENTS:
+- Do NOT provide any feedback on: status bars, app bars, headers, top navigation bars, bottom navigation bars, footers, navigation drawers, tab bars at the bottom/top of the screen, or any other structural chrome/shell elements.
+- Only focus on the actual content area of the screen — the unique, page-specific content that the designer controls.
+- If an issue exists exclusively in a header, footer, or nav bar, skip it entirely.
+` : ""}
+
 ${allowedCategories.includes("consistency") ? `
 SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
 - Compare ALL elements for inconsistent patterns
