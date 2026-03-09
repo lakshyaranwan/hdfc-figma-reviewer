@@ -5,6 +5,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Track usage in plugin_usage table
+async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: string, nodCount: number, fileName: string) {
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/plugin_usage`, {
+      method: "POST",
+      headers: {
+        "apikey": serviceRoleKey,
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify({
+        user_name: fileName || "unknown",
+        action,
+        node_count: nodCount,
+        category_count: 1,
+      }),
+    });
+  } catch (e) {
+    console.error("Failed to track usage:", e);
+  }
+}
+
 // Flatten design tree into a flat list, carrying structural interactivity signals
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
