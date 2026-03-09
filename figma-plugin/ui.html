@@ -2071,15 +2071,6 @@
       onContrastResultsReceived(issues || []);
       displayAccessibilityResults(issues, error);
     };
-          showError(error.message || `AI ${checkType} check failed`);
-        }
-      }
-
-      // Re-enable button
-      const btn = document.getElementById('a11yRunBtn');
-      btn.disabled = false;
-      btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
-    }
 
     function displayAIAccessibilityResults() {
       const feedbackList = document.getElementById('feedbackList');
