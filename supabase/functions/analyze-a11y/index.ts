@@ -252,7 +252,7 @@ ${spatialSummary}
 ${repeatingGroups}
 
 ${interactivityRules}
-
+${ignoreChromeInstruction}
 FOCUS ORDER RULES:
 1. Use x/y coordinates to sequence: lower y first; equal y → lower x first.
 2. inRepeatingGroup=true: EVERY member MUST appear — no skipping. Include left-to-right, top-to-bottom within the group.
