@@ -1376,7 +1376,7 @@
       }
       
       if (msg.type === 'accessibility-results') {
-        displayAccessibilityResults(msg.issues, msg.error);
+        _origAccessibilityResults(msg.issues, msg.error);
       }
 
       if (msg.type === 'selection-for-a11y-ai') {
