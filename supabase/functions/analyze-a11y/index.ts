@@ -250,7 +250,7 @@ HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE (apply universally):
 11. isLeaf=true inside a card alongside action siblings → listitem / interactive card row
 12. parentContext contains card-level info (amount, name, status) → use it to enrich the ariaLabel
 
-CRITICAL: Do NOT use layerName as a decision signal. Layer names in Figma are often "Frame 1234" or "Group 5". Always use: textContent, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
+CRITICAL: Do NOT use layerName as a decision signal or as label text. Layer names in Figma are often "Frame 1234", "Group 5", or stale developer names like "NEFT" when the visible text says "UPI". Always use: textContent, childTexts, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
 
     let systemPrompt = "";
     let userPrompt   = "";
