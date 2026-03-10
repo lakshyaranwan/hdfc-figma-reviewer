@@ -1025,8 +1025,8 @@ async function fetchAndCacheDS(): Promise<void> {
         colorNames:       paintStyles.map(s => s.name),
         textStyleNames:   textStyles.map(s => s.name),
         effectStyleNames: effectStyles.map(s => s.name),
-        componentNames:   libraries.flatMap(l => l.componentNames),
-        iconNames:        libraries.flatMap(l => l.iconNames),
+        componentNames:   ([] as string[]).concat(...libraries.map(l => l.componentNames)),
+        iconNames:        ([] as string[]).concat(...libraries.map(l => l.iconNames)),
       },
     };
 
