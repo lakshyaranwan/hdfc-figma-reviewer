@@ -1553,7 +1553,7 @@
       }
 
       if (msg.type === 'selection-for-a11y-ai') {
-        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus);
+        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus, msg.dsContext || null);
       }
 
       if (msg.type === 'a11y-ai-annotate-done') {
