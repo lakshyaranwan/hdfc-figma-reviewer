@@ -250,6 +250,10 @@ serve(async (req) => {
     if (isCustom) {
       allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
     }
+    // Add design_system category when DS context is available
+    if (dsContext && !allowedCategories.includes("design_system")) {
+      allowedCategories.push("design_system");
+    }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
