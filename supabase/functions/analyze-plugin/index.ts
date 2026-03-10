@@ -344,9 +344,25 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Be comprehensive - catch ALL text issues
 ` : ""}`;
 
+      const dsPromptSection = dsContext ? `
+═══ DESIGN SYSTEM CONTEXT ═══
+This product uses a Design System. When giving feedback, reference it explicitly.
+
+Available DS components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 80).join(', ')}
+Available color tokens: ${(dsContext.colorNames || []).slice(0, 40).join(', ')}
+Available text styles: ${(dsContext.textStyleNames || []).slice(0, 20).join(', ')}
+
+USE THIS TO:
+1. Flag when a UI element appears to be a custom/one-off component that should instead use a DS component. E.g. "This button appears to be a custom frame — use the DS 'Button/Primary' component instead."
+2. Flag when spacing, color, or typography appears to deviate from DS tokens. E.g. "This text uses #333333 directly — use the DS color token 'Neutral/800' instead."
+3. Positively note correct DS usage when relevant so the designer knows what's right.
+4. If a component name in the design matches a DS component name, treat it as correct usage — do not flag it.
+Use category "design_system" for all DS-related feedback items.
+` : '';
+
       const analysisPrompt = isCustom
-        ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
-        : `${baseContext}\n\n${prompt}\n${formatInstructions}`;
+        ? `${baseContext}\n\n${dsPromptSection}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
+        : `${baseContext}\n\n${dsPromptSection}\n\n${prompt}\n${formatInstructions}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
