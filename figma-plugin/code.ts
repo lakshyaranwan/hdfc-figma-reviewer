@@ -1049,10 +1049,15 @@ async function fetchAndCacheDS(): Promise<void> {
   const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
   const stale = cacheAge > 24 * 60 * 60 * 1000;
   let summary = null;
+  let libraries = null;
   if (cacheRaw) {
-    try { summary = JSON.parse(cacheRaw).summary; } catch (_) {}
+    try {
+      const parsed = JSON.parse(cacheRaw);
+      summary = parsed.summary;
+      libraries = parsed.libraries;
+    } catch (_) {}
   }
-  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary });
+  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary, libraries });
 })();
 
 // Handle messages from UI
