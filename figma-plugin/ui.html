@@ -1268,16 +1268,27 @@
               <button class="ds-btn ds-btn-danger" onclick="disconnectDS()">Disconnect</button>
             </div>
           </div>
-          <!-- Setup state — no credentials needed -->
+          <!-- Setup state — enter DS file URL/key + PAT -->
           <div id="dsSetupState">
             <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6;">
-              Reads component names, color tokens, and text styles directly from the
-              <strong>libraries enabled on this Figma file</strong>. No API key or file URL needed.
+              Connect to your Design System file to fetch <strong>all components, variants, and color/text styles</strong> across all pages.
+            </div>
+            <div class="ds-field">
+              <label>Figma DS File URL or Key</label>
+              <input type="text" id="dsFileKeyInput" class="form-input" placeholder="https://figma.com/design/XXXXX/… or just the file key">
+            </div>
+            <div class="ds-field">
+              <label>Personal Access Token</label>
+              <input type="password" id="dsPATInput" class="form-input" placeholder="figd_xxxx…">
+              <div class="ds-hint">🔒 Stored only in your plugin — never sent to any server</div>
             </div>
             <div class="ds-actions">
               <button class="ds-btn ds-btn-primary" id="dsConnectBtn" onclick="saveAndLoadDS()">
-                📚 Load from Linked Libraries
+                🔗 Connect Design System
               </button>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center;">
+              No DS file? <a href="#" style="color:var(--hdfc-primary);text-decoration:none;" onclick="loadFromCurrentFile();return false;">Load components used in this file instead</a>
             </div>
           </div>
         </div>
