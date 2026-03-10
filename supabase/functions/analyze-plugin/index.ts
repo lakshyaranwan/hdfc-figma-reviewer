@@ -30,7 +30,9 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
 
-    const currentPath = path ? `${path} > ${node.name || node.type || "unknown"}` : (node.name || node.type || "unknown");
+    // Use visible text content as path label for readability — not the layer name
+    const displayLabel = node.characters?.trim() || node.name || node.type || "unknown";
+    const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
     const simplified: any = {
       id: node.id,
@@ -59,6 +61,10 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.paddingLeft || node.paddingTop || node.paddingRight || node.paddingBottom) {
       simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
     }
+
+    // Include position (enables spatial reasoning in feedback)
+    if (node.x !== undefined) simplified.x = Math.round(node.x);
+    if (node.y !== undefined) simplified.y = Math.round(node.y);
 
     // Include size
     if (node.absoluteBoundingBox) {
