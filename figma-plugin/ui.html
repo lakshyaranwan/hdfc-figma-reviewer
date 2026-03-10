@@ -1526,6 +1526,7 @@
       
       if (msg.type === 'selection-data') {
         selectionData = msg.data;
+        window._dsContext = msg.dsContext || null; // store DS context for analysis
         updateSelectionUI();
         handleSelectionReceived(msg.data);
       }
