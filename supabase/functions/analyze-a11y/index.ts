@@ -357,6 +357,7 @@ ${repeatingGroups}
 
 ${interactivityRules}
 ${ignoreChromeInstruction}
+${dsPromptSection}
 
 ═══ FOCUS ORDER SEQUENCING RULES ═══
 
