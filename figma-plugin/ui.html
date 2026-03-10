@@ -1065,6 +1065,91 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+    /* ── Design System Panel ─────────────────────────────── */
+    .ds-panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .ds-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      background: var(--hdfc-surface);
+      border-bottom: 1px solid transparent;
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .ds-panel-header:hover { background: var(--hdfc-light); }
+    .ds-panel-header.open { border-bottom-color: var(--border); }
+    .ds-panel-title {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ds-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--hdfc-light);
+      color: var(--hdfc-primary);
+    }
+    .ds-badge.connected { background: #D1FAE5; color: var(--success); }
+    .ds-badge.stale     { background: #FEF3C7; color: #D97706; }
+    .ds-panel-body {
+      padding: 14px;
+      display: none;
+    }
+    .ds-panel-body.open { display: block; }
+    .ds-field { margin-bottom: 10px; }
+    .ds-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .ds-field input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--hdfc-surface);
+      transition: border-color 0.15s;
+    }
+    .ds-field input:focus { outline: none; border-color: var(--hdfc-primary); }
+    .ds-hint { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+    .ds-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .ds-btn {
+      flex: 1;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+    .ds-btn-primary { background: var(--hdfc-primary); color: var(--white); }
+    .ds-btn-primary:hover { background: var(--hdfc-dark); }
+    .ds-btn-secondary { background: var(--hdfc-light); color: var(--hdfc-primary); border: 1px solid var(--hdfc-primary); }
+    .ds-btn-secondary:hover { background: var(--hdfc-primary); color: var(--white); }
+    .ds-btn-danger { background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; }
+    .ds-btn-danger:hover { background: #DC2626; color: var(--white); }
+    .ds-status-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--hdfc-surface); border-radius: 6px; margin-bottom: 10px; }
+    .ds-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
     /* Accessibility Results */
     .a11y-item {
       background: var(--white);
