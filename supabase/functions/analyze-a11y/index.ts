@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 // Track usage in plugin_usage table
-async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: string, nodCount: number, fileName: string) {
+async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: string, nodeCount: number, fileName: string) {
   try {
     await fetch(`${supabaseUrl}/rest/v1/plugin_usage`, {
       method: "POST",
@@ -19,7 +19,7 @@ async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: s
       body: JSON.stringify({
         user_name: fileName || "unknown",
         action,
-        node_count: nodCount,
+        node_count: nodeCount,
         category_count: 1,
       }),
     });
@@ -28,7 +28,9 @@ async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: s
   }
 }
 
-// Flatten design tree into a flat list, carrying structural interactivity signals
+// Flatten design tree → flat list.
+// KEY CHANGE: preserves `allText` (pre-aggregated visible text), renames node.name → layerName
+// so the AI cannot confuse Figma internal layer names with visible content.
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
@@ -37,22 +39,27 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
 
-    // Use actual text content as the label in the path, not the layer name
-    const displayLabel = node.characters?.trim() || node.name || node.type || "?";
+    // Use actual text content as path label — NOT the layer name
+    const displayLabel = node.characters?.trim() || node.allText?.split(' · ')[0] || node.name || node.type || "?";
     const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
     const n: any = {
       id: node.id,
-      layerName: node.name,   // Figma layer name — may be wrong/generic, treat as a hint only
+      // ⚠ LAYER NAME — internal Figma identifier. NEVER use as label content.
+      layerName: node.name,
       type: node.type,
       path: currentPath,
     };
 
-    // TEXT CONTENT — source of truth for what the element actually says
+    // TEXT CONTENT — ground truth for what is visible on screen
     if (node.characters) n.textContent = node.characters.trim();
+
+    // ALL TEXT — pre-aggregated readable text from entire subtree (use this for labels!)
+    if (node.allText)    n.allText = node.allText;
+
     if (node.fontSize)   n.fontSize = node.fontSize;
 
-    // Spatial data — used for reading order and grouping inference
+    // Spatial data — used for reading order
     if (node.x !== undefined) n.x = Math.round(node.x);
     if (node.y !== undefined) n.y = Math.round(node.y);
     if (node.width  !== undefined) n.w = Math.round(node.width);
@@ -60,17 +67,18 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     if (node.layoutMode) n.layoutMode = node.layoutMode;
 
-    // Visual signals that hint at interactivity
+    // Visual interactivity signals
     if (node.cornerRadius !== undefined && node.cornerRadius > 0) n.cornerRadius = node.cornerRadius;
     if (Array.isArray(node.fills) && node.fills.length > 0) {
       n.fillTypes = node.fills.filter((f: any) => f.visible !== false).map((f: any) => f.type);
     }
 
-    // Structural interactivity signals (set by the Figma plugin pre-pass)
-    if (node._isComponent)         n.isComponent = true;       // Figma component/instance
-    if (node._inRepeatingGroup)    n.inRepeatingGroup = true;  // Part of a grid/list pattern
+    // Structural interactivity signals (set by Figma plugin pre-pass)
+    if (node._isComponent)           n.isComponent = true;
+    if (node._inRepeatingGroup)      n.inRepeatingGroup = true;
     if (node._repeatingSiblingCount) n.repeatingSiblingCount = node._repeatingSiblingCount;
-    if (node._isLeaf)              n.isLeaf = true;            // No children / only text children
+    if (node._isLeaf)                n.isLeaf = true;
+    if (node._isIconButton)          n.isIconButton = true;   // icon-only, no text
 
     flat.push(n);
 
@@ -84,31 +92,35 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   return flat;
 }
 
-// Pre-compute a spatial overview so the AI understands the screen layout
-// Returns ALL interactive candidates sorted by visual position (y then x)
+// Pre-compute a spatial overview with allText included so the AI sees real content
 function buildSpatialSummary(flatNodes: any[]): string {
   const withPos = flatNodes.filter(n => n.x !== undefined && n.y !== undefined);
   if (withPos.length === 0) return "";
 
-  // Sort top-to-bottom, left-to-right — this is the canonical visual reading order
   const sorted = withPos
     .sort((a, b) => a.y - b.y || a.x - b.x)
-    .slice(0, 80);
+    .slice(0, 100);
 
   const lines = sorted.map(n => {
-    const label = n.textContent ? `"${n.textContent}"` : `[${n.type}]`;
+    // Prefer allText → textContent → [TYPE]  — never the layerName
+    const label = n.allText
+      ? `"${n.allText.slice(0, 60)}"`
+      : n.textContent
+        ? `"${n.textContent}"`
+        : `[${n.type}]`;
     const flags = [
       n.isComponent ? "COMPONENT" : "",
       n.inRepeatingGroup ? `REPEATING×${n.repeatingSiblingCount}` : "",
       n.isLeaf ? "LEAF" : "",
+      n.isIconButton ? "ICON_BTN" : "",
       n.cornerRadius ? `r=${n.cornerRadius}` : "",
     ].filter(Boolean).join(" ");
     return `  [y=${n.y} x=${n.x} ${n.w}×${n.h}] ${label} type=${n.type}${flags ? " " + flags : ""}`;
   });
-  return `FULL SPATIAL MAP — sorted by visual position (TOP→BOTTOM, LEFT→RIGHT). Use this as the ground truth for focus sequencing:\n${lines.join("\n")}`;
+  return `FULL SPATIAL MAP — sorted by visual position (TOP→BOTTOM, LEFT→RIGHT).\nIMPORTANT: 'label' is the VISIBLE TEXT (allText or textContent), NOT the layer name. Use it directly for ariaLabel.\n${lines.join("\n")}`;
 }
 
-// Identify "repeating groups" — grids/lists of similar-sized nodes that are all likely interactive
+// Repeating group summary
 function findRepeatingGroups(flatNodes: any[]): string {
   const groups: Record<string, any[]> = {};
   for (const n of flatNodes) {
@@ -121,17 +133,18 @@ function findRepeatingGroups(flatNodes: any[]): string {
   const summaries: string[] = [];
   for (const [size, members] of Object.entries(groups)) {
     if (members.length < 3) continue;
-    // Sort members spatially so we can show them in visual order
     const sortedMembers = [...members].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    const sample = sortedMembers.slice(0, 6).map(m => m.textContent ? `"${m.textContent}"` : m.layerName).join(", ");
-    summaries.push(`  - ${members.length} elements of size ${size} (visual order: ${sample}...)`);
+    const sample = sortedMembers.slice(0, 6)
+      .map(m => m.allText || m.textContent || m.layerName)
+      .join(", ");
+    summaries.push(`  - ${members.length} elements of size ${size} (visible content: ${sample}...)`);
   }
 
   if (summaries.length === 0) return "";
-  return `DETECTED REPEATING INTERACTIVE GROUPS (grids, lists, chip rows — every member MUST be in focus order, sequenced by y then x):\n${summaries.join("\n")}`;
+  return `DETECTED REPEATING INTERACTIVE GROUPS (every member MUST be in focus order, sequenced y then x):\n${summaries.join("\n")}`;
 }
 
-// Build visual zone boundaries to help AI understand screen structure
+// Visual zone detector
 function buildVisualZones(flatNodes: any[]): string {
   const withPos = flatNodes.filter(n => n.x !== undefined && n.y !== undefined && n.w && n.h);
   if (withPos.length === 0) return "";
@@ -140,22 +153,20 @@ function buildVisualZones(flatNodes: any[]): string {
   const maxY = Math.max(...allYs);
   const minY = Math.min(...withPos.map(n => n.y));
 
-  // Heuristic zone detection based on vertical position
-  const topZoneCutoff   = minY + (maxY - minY) * 0.12;  // top 12% = header/status bar
-  const bottomZoneCutoff = maxY - (maxY - minY) * 0.10;  // bottom 10% = nav bar/tab bar
+  const topZoneCutoff    = minY + (maxY - minY) * 0.12;
+  const bottomZoneCutoff = maxY - (maxY - minY) * 0.10;
 
-  const topZoneNodes    = withPos.filter(n => (n.y + n.h) <= topZoneCutoff);
-  const bottomZoneNodes = withPos.filter(n => n.y >= bottomZoneCutoff);
-  const contentNodes    = withPos.filter(n => n.y > topZoneCutoff && (n.y + n.h) < bottomZoneCutoff);
+  const top    = withPos.filter(n => (n.y + n.h) <= topZoneCutoff);
+  const bottom = withPos.filter(n => n.y >= bottomZoneCutoff);
+  const content = withPos.filter(n => n.y > topZoneCutoff && (n.y + n.h) < bottomZoneCutoff);
 
-  const lines: string[] = [];
-  lines.push(`VISUAL ZONES (used to determine focus order sections):`);
-  lines.push(`  TOP ZONE    (y ≤ ${Math.round(topZoneCutoff)}): ${topZoneNodes.length} nodes — typically header / status bar / app bar`);
-  lines.push(`  CONTENT     (${Math.round(topZoneCutoff)} < y < ${Math.round(bottomZoneCutoff)}): ${contentNodes.length} nodes — main scrollable content`);
-  lines.push(`  BOTTOM ZONE (y ≥ ${Math.round(bottomZoneCutoff)}): ${bottomZoneNodes.length} nodes — typically bottom nav / tab bar / FAB`);
-  lines.push(`  NOTE: Process focus TOP→BOTTOM across zones. Within a zone, process LEFT→RIGHT.`);
-
-  return lines.join("\n");
+  return [
+    `VISUAL ZONES:`,
+    `  TOP ZONE    (y ≤ ${Math.round(topZoneCutoff)}): ${top.length} nodes — header / status bar / app bar`,
+    `  CONTENT     (${Math.round(topZoneCutoff)} < y < ${Math.round(bottomZoneCutoff)}): ${content.length} nodes — main scrollable content`,
+    `  BOTTOM ZONE (y ≥ ${Math.round(bottomZoneCutoff)}): ${bottom.length} nodes — bottom nav / tab bar / FAB`,
+    `  NOTE: Focus order: TOP ZONE first → CONTENT → BOTTOM ZONE.`,
+  ].join("\n");
 }
 
 serve(async (req) => {
@@ -173,13 +184,8 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
-    if (!designData || designData.length === 0) {
-      throw new Error("No design data provided. Please select a frame in Figma.");
-    }
-    if (!["aria", "focus_order"].includes(checkType)) {
-      throw new Error(`Unknown checkType: ${checkType}`);
-    }
+    if (!designData || designData.length === 0) throw new Error("No design data provided. Please select a frame in Figma.");
+    if (!["aria", "focus_order"].includes(checkType)) throw new Error(`Unknown checkType: ${checkType}`);
 
     const flatNodes = flattenDesignData(designData);
     console.log(`Flattened to ${flatNodes.length} nodes`);
@@ -188,15 +194,14 @@ serve(async (req) => {
     const repeatingGroups = findRepeatingGroups(flatNodes);
     const visualZones     = buildVisualZones(flatNodes);
 
-    // ── Build parent-context map so the AI knows what surrounds each node ───
-    // Map nodeId → list of ancestor textContents (closest first)
+    // Build parent-context map (closest ancestor text content, closest first)
     const parentContextMap: Record<string, string[]> = {};
     function buildParentContext(nodes: any[], ancestors: string[] = []) {
       for (const n of nodes) {
         if (n.id) parentContextMap[n.id] = [...ancestors];
         const childAncestors = n.textContent
           ? [n.textContent, ...ancestors]
-          : ancestors;
+          : (n.allText ? [n.allText, ...ancestors] : ancestors);
         if (n.children) buildParentContext(n.children, childAncestors);
       }
     }
@@ -210,39 +215,42 @@ serve(async (req) => {
 
     const designContext = JSON.stringify(enrichedNodes, null, 2);
 
-    // ── Shared interactivity decision rules ─────────────────────────────────
-    const interactivityRules = `
-HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE (apply universally):
-1. isComponent=true → almost always interactive (reusable UI component)
-2. inRepeatingGroup=true → EVERY member is interactive (grids, lists, chip rows, date cells, tabs, nav items, thumbnails, etc.) — include ALL of them without exception
-3. type=FRAME/INSTANCE with cornerRadius > 0 AND a solid fill AND leaf/near-leaf → likely a button or tappable card
-4. textContent is a 1–2 digit number AND siblings share the same size in a 7-col or grid layout → date-picker cells — ALL are gridcells
-5. textContent matches action words ("Pay Now", "View", "Apply", "Add", "Submit", "Explore", "Confirm") → button
-6. textContent matches nav labels ("Home", "Bills", "Cards", "Profile", "Pay", "Offers") → navigation item
-7. Small square/circle element (no text, solid fill) adjacent to interactive content → icon button
-8. Short label with count like "Bills (6)" or "Offers(5)" → filter chip / tab
-9. "⋮", "...", "more" inside a card → overflow menuitem
-10. fontSize >= 20px describing a section → heading
-11. isLeaf=true inside a card alongside action siblings → listitem / interactive card row
-12. parentContext contains card-level info (amount, name, status) → use it to enrich the ariaLabel
+    // ── Chrome ignore instruction ─────────────────────────────────────────────
+    const ignoreChromeInstruction = ignoreChrome ? `
+IGNORE CHROME / STRUCTURAL ELEMENTS:
+- Do NOT annotate or include: status bars, app bars, top headers, bottom nav bars, tab bars, footers, navigation drawers, or any shell/chrome.
+- Only process the content area — the unique, screen-specific elements the designer controls.
+` : "";
 
-CRITICAL: Do NOT use layerName as a decision signal. Layer names in Figma are often "Frame 1234" or "Group 5". Always use: textContent, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
+    // ── Shared interactivity decision rules ───────────────────────────────────
+    const interactivityRules = `
+HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE:
+1. isComponent=true → almost always interactive
+2. inRepeatingGroup=true → EVERY member is interactive (grids, lists, chips, date cells, tabs, thumbnails) — include ALL
+3. FRAME/INSTANCE with cornerRadius > 0 AND solid fill AND leaf/near-leaf → likely button or tappable card
+4. allText matches action words ("Pay Now", "View", "Apply", "Submit", "Confirm", "Proceed") → button
+5. allText matches nav labels ("Home", "Bills", "Cards", "Profile", "Pay") → navigation item
+6. isIconButton=true → icon button (label from context/parentContext)
+7. Short label with count like "Bills (6)" → filter chip / tab
+8. "⋮", "...", "more" inside a card → overflow menuitem
+9. fontSize >= 20 → likely heading (announced by screen reader)
+10. isLeaf=true inside a card with action siblings → listitem / interactive card row`;
 
     let systemPrompt = "";
     let userPrompt   = "";
 
-    // Shared chrome-ignore instruction
-    const ignoreChromeInstruction = ignoreChrome ? `
-IGNORE CHROME / STRUCTURAL ELEMENTS:
-- Do NOT annotate or include in results: status bars, app bars, top headers, bottom nav bars, tab bars, footers, navigation drawers, or any other shell/chrome element that wraps the main content.
-- Only process the content area — the unique, screen-specific elements the designer controls.
-` : "";
-
     if (checkType === "aria") {
-      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1, ARIA 1.2, and mobile/web UI.
+      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1, ARIA 1.2, and mobile banking UX.
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
 Start your response with [ and end with ].
-Be deterministic: given the same input always produce the same output.`;
+Be deterministic: given the same input always produce the same output.
+
+YOUR MOST CRITICAL RULES:
+- \`layerName\` is a Figma internal layer identifier (e.g. "NEFT", "Frame 1437256002", "Group 5"). It is NEVER label content.
+- \`allText\` = the actual visible text content aggregated from the element's entire subtree. THIS is what screen readers announce. USE IT.
+- \`textContent\` = visible text of a single TEXT node. Also usable.
+- ALWAYS build ariaLabel from allText or textContent. NEVER from layerName.
+- Labels must be natural spoken English — exactly what a screen reader should announce.`;
 
       userPrompt = `Generate ARIA labels for every interactive or meaningful visual element in this Figma screen: "${pageName}" (file: "${fileName}").
 
@@ -253,20 +261,50 @@ ${ignoreChromeInstruction}
 
 ${interactivityRules}
 
-ARIA LABEL QUALITY RULES:
-- Use textContent as the label base — NEVER the layerName
-- Use parentContext to enrich labels with card-level context:
-    "Pay Now button for Personal Loan EMI — ₹6,885.00 — OVERDUE"
-    "Mom's Phone Bill — Mobile Postpaid — ₹885.00 — PAID — View Details button"
-    "More options for Infinia Credit Card"
-    "Bills & Recharges filter — 6 items"
-    "October 4, 2024 — Wednesday"
-- For status badges: include the entity they annotate: "OVERDUE status for Personal Loan EMI"
-- For icons with no text: describe action from context ("Back", "Notifications — 2 unread", "Search")
-- Skip purely decorative nodes: dividers, background rectangles, shadow layers, illustration frames with no meaning
-- Be consistent: same element type always gets the same label pattern
+ARIA LABEL CONSTRUCTION RULES:
 
-FULL NODE DATA (includes parentContext for each node):
+1. SOURCE OF TRUTH — always in this priority order:
+   a. \`allText\` — pre-aggregated visible text from the entire subtree (MOST RELIABLE — use by default)
+   b. \`textContent\` — visible text of a single text node
+   c. \`parentContext\` — ancestor text for enrichment
+   d. \`layerName\` — NEVER use for label content. Treat as an internal ID.
+
+2. LABEL FORMULA for interactive elements:
+   [Most important data] + [Supporting data] + [Action hint]
+   Examples:
+   - Recipient card (allText: "Anmol Sharma · SBI Bank · Savings A/c: 9837...") →
+     "Paying to Anmol Sharma, SBI Bank. Tap to change recipient."
+   - Payment method (allText: "UPI · NO COST") →
+     "Payment method: UPI, No cost. Tap to change."
+   - Amount field (allText: "₹15,010 · Fifteen thousand ten rupees only") →
+     "Amount: ₹15,010. Tap to edit."
+   - Bank account row (allText: "HDFC Bank · Savings A/c: ****8374 · Balance: ₹24,367.34") →
+     "Paying from HDFC Bank, account ending 8374, balance ₹24,367.34. Tap to change."
+   - Notification toggle (allText: "Send Notification · Optional") →
+     "Send notification. Optional. Currently off."
+   - Checkbox (allText: "Cyber Insurance: ₹10 added") →
+     "Cyber Insurance: ₹10 added. Unchecked."
+   - Back icon (isIconButton=true, parentContext="Send Money screen header") →
+     "Back"
+   - Pay Now button with parentContext showing "Personal Loan EMI · ₹6,885 · OVERDUE" →
+     "Pay Now — Personal Loan EMI, ₹6,885, OVERDUE"
+
+3. PRIORITY ORDER within a label:
+   Person name > Amount/value > Account/ID details > Institution name > Action hint
+   Never lead with the bank name if a person's name or amount is also present.
+
+4. SKIP these entirely (no label needed):
+   - Background rectangles, dividers, shadow layers, spacers
+   - Static section headers that are purely visual (e.g. "Payment Method", "Paying From") unless collapsible/interactive
+   - Status bar chrome (time, signal, battery)
+   - Decorative illustrations or image frames
+   - Any TEXT node whose content is already fully captured in its parent's allText label
+
+5. CONTEXT FIELD — one sentence, designer-friendly:
+   Good: "Tappable card — allText 'Anmol Sharma · SBI Bank' used to surface recipient as primary label."
+   Bad: "isComponent=true, cornerRadius>0, contains descriptive text, used as button."
+
+FULL NODE DATA (allText and parentContext are pre-computed — use them directly):
 ${designContext}
 
 Return a JSON array. Each item:
@@ -274,21 +312,27 @@ Return a JSON array. Each item:
   "nodeId": "exact id",
   "nodeName": "layerName value",
   "textContent": "actual text if any",
+  "allText": "aggregated subtree text if any",
   "role": "button | tab | navigation | listitem | gridcell | img | input | status | link | heading | menuitem | checkbox | radio | combobox",
-  "ariaLabel": "Full descriptive label",
-  "context": "How you inferred this (signals used)"
+  "ariaLabel": "Full descriptive label — built from allText or textContent, NEVER from layerName",
+  "context": "One sentence explaining the labelling choice (designer-facing)"
 }`;
 
     } else {
-      // focus_order — visually driven, not layer-order driven
+      // focus_order
       systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1 focus management (SC 2.4.3) and screen reader UX.
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
 Start your response with [ and end with ].
 
-CRITICAL PHILOSOPHY: You are sequencing focus for a BLIND USER navigating with a screen reader (e.g. TalkBack, VoiceOver). 
-The Figma layer panel order is COMPLETELY IRRELEVANT — it often reflects design creation order, not UX intent.
-You MUST determine order purely from visual/spatial data: x/y coordinates, element size, and UX patterns.
-Think: "If I were visually impaired and tabbing through this screen, what is the most logical, intuitive order?"`;
+CRITICAL PHILOSOPHY: You are sequencing focus for a BLIND USER navigating with a screen reader (TalkBack / VoiceOver).
+The Figma layer panel order is COMPLETELY IRRELEVANT — it reflects design creation order, not UX intent.
+Determine order PURELY from visual/spatial data: x/y coordinates, element size, and UX patterns.
+
+YOUR MOST CRITICAL RULES:
+- \`layerName\` is NEVER a label. Use \`allText\` or \`textContent\` for ALL ariaLabel values.
+- A focus stop's ariaLabel must match what a screen reader would announce — real content, not layer names.
+- Good ariaLabel: "Pay Now — Personal Loan EMI, ₹6,885, OVERDUE"
+- Bad ariaLabel: "Button 14", "Frame 456", "NEFT", "Payment Methods"`;
 
       userPrompt = `Define a COMPLETE, VISUALLY-DRIVEN keyboard focus order for the Figma screen: "${pageName}" (file: "${fileName}").
 
@@ -304,62 +348,73 @@ ${ignoreChromeInstruction}
 ═══ FOCUS ORDER SEQUENCING RULES ═══
 
 RULE 1 — VISUAL POSITION IS THE ONLY ORDERING SIGNAL
-  - Sequence ENTIRELY by coordinates: lower y → gets earlier focus. Equal y (within 8px) → lower x gets earlier focus.
+  - Sequence ENTIRELY by coordinates: lower y → earlier focus. Equal y (within 8px) → lower x first.
   - NEVER follow Figma layer panel order. Layer order is irrelevant.
-  - NEVER skip an element because it appears "structural" in the layer panel.
 
 RULE 2 — SCREEN READER READING PATTERN (top-left → bottom-right, zone by zone)
-  Zone 1: TOP ZONE (header area) — back/close button → screen title → trailing action icons (e.g. search, filter)
-  Zone 2: CONTENT ZONE (main body) — process row by row:
+  Zone 1: TOP ZONE — back/close button → screen title → trailing action icons (search, filter)
+  Zone 2: CONTENT ZONE — process row by row:
     - Each row: leftmost interactive → rightmost interactive → overflow/more button
     - Card groups: card heading → supporting text → primary action → secondary action → more-options
     - Filter/chip rows: left chip → next chip → ... → last chip
-    - Scrollable lists: top item → second item → ... (all items, none skipped)
-  Zone 3: BOTTOM ZONE (tab bar / nav) — leftmost tab → next tab → ... → rightmost tab
-  Zone 4: Floating elements (FAB, modals, toasts) — sequenced by y position within viewport
+    - Scrollable lists: top item → next item → ... (ALL items, NONE skipped)
+  Zone 3: BOTTOM ZONE — leftmost tab → next tab → ... → rightmost tab
+  Zone 4: Floating elements (FAB, modals, toasts) — sequenced by y position
 
 RULE 3 — REPEATING GROUPS: ZERO EXCEPTIONS
-  - If inRepeatingGroup=true, EVERY SINGLE member MUST appear in the focus list.
-  - Order within the group: ascending y, then ascending x (left-to-right row by row).
-  - Calendar grids: ALL cells sequenced row-by-row. A 7-column × 5-row grid = 35 entries minimum.
-  - Chip rows / tab rows: left-to-right, ALL chips.
-  - Card lists: top card to bottom card, ALL cards.
+  - Every inRepeatingGroup=true member MUST appear in the focus list.
+  - Order: ascending y, then ascending x (left-to-right, row by row).
+  - Calendar grids: ALL cells. A 7×5 grid = 35 entries minimum.
+  - Chip rows / tab rows: ALL chips, left to right.
+  - Card lists: ALL cards, top to bottom.
 
 RULE 4 — COMPONENTS ARE ALWAYS INTERACTIVE
-  - isComponent=true → include it. Components represent real UI controls (buttons, cards, list items, inputs).
+  - isComponent=true → include it.
 
-RULE 5 — DECORATIVE EXCLUSIONS (the ONLY valid reasons to skip a node)
-  - Pure background rectangles with no text and no interactivity signals
-  - Divider lines / separators
-  - Shadow/blur effect layers
-  - Illustration/image frames that are purely visual with no action
+RULE 5 — MERGE TIGHTLY COUPLED ELEMENTS UNDER THEIR PARENT
+  - If "HDFC Bank", "Savings A/c: ****8374", and "Balance: ₹24,367.34" are inside ONE tappable card,
+    they get ONE focus stop — not three. The ariaLabel combines them:
+    "Paying from HDFC Bank, account ending 8374, balance ₹24,367.34. Tap to change."
+  - Merge when: parent isComponent=true or has cornerRadius>0 and contains all the sub-texts.
 
-RULE 6 — ARIA LABELS FROM CONTENT, NOT LAYER NAMES
-  - ariaLabel MUST be derived from textContent + parentContext
-  - Examples of good labels: "Pay Now, ₹6,885, Personal Loan EMI, OVERDUE"
-  - Examples of bad labels: "Button 14", "Frame 456", "Group 3"
+RULE 6 — LABELS COME FROM CONTENT, NEVER FROM LAYER NAMES
+  - ariaLabel MUST be derived from allText (preferred), textContent, or parentContext.
+  - For merged cards: combine the allText snippets of child elements.
+    E.g. allText: "HDFC Bank · ****8374 · ₹24,367.34" →
+    ariaLabel: "Paying from HDFC Bank, account ending 8374, balance ₹24,367.34. Tap to change."
 
-RULE 7 — WITHIN-CARD FOCUS ORDER
-  When a card contains multiple interactive elements, the within-card order is:
-  1. Card's primary label / heading (heading role, not interactive but announced)
+RULE 7 — WITHIN-CARD FOCUS ORDER (when card is NOT merged into one stop)
+  1. Primary label / heading
   2. Supporting info text (if it adds meaningful context)
-  3. Primary CTA button (e.g. "Pay Now", "View Details")
-  4. Secondary action (e.g. "Set Reminder")
-  5. Overflow / more-options button ("⋮")
+  3. Primary CTA button
+  4. Secondary action
+  5. Overflow / more-options button
 
-FULL NODE DATA (use x/y coordinates for sequencing, parentContext for labels):
+RULE 8 — WHAT TO EXCLUDE FROM FOCUS ORDER
+  EXCLUDE: static section labels (e.g. "Payment Method", "Paying From" as visual-only headings),
+  dividers, background shapes, decorative icons already covered by parent label, status bar,
+  any element where isLeaf=false AND isComponent=false AND no allText AND cornerRadius=0 AND no fills.
+  INCLUDE: everything else a sighted user can tap/click.
+
+RULE 9 — RATIONALE FORMAT (designer-friendly, one sentence max)
+  Good: "Interactive card — user selects recipient. Content zone. y=120."
+  Good: "Primary CTA button. Bottom of content zone. y=680."
+  Bad: "isComponent=true, child layerName 'NEFT' indicates selected value in a tappable card."
+
+FULL NODE DATA (use allText for labels, x/y for sequencing, parentContext for enrichment):
 ${designContext}
 
-Return a JSON array sorted by focusIndex (1-based, no gaps). Each item MUST include:
+Return a JSON array sorted by focusIndex (1-based, no gaps). Each item:
 {
   "nodeId": "exact node id from data",
   "nodeName": "layerName value",
   "textContent": "actual text content if present",
+  "allText": "aggregated subtree text if present",
   "focusIndex": 1,
   "role": "button | tab | navigation | gridcell | input | link | listitem | menuitem | heading | checkbox | radio | combobox | img",
-  "ariaLabel": "Full descriptive label using textContent and parentContext — NEVER use layer names",
-  "visualPosition": "y=N x=N — cite the actual coordinates",
-  "rationale": "Why included and where in visual flow (cite zone, y/x coords, isComponent or inRepeatingGroup flag)"
+  "ariaLabel": "Built from allText or textContent — NEVER from layerName",
+  "visualPosition": "y=N x=N",
+  "rationale": "One short sentence — designer-friendly, no internal Figma metadata"
 }`;
     }
 
@@ -375,7 +430,7 @@ Return a JSON array sorted by focusIndex (1-based, no gaps). Each item MUST incl
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 40000,
+        max_tokens: 48000,
         temperature: 0,
         seed: 42,
       }),
@@ -403,18 +458,33 @@ Return a JSON array sorted by focusIndex (1-based, no gaps). Each item MUST incl
     const content = aiData.choices?.[0]?.message?.content;
     if (!content) throw new Error("No content in AI response");
 
+    // Strip markdown fences
     let clean = content.trim();
     if (clean.startsWith("```json")) clean = clean.slice(7);
     else if (clean.startsWith("```")) clean = clean.slice(3);
     if (clean.endsWith("```")) clean = clean.slice(0, -3);
     clean = clean.trim();
 
+    // Safety net: repair truncated JSON arrays (hit max_tokens mid-response)
+    if (!clean.endsWith("]")) {
+      const lastBrace = clean.lastIndexOf("}");
+      const lastComma = clean.lastIndexOf(",");
+      if (lastBrace > lastComma) {
+        // Last object is complete — close the array
+        clean = clean.slice(0, lastBrace + 1) + "]";
+      } else if (lastComma > 0) {
+        // Drop the incomplete last item
+        clean = clean.slice(0, lastComma) + "]";
+      } else {
+        clean = "[]";
+      }
+    }
+
     const results = JSON.parse(clean);
     if (!Array.isArray(results)) throw new Error("Response is not an array");
 
     console.log(`${checkType} analysis complete: ${results.length} items`);
 
-    // Track usage for AI a11y checks
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       await trackUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, `a11y_${checkType}`, flatNodes.length, fileName || "unknown");
     }
