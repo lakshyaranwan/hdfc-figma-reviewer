@@ -32,6 +32,21 @@ async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: s
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
+  // Recursively collect all text strings from descendants (breadth-limited to 3 levels)
+  function collectDescendantTexts(node: any, maxLevels = 3): string[] {
+    const texts: string[] = [];
+    function gather(n: any, level: number) {
+      if (!n || level > maxLevels) return;
+      if (n.visible === false || n.opacity === 0) return;
+      if (n.characters) texts.push(n.characters.trim());
+      const kids = n.children || n.nodes;
+      if (Array.isArray(kids)) kids.forEach(k => gather(k, level + 1));
+    }
+    const kids = node.children || node.nodes;
+    if (Array.isArray(kids)) kids.forEach(k => gather(k, 1));
+    return texts.filter(Boolean);
+  }
+
   function traverse(node: any, path: string, depth: number) {
     if (!node || depth > maxDepth) return;
     if (node.visible === false) return;
@@ -43,14 +58,23 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     const n: any = {
       id: node.id,
-      layerName: node.name,   // Figma layer name — may be wrong/generic, treat as a hint only
+      layerName: node.name,   // Figma layer name — may be wrong/generic, treat as a LAST RESORT only
       type: node.type,
       path: currentPath,
     };
 
-    // TEXT CONTENT — source of truth for what the element actually says
+    // TEXT CONTENT — primary source of truth for what the element says
     if (node.characters) n.textContent = node.characters.trim();
     if (node.fontSize)   n.fontSize = node.fontSize;
+
+    // CHILD TEXTS — aggregate visible text from descendants for container nodes.
+    // This is critical: if a component is named "NEFT" in the layer panel but its
+    // visible child text says "UPI", childTexts will contain ["UPI", "NO COST"] etc.
+    // Always prefer childTexts over layerName when building ariaLabel.
+    if (!node.characters) {
+      const childTexts = collectDescendantTexts(node, 3);
+      if (childTexts.length > 0) n.childTexts = childTexts;
+    }
 
     // Spatial data — used for reading order and grouping inference
     if (node.x !== undefined) n.x = Math.round(node.x);
@@ -226,7 +250,7 @@ HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE (apply universally):
 11. isLeaf=true inside a card alongside action siblings → listitem / interactive card row
 12. parentContext contains card-level info (amount, name, status) → use it to enrich the ariaLabel
 
-CRITICAL: Do NOT use layerName as a decision signal. Layer names in Figma are often "Frame 1234" or "Group 5". Always use: textContent, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
+CRITICAL: Do NOT use layerName as a decision signal or as label text. Layer names in Figma are often "Frame 1234", "Group 5", or stale developer names like "NEFT" when the visible text says "UPI". Always use: textContent, childTexts, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
 
     let systemPrompt = "";
     let userPrompt   = "";
@@ -253,14 +277,31 @@ ${ignoreChromeInstruction}
 
 ${interactivityRules}
 
-ARIA LABEL QUALITY RULES:
-- Use textContent as the label base — NEVER the layerName
-- Use parentContext to enrich labels with card-level context:
-    "Pay Now button for Personal Loan EMI — ₹6,885.00 — OVERDUE"
-    "Mom's Phone Bill — Mobile Postpaid — ₹885.00 — PAID — View Details button"
-    "More options for Infinia Credit Card"
-    "Bills & Recharges filter — 6 items"
-    "October 4, 2024 — Wednesday"
+ARIA LABEL — TEXT SOURCE PRIORITY (follow strictly in this order):
+1. Use `textContent` if the node itself has text. This is always correct.
+2. If no `textContent`, use `childTexts` array — these are the ACTUAL visible strings rendered inside the component. This is the most important fix: a component named "NEFT" in the layer panel whose childTexts=["UPI","NO COST"] MUST be labelled "UPI — NO COST", NOT "NEFT". The layer name is a developer artefact, not visible to users.
+3. If neither, use `parentContext` to infer what the element represents.
+4. ONLY as a last resort with no other signals may you reference `layerName` — and even then, prefer describing the element's role/action over its layer name.
+
+⚠️ CRITICAL EXAMPLE — Layer name vs visible text:
+  BAD:  layerName="NEFT", childTexts=["UPI","NO COST"] → ariaLabel: "NEFT. Tap to select."  ← WRONG
+  GOOD: layerName="NEFT", childTexts=["UPI","NO COST"] → ariaLabel: "UPI — No Cost. Tap to change payment method."  ← CORRECT
+
+ARIA LABEL CONTENT PRIORITY (what information to include, in order of importance):
+1. Person name / primary entity (e.g. "Anmol Sharma") — ALWAYS comes first if present in childTexts or parentContext
+2. Key descriptor (e.g. account number, bank name, amount) — second
+3. Action affordance (e.g. "Tap to change recipient", "Tap to view details") — last
+
+⚠️ CRITICAL EXAMPLE — Person vs bank:
+  BAD:  "Paying to State Bank of India. Tap to change recipient."  ← drops the person's name entirely
+  GOOD: "Paying to Anmol Sharma — SBI Bank — Savings A/c: 9837...8252. Tap to change recipient."  ← person first
+
+MORE GOOD LABEL EXAMPLES:
+- "Pay Now button for Personal Loan EMI — ₹6,885.00 — OVERDUE"
+- "Mom's Phone Bill — Mobile Postpaid — ₹885.00 — PAID — View Details button"
+- "More options for Infinia Credit Card"
+- "Bills & Recharges filter — 6 items"
+- "October 4, 2024 — Wednesday"
 - For status badges: include the entity they annotate: "OVERDUE status for Personal Loan EMI"
 - For icons with no text: describe action from context ("Back", "Notifications — 2 unread", "Search")
 - Skip purely decorative nodes: dividers, background rectangles, shadow layers, illustration frames with no meaning
