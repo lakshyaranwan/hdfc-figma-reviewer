@@ -1023,6 +1023,14 @@ async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
 
 // Do NOT send initial selection data - selection is captured on-demand only
 // when user clicks the selection box in the UI
+// On startup: check DS config and notify UI
+(async () => {
+  const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+  const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
+  const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
+  const stale = cacheAge > 24 * 60 * 60 * 1000;
+  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!fileKey, fileKey, stale });
+})();
 
 // Handle messages from UI
 figma.ui.onmessage = async (msg: any) => {
