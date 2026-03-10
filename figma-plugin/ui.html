@@ -1551,7 +1551,112 @@
       if (msg.type === 'a11y-ai-annotate-done') {
         showToast(msg.message || 'Annotations written to Figma!', 'success');
       }
+
+      if (msg.type === 'ds-config-status') {
+        updateDsUI(msg);
+      }
+
+      if (msg.type === 'ds-loaded') {
+        updateDsUI({ hasDS: true, fileKey: msg.fileKey, stale: false });
+        renderDsSummary(msg.summary);
+        showToast('✅ Design system connected!', 'success');
+        const btn = document.getElementById('dsConnectBtn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Connect Design System'; }
+      }
+
+      if (msg.type === 'ds-stale') {
+        const badge = document.getElementById('dsBadge');
+        if (badge) { badge.textContent = 'Outdated — refresh?'; badge.className = 'ds-badge stale'; }
+      }
     };
+
+    // ── Design System Panel ──────────────────────────────────────────
+    function toggleDsPanel() {
+      const body    = document.getElementById('dsPanelBody');
+      const header  = document.getElementById('dsPanelHeader');
+      const chevron = document.getElementById('dsChevron');
+      const isOpen  = body.classList.contains('open');
+      body.classList.toggle('open', !isOpen);
+      header.classList.toggle('open', !isOpen);
+      chevron.textContent = isOpen ? '▼' : '▲';
+    }
+
+    function saveAndLoadDS() {
+      const rawInput = document.getElementById('dsFileKeyInput').value.trim();
+      const pat      = document.getElementById('dsPATInput').value.trim();
+
+      if (!rawInput || !pat) {
+        showToast('Please enter both a file URL/key and a Personal Access Token.', 'error');
+        return;
+      }
+
+      const match   = rawInput.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
+      const fileKey = match ? match[1] : rawInput;
+
+      const btn = document.getElementById('dsConnectBtn');
+      btn.disabled = true;
+      btn.textContent = 'Connecting…';
+
+      parent.postMessage({
+        pluginMessage: { type: 'save-ds-config', fileKey, pat }
+      }, '*');
+    }
+
+    function refreshDS() {
+      showToast('Refreshing design system…', '');
+      parent.postMessage({ pluginMessage: { type: 'refresh-ds-config' } }, '*');
+    }
+
+    function disconnectDS() {
+      parent.postMessage({ pluginMessage: { type: 'disconnect-ds' } }, '*');
+      updateDsUI({ hasDS: false });
+      showToast('Design system disconnected.', '');
+    }
+
+    function updateDsUI(msg) {
+      const badge          = document.getElementById('dsBadge');
+      const connectedState = document.getElementById('dsConnectedState');
+      const setupState     = document.getElementById('dsSetupState');
+      const statusLabel    = document.getElementById('dsStatusLabel');
+      const statusSub      = document.getElementById('dsStatusSub');
+      const statusDot      = document.getElementById('dsStatusDot');
+
+      if (msg.error) {
+        showToast('❌ ' + msg.error, 'error');
+        const btn = document.getElementById('dsConnectBtn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Connect Design System'; }
+        return;
+      }
+
+      if (msg.hasDS) {
+        if (badge) { badge.textContent = msg.stale ? 'Outdated' : 'Connected'; badge.className = 'ds-badge ' + (msg.stale ? 'stale' : 'connected'); }
+        if (statusDot)   statusDot.style.background   = msg.stale ? '#D97706' : 'var(--success)';
+        if (statusLabel) statusLabel.textContent       = msg.stale ? 'DS cache may be outdated' : 'Design system connected';
+        if (statusSub)   statusSub.textContent         = msg.fileKey ? `File: ${msg.fileKey}` : '';
+        if (connectedState) connectedState.style.display = 'block';
+        if (setupState)     setupState.style.display     = 'none';
+      } else {
+        if (badge) { badge.textContent = 'Not connected'; badge.className = 'ds-badge'; }
+        if (connectedState) connectedState.style.display = 'none';
+        if (setupState)     setupState.style.display     = 'block';
+      }
+    }
+
+    function renderDsSummary(summary) {
+      const chips = document.getElementById('dsSummaryChips');
+      if (!chips || !summary) return;
+      const items = [
+        summary.componentNames?.length  && `${summary.componentNames.length} components`,
+        summary.colorNames?.length       && `${summary.colorNames.length} color tokens`,
+        summary.textStyleNames?.length   && `${summary.textStyleNames.length} text styles`,
+      ].filter(Boolean);
+      chips.innerHTML = items.map(label =>
+        `<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:var(--hdfc-light);color:var(--hdfc-primary);font-weight:600;">${label}</span>`
+      ).join('');
+    }
+
+    // On plugin load — ask code.ts if DS is already configured
+    parent.postMessage({ pluginMessage: { type: 'get-ds-config' } }, '*');
     
     function showToast(message, type = '') {
       const toast = document.getElementById('toast');
