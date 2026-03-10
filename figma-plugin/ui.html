@@ -1590,10 +1590,24 @@
     }
 
     function saveAndLoadDS() {
+      const rawInput = document.getElementById('dsFileKeyInput').value.trim();
+      const pat = document.getElementById('dsPATInput').value.trim();
+      if (!rawInput || !pat) {
+        showToast('Please enter both a file URL/key and a Personal Access Token.', 'error');
+        return;
+      }
+      const match = rawInput.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
+      const fileKey = match ? match[1] : rawInput;
       const btn = document.getElementById('dsConnectBtn');
       btn.disabled = true;
-      btn.textContent = 'Scanning libraries…';
-      parent.postMessage({ pluginMessage: { type: 'save-ds-config' } }, '*');
+      btn.textContent = 'Connecting…';
+      parent.postMessage({ pluginMessage: { type: 'save-ds-config', fileKey, pat } }, '*');
+    }
+
+    function loadFromCurrentFile() {
+      const btn = document.getElementById('dsConnectBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+      parent.postMessage({ pluginMessage: { type: 'load-ds-from-current-file' } }, '*');
     }
 
     function refreshDS() {
@@ -1620,25 +1634,28 @@
       if (msg.error) {
         showToast('❌ ' + msg.error, 'error');
         const btn = document.getElementById('dsConnectBtn');
-        if (btn) { btn.disabled = false; btn.textContent = 'Load from Linked Libraries'; }
+        if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
         return;
       }
 
       if (msg.hasDS) {
-        const libs = msg.libraries || [];
-        const totalComponents = libs.reduce((s, l) => s + (l.componentCount || 0), 0);
-        const libCount = libs.length;
+        const summary = msg.summary;
+        const isCurrentFileOnly = summary && summary.libraryNames && summary.libraryNames.includes('This file only');
+        const compCount = summary ? (summary.componentNames ? summary.componentNames.length : 0) : 0;
+        const colorCount = summary ? (summary.colorNames ? summary.colorNames.length : 0) : 0;
+        const libCount = summary ? (summary.libraryNames ? summary.libraryNames.length : 0) : 0;
 
         if (badge) { badge.textContent = msg.stale ? 'Outdated' : 'Connected'; badge.className = 'ds-badge ' + (msg.stale ? 'stale' : 'connected'); }
         if (statusDot)   statusDot.style.background = msg.stale ? '#D97706' : 'var(--success)';
         if (statusLabel) statusLabel.textContent     = msg.stale ? 'Cache may be outdated' : 'Design system connected';
-        if (statusSub)   statusSub.textContent       = libCount > 0
-          ? `${libCount} librar${libCount === 1 ? 'y' : 'ies'} · ${totalComponents} components`
-          : (msg.summary ? `${msg.summary.componentNames?.length || 0} components · ${msg.summary.colorNames?.length || 0} colors` : 'Loaded from linked libraries');
+        if (statusSub) {
+          statusSub.textContent = summary
+            ? compCount + ' components · ' + colorCount + ' colors' + (isCurrentFileOnly ? ' (current file only)' : (libCount > 0 ? ' · ' + libCount + ' page' + (libCount === 1 ? '' : 's') : ''))
+            : 'Loaded from design system';
+        }
         if (connectedState) connectedState.style.display = 'block';
         if (setupState)     setupState.style.display     = 'none';
-        // Re-render library chips if we have data
-        if (libs.length > 0) renderDsLibraries(libs, msg.summary);
+        if (summary) renderDsLibraries(null, summary);
       } else {
         if (badge) { badge.textContent = 'Not connected'; badge.className = 'ds-badge'; }
         if (connectedState) connectedState.style.display = 'none';
@@ -1650,28 +1667,23 @@
       const chips = document.getElementById('dsSummaryChips');
       if (!chips) return;
 
-      // Show per-library breakdown
-      if (libraries && libraries.length > 0) {
-        chips.innerHTML = libraries.map(lib => {
-          const iconBit = lib.iconCount > 0 ? ` · ${lib.iconCount} icons` : '';
-          return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:var(--hdfc-light);width:100%;box-sizing:border-box;margin-bottom:2px;">
-            <span style="font-size:11px;flex:1;font-weight:600;color:var(--hdfc-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${lib.name}</span>
-            <span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">${lib.componentCount} components${iconBit}</span>
-          </div>`;
+      if (summary && summary.libraryNames && summary.libraryNames.length > 0) {
+        chips.innerHTML = summary.libraryNames.map(function(name) {
+          return '<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:var(--hdfc-light);width:100%;box-sizing:border-box;margin-bottom:2px;">' +
+            '<span style="font-size:11px;flex:1;font-weight:600;color:var(--hdfc-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</span>' +
+          '</div>';
         }).join('');
         return;
       }
 
-      // Fallback: show aggregate summary chips
       if (summary) {
-        const items = [
-          summary.componentNames?.length  && `${summary.componentNames.length} components`,
-          summary.colorNames?.length       && `${summary.colorNames.length} color tokens`,
-          summary.textStyleNames?.length   && `${summary.textStyleNames.length} text styles`,
-        ].filter(Boolean);
-        chips.innerHTML = items.map(label =>
-          `<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:var(--hdfc-light);color:var(--hdfc-primary);font-weight:600;">${label}</span>`
-        ).join('');
+        var items = [];
+        if (summary.componentNames && summary.componentNames.length) items.push(summary.componentNames.length + ' components');
+        if (summary.colorNames && summary.colorNames.length)         items.push(summary.colorNames.length + ' color tokens');
+        if (summary.textStyleNames && summary.textStyleNames.length) items.push(summary.textStyleNames.length + ' text styles');
+        chips.innerHTML = items.map(function(label) {
+          return '<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:var(--hdfc-light);color:var(--hdfc-primary);font-weight:600;">' + label + '</span>';
+        }).join('');
       }
     }
 
