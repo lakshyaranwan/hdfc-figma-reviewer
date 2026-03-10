@@ -175,9 +175,9 @@ serve(async (req) => {
   }
 
   try {
-    const { designData, checkType, fileName, pageName, ignoreChrome } = await req.json();
+    const { designData, checkType, fileName, pageName, ignoreChrome, dsContext } = await req.json();
 
-    console.log(`analyze-a11y: checkType=${checkType}, nodes=${designData?.length || 0}`);
+    console.log(`analyze-a11y: checkType=${checkType}, nodes=${designData?.length || 0}, dsContext=${!!dsContext}`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
