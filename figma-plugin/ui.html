@@ -1561,15 +1561,13 @@
 
       if (msg.type === 'ds-config-status') {
         updateDsUI(msg);
-        if (msg.libraries) renderDsLibraries(msg.libraries, msg.summary);
       }
 
       if (msg.type === 'ds-loaded') {
-        updateDsUI({ hasDS: true, stale: false, summary: msg.summary, libraries: msg.libraries });
-        renderDsLibraries(msg.libraries, msg.summary);
+        updateDsUI({ hasDS: true, stale: false, summary: msg.summary });
         showToast('✅ Design system loaded!', 'success');
         const btn = document.getElementById('dsConnectBtn');
-        if (btn) { btn.disabled = false; btn.textContent = 'Load from Linked Libraries'; }
+        if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
       }
 
       if (msg.type === 'ds-stale') {
