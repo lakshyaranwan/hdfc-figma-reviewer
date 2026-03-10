@@ -192,7 +192,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     
-    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome } = body;
+    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome, dsContext } = body;
     
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
@@ -200,6 +200,7 @@ serve(async (req) => {
     console.log("Raw nodes received:", designData?.length || 0);
     console.log("Categories:", categories);
     console.log("Is custom prompt:", isCustom);
+    console.log("DS context present:", !!dsContext);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -248,6 +249,10 @@ serve(async (req) => {
     let allowedCategories = categories || ["ux", "ui", "consistency"];
     if (isCustom) {
       allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
+    }
+    // Add design_system category when DS context is available
+    if (dsContext && !allowedCategories.includes("design_system")) {
+      allowedCategories.push("design_system");
     }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
@@ -339,9 +344,25 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Be comprehensive - catch ALL text issues
 ` : ""}`;
 
+      const dsPromptSection = dsContext ? `
+═══ DESIGN SYSTEM CONTEXT ═══
+This product uses a Design System. When giving feedback, reference it explicitly.
+
+Available DS components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 80).join(', ')}
+Available color tokens: ${(dsContext.colorNames || []).slice(0, 40).join(', ')}
+Available text styles: ${(dsContext.textStyleNames || []).slice(0, 20).join(', ')}
+
+USE THIS TO:
+1. Flag when a UI element appears to be a custom/one-off component that should instead use a DS component. E.g. "This button appears to be a custom frame — use the DS 'Button/Primary' component instead."
+2. Flag when spacing, color, or typography appears to deviate from DS tokens. E.g. "This text uses #333333 directly — use the DS color token 'Neutral/800' instead."
+3. Positively note correct DS usage when relevant so the designer knows what's right.
+4. If a component name in the design matches a DS component name, treat it as correct usage — do not flag it.
+Use category "design_system" for all DS-related feedback items.
+` : '';
+
       const analysisPrompt = isCustom
-        ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
-        : `${baseContext}\n\n${prompt}\n${formatInstructions}`;
+        ? `${baseContext}\n\n${dsPromptSection}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
+        : `${baseContext}\n\n${dsPromptSection}\n\n${prompt}\n${formatInstructions}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);

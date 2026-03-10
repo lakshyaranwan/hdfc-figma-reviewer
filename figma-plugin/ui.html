@@ -1526,6 +1526,7 @@
       
       if (msg.type === 'selection-data') {
         selectionData = msg.data;
+        window._dsContext = msg.dsContext || null; // store DS context for analysis
         updateSelectionUI();
         handleSelectionReceived(msg.data);
       }
@@ -1552,7 +1553,7 @@
       }
 
       if (msg.type === 'selection-for-a11y-ai') {
-        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus);
+        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus, msg.dsContext || null);
       }
 
       if (msg.type === 'a11y-ai-annotate-done') {
@@ -1853,7 +1854,8 @@
             isCustom: promptData.isCustom,
             fileName: data.fileName,
             pageName: data.pageName,
-            ignoreChrome: getIgnoreChrome()
+            ignoreChrome: getIgnoreChrome(),
+            dsContext: window._dsContext || null
           })
         });
         
@@ -2265,7 +2267,7 @@
     let a11yAIResults = { aria: null, focus_order: null }; // AI check results
 
     // ====== AI ACCESSIBILITY CHECK (parallel) ======
-    async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
+    async function runAIAccessibilityCheck(data, checkAria, checkFocus, dsContext) {
       const promises = [];
 
       const runCheck = async (checkType) => {
@@ -2282,7 +2284,8 @@
               checkType,
               fileName: data.fileName,
               pageName: data.pageName,
-              ignoreChrome: getIgnoreChrome()
+              ignoreChrome: getIgnoreChrome(),
+              dsContext: dsContext || null
             })
           });
 

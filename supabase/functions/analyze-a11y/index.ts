@@ -175,9 +175,9 @@ serve(async (req) => {
   }
 
   try {
-    const { designData, checkType, fileName, pageName, ignoreChrome } = await req.json();
+    const { designData, checkType, fileName, pageName, ignoreChrome, dsContext } = await req.json();
 
-    console.log(`analyze-a11y: checkType=${checkType}, nodes=${designData?.length || 0}`);
+    console.log(`analyze-a11y: checkType=${checkType}, nodes=${designData?.length || 0}, dsContext=${!!dsContext}`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -236,8 +236,20 @@ HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE:
 9. fontSize >= 20 → likely heading (announced by screen reader)
 10. isLeaf=true inside a card with action siblings → listitem / interactive card row`;
 
-    let systemPrompt = "";
-    let userPrompt   = "";
+    // ── DS context injection ──────────────────────────────────────────────────
+    const dsPromptSection = dsContext ? `
+═══ DESIGN SYSTEM CONTEXT ═══
+This screen uses a Design System. Use this to produce better ARIA labels and focus annotations.
+
+Known icon component names from DS: ${(dsContext.iconNames || []).slice(0, 60).join(', ')}
+Known component names: ${(dsContext.componentNames || []).slice(0, 60).join(', ')}
+
+RULES:
+1. When you see a node whose layerName matches a known DS icon name (e.g. "Icons/Arrow/Left/24/Dark"), infer its semantic meaning from the name and use that as the ARIA label. E.g. "Icons/Arrow/Left/24/Dark" in a header → label: "Back".
+2. When you see "Icons/Notification/Bell/24" → label: "Notifications".
+3. Use the DS component name structure (e.g. "Button/Primary", "Card/Transaction") to better infer the role and purpose of unlabelled components.
+4. Do NOT use the DS component name as the literal ARIA label — infer the semantic meaning from context + name combined.
+` : '';
 
     if (checkType === "aria") {
       systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1, ARIA 1.2, and mobile banking UX.
@@ -258,6 +270,7 @@ ${spatialSummary}
 
 ${repeatingGroups}
 ${ignoreChromeInstruction}
+${dsPromptSection}
 
 ${interactivityRules}
 
@@ -344,6 +357,7 @@ ${repeatingGroups}
 
 ${interactivityRules}
 ${ignoreChromeInstruction}
+${dsPromptSection}
 
 ═══ FOCUS ORDER SEQUENCING RULES ═══
 
