@@ -1,11 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["ES2017", "ES2019"],
+    "lib": ["ES2017"],
     "strict": false,
     "skipLibCheck": true,
     "noEmit": false,
-    "outDir": ".",
     "types": ["@figma/plugin-typings"]
   },
   "include": ["code.ts"]
