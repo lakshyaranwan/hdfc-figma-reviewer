@@ -1098,7 +1098,7 @@ figma.ui.onmessage = async (msg: any) => {
 
     // Use a deeper extraction for A11y — more nodes, more depth, capture all interactive elements
     const A11Y_MAX_DEPTH = 12;
-    const A11Y_MAX_NODES = 1200;
+    const A11Y_MAX_NODES = 2000;
     let a11yNodeCount = 0;
 
     function extractA11yNode(node: SceneNode, depth: number, parentPathStr: string): any | null {
@@ -1115,7 +1115,7 @@ figma.ui.onmessage = async (msg: any) => {
 
       const n: any = {
         id: node.id,
-        name: node.name,
+        name: node.name,   // Figma layer name — INTERNAL ONLY, never use as label content
         type: node.type,
         path: currentPath,
       };
@@ -1138,14 +1138,36 @@ figma.ui.onmessage = async (msg: any) => {
       }
       if ('layoutMode' in node) n.layoutMode = (node as any).layoutMode;
 
+      let childNodes: any[] = [];
       if ('children' in node && a11yNodeCount < A11Y_MAX_NODES) {
-        const children: any[] = [];
         for (const child of (node as FrameNode).children) {
           if (a11yNodeCount >= A11Y_MAX_NODES) break;
           const childData = extractA11yNode(child, depth + 1, currentPath);
-          if (childData) children.push(childData);
+          if (childData) childNodes.push(childData);
         }
-        if (children.length > 0) n.children = children;
+        if (childNodes.length > 0) n.children = childNodes;
+      }
+
+      // Aggregate all visible text in subtree into allText — used by AI for label construction
+      // This prevents the AI from falling back to layerName
+      if (node.type !== 'TEXT') {
+        const texts: { text: string; y: number; x: number }[] = [];
+        function collectTexts(child: any) {
+          if (child.characters) texts.push({ text: child.characters, y: child.y ?? 0, x: child.x ?? 0 });
+          if (child.children) child.children.forEach(collectTexts);
+        }
+        childNodes.forEach(collectTexts);
+        texts.sort((a, b) => a.y - b.y || a.x - b.x);
+        if (texts.length > 0) n.allText = texts.map(t => t.text).join(' · ');
+      }
+
+      // Signal icon-only interactive elements (no text, roughly square, small, has fills)
+      if (!textContent && !n.allText) {
+        const w = n.width ?? 0;
+        const h = n.height ?? 0;
+        if (w > 0 && h > 0 && Math.abs(w - h) <= w * 0.3 && w <= 60 && n.fills && n.fills.length > 0) {
+          n._isIconButton = true;
+        }
       }
 
       return n;
