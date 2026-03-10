@@ -1136,8 +1136,9 @@ async function loadDSFromCurrentFile(): Promise<void> {
   }
 }
 
-// On startup: check DS cache and notify UI
+// On startup: check DS cache, populate icon name set, and notify UI
 (async () => {
+  await refreshDSIconNames();
   const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
   const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
   const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
