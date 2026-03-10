@@ -1089,6 +1089,46 @@ figma.ui.onmessage = async (msg: any) => {
     figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
   }
 
+  // ============================================================
+  // DESIGN SYSTEM: Save config + PAT into clientStorage (never leaves Figma)
+  // ============================================================
+  if (msg.type === 'save-ds-config') {
+    const { fileKey, pat } = msg;
+    if (!fileKey || !pat) {
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'File key and PAT are required.' });
+      return;
+    }
+    await figma.clientStorage.setAsync('ds_file_key', fileKey);
+    await figma.clientStorage.setAsync('figma_pat', pat);
+    await fetchAndCacheDS(fileKey, pat);
+  }
+
+  if (msg.type === 'get-ds-config') {
+    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+    const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
+    const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
+    const stale = cacheAge > 24 * 60 * 60 * 1000;
+    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!fileKey, fileKey, stale });
+  }
+
+  if (msg.type === 'refresh-ds') {
+    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+    const pat = await figma.clientStorage.getAsync('figma_pat') as string | undefined;
+    if (!fileKey || !pat) {
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'No DS configured yet.' });
+      return;
+    }
+    await fetchAndCacheDS(fileKey, pat);
+  }
+
+  if (msg.type === 'disconnect-ds') {
+    await figma.clientStorage.deleteAsync('ds_file_key');
+    await figma.clientStorage.deleteAsync('figma_pat');
+    await figma.clientStorage.deleteAsync('ds_cache');
+    await figma.clientStorage.deleteAsync('ds_cache_timestamp');
+    figma.ui.postMessage({ type: 'ds-config-status', hasDS: false });
+  }
+
   if (msg.type === 'get-selection-for-a11y-ai') {
     const selection = figma.currentPage.selection;
     if (selection.length === 0) {
@@ -1099,138 +1139,13 @@ figma.ui.onmessage = async (msg: any) => {
     // Use a deeper extraction for A11y — more nodes, more depth, capture all interactive elements
     const A11Y_MAX_DEPTH = 12;
     const A11Y_MAX_NODES = 2000;
-    let a11yNodeCount = 0;
-
-    function extractA11yNode(node: SceneNode, depth: number, parentPathStr: string): any | null {
-      if (depth > A11Y_MAX_DEPTH) return null;
-      if (a11yNodeCount >= A11Y_MAX_NODES) return null;
-      if (!node.visible) return null;
-      if ('opacity' in node && node.opacity === 0) return null;
-
-      a11yNodeCount++;
-
-      const textContent = node.type === 'TEXT' ? (node as TextNode).characters.trim() : undefined;
-      const pathLabel = textContent || node.name || node.type;
-      const currentPath = parentPathStr ? `${parentPathStr} > ${pathLabel}` : pathLabel;
-
-      const n: any = {
-        id: node.id,
-        name: node.name,   // Figma layer name — INTERNAL ONLY, never use as label content
-        type: node.type,
-        path: currentPath,
-      };
-
-      if (textContent) n.characters = textContent;
-      if ('x' in node) n.x = Math.round((node as any).x);
-      if ('y' in node) n.y = Math.round((node as any).y);
-      if ('width' in node) n.width = Math.round((node as any).width);
-      if ('height' in node) n.height = Math.round((node as any).height);
-      if (node.type === 'TEXT') {
-        const t = node as TextNode;
-        if (t.fontSize !== figma.mixed) n.fontSize = t.fontSize;
-      }
-      if ('cornerRadius' in node && (node as any).cornerRadius !== figma.mixed) {
-        n.cornerRadius = (node as any).cornerRadius;
-      }
-      if ('fills' in node && (node as any).fills !== figma.mixed) {
-        const fills = (node as any).fills as readonly Paint[];
-        n.fills = fills.filter(f => f.visible !== false).map(f => ({ type: f.type }));
-      }
-      if ('layoutMode' in node) n.layoutMode = (node as any).layoutMode;
-
-      let childNodes: any[] = [];
-      if ('children' in node && a11yNodeCount < A11Y_MAX_NODES) {
-        for (const child of (node as FrameNode).children) {
-          if (a11yNodeCount >= A11Y_MAX_NODES) break;
-          const childData = extractA11yNode(child, depth + 1, currentPath);
-          if (childData) childNodes.push(childData);
-        }
-        if (childNodes.length > 0) n.children = childNodes;
-      }
-
-      // Aggregate all visible text in subtree into allText — used by AI for label construction
-      // This prevents the AI from falling back to layerName
-      if (node.type !== 'TEXT') {
-        const texts: { text: string; y: number; x: number }[] = [];
-        function collectTexts(child: any) {
-          if (child.characters) texts.push({ text: child.characters, y: child.y ?? 0, x: child.x ?? 0 });
-          if (child.children) child.children.forEach(collectTexts);
-        }
-        childNodes.forEach(collectTexts);
-        texts.sort((a, b) => a.y - b.y || a.x - b.x);
-        if (texts.length > 0) n.allText = texts.map(t => t.text).join(' · ');
-      }
-
-      // Signal icon-only interactive elements (no text, roughly square, small, has fills)
-      if (!textContent && !n.allText) {
-        const w = n.width ?? 0;
-        const h = n.height ?? 0;
-        if (w > 0 && h > 0 && Math.abs(w - h) <= w * 0.3 && w <= 60 && n.fills && n.fills.length > 0) {
-          n._isIconButton = true;
-        }
-      }
-
-      return n;
-    }
-
-    a11yNodeCount = 0;
-    const nodes: any[] = [];
-    for (const node of selection) {
-      if (a11yNodeCount >= A11Y_MAX_NODES) break;
-      const data = extractA11yNode(node, 0, '');
-      if (data) nodes.push(data);
-    }
-
-    // Post-process: annotate nodes with structural interactivity signals
-    function annotateInteractivity(node: any, siblings: any[] = []): void {
-      if (node.type === 'INSTANCE' || node.type === 'COMPONENT') {
-        node._isComponent = true;
-      }
-
-      if (siblings.length >= 3) {
-        const sameSizeCount = siblings.filter(s =>
-          Math.abs((s.width || 0) - (node.width || 0)) < 10 &&
-          Math.abs((s.height || 0) - (node.height || 0)) < 10
-        ).length;
-        if (sameSizeCount >= 3) {
-          node._inRepeatingGroup = true;
-          node._repeatingSiblingCount = sameSizeCount;
-        }
-      }
-
-      const children = node.children || [];
-      const hasOnlyTextChildren = children.length > 0 && children.every((c: any) => c.type === 'TEXT');
-      if (hasOnlyTextChildren || children.length === 0) {
-        node._isLeaf = true;
-      }
-
-      // Sort children by visual position (y then x) so the AI always
-      // receives siblings in top-left → bottom-right order regardless
-      // of how the designer stacked layers in Figma.
-      if (children.length > 1) {
-        children.sort((a: any, b: any) => {
-          const ay = a.y ?? 0, by = b.y ?? 0;
-          if (Math.abs(ay - by) > 8) return ay - by;   // Different rows
-          return (a.x ?? 0) - (b.x ?? 0);              // Same row → left to right
-        });
-        node.children = children;
-      }
-
-      for (let i = 0; i < children.length; i++) {
-        annotateInteractivity(children[i], children);
-      }
-    }
-
-    for (const node of nodes) {
-      annotateInteractivity(node, []);
-    }
-
-    // Also sort top-level nodes spatially before sending
-    nodes.sort((a: any, b: any) => {
-      const ay = a.y ?? 0, by = b.y ?? 0;
-      if (Math.abs(ay - by) > 8) return ay - by;
-      return (a.x ?? 0) - (b.x ?? 0);
-    });
+...
+    // Load cached DS context and attach for AI enrichment
+    let dsContext: any = null;
+    try {
+      const dsRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
+      if (dsRaw) dsContext = JSON.parse(dsRaw);
+    } catch (_) {}
 
     figma.ui.postMessage({
       type: 'selection-for-a11y-ai',
@@ -1239,6 +1154,7 @@ figma.ui.onmessage = async (msg: any) => {
         fileName: figma.root.name,
         pageName: figma.currentPage.name,
       },
+      dsContext,
       checkAria: msg.checkAria,
       checkFocus: msg.checkFocus,
     });
