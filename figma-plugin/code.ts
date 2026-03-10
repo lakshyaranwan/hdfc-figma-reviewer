@@ -531,7 +531,7 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
               await figma.loadFontAsync({ family: currentFont.family, style: boldStyle });
               textNode.fontName = { family: currentFont.family, style: boldStyle };
               appliedChanges.push(`font-weight: ${boldStyle}`);
-            } catch {
+            } catch (_e) {
               // Bold variant might not exist
               console.log('Bold variant not available for this font');
             }
