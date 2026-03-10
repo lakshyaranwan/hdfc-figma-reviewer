@@ -32,6 +32,21 @@ async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: s
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
+  // Recursively collect all text strings from descendants (breadth-limited to 3 levels)
+  function collectDescendantTexts(node: any, maxLevels = 3): string[] {
+    const texts: string[] = [];
+    function gather(n: any, level: number) {
+      if (!n || level > maxLevels) return;
+      if (n.visible === false || n.opacity === 0) return;
+      if (n.characters) texts.push(n.characters.trim());
+      const kids = n.children || n.nodes;
+      if (Array.isArray(kids)) kids.forEach(k => gather(k, level + 1));
+    }
+    const kids = node.children || node.nodes;
+    if (Array.isArray(kids)) kids.forEach(k => gather(k, 1));
+    return texts.filter(Boolean);
+  }
+
   function traverse(node: any, path: string, depth: number) {
     if (!node || depth > maxDepth) return;
     if (node.visible === false) return;
@@ -43,14 +58,23 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     const n: any = {
       id: node.id,
-      layerName: node.name,   // Figma layer name — may be wrong/generic, treat as a hint only
+      layerName: node.name,   // Figma layer name — may be wrong/generic, treat as a LAST RESORT only
       type: node.type,
       path: currentPath,
     };
 
-    // TEXT CONTENT — source of truth for what the element actually says
+    // TEXT CONTENT — primary source of truth for what the element says
     if (node.characters) n.textContent = node.characters.trim();
     if (node.fontSize)   n.fontSize = node.fontSize;
+
+    // CHILD TEXTS — aggregate visible text from descendants for container nodes.
+    // This is critical: if a component is named "NEFT" in the layer panel but its
+    // visible child text says "UPI", childTexts will contain ["UPI", "NO COST"] etc.
+    // Always prefer childTexts over layerName when building ariaLabel.
+    if (!node.characters) {
+      const childTexts = collectDescendantTexts(node, 3);
+      if (childTexts.length > 0) n.childTexts = childTexts;
+    }
 
     // Spatial data — used for reading order and grouping inference
     if (node.x !== undefined) n.x = Math.round(node.x);
