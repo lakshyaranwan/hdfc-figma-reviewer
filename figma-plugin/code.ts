@@ -1182,6 +1182,18 @@ figma.ui.onmessage = async (msg: any) => {
         node._isLeaf = true;
       }
 
+      // Sort children by visual position (y then x) so the AI always
+      // receives siblings in top-left → bottom-right order regardless
+      // of how the designer stacked layers in Figma.
+      if (children.length > 1) {
+        children.sort((a: any, b: any) => {
+          const ay = a.y ?? 0, by = b.y ?? 0;
+          if (Math.abs(ay - by) > 8) return ay - by;   // Different rows
+          return (a.x ?? 0) - (b.x ?? 0);              // Same row → left to right
+        });
+        node.children = children;
+      }
+
       for (let i = 0; i < children.length; i++) {
         annotateInteractivity(children[i], children);
       }
@@ -1190,6 +1202,13 @@ figma.ui.onmessage = async (msg: any) => {
     for (const node of nodes) {
       annotateInteractivity(node, []);
     }
+
+    // Also sort top-level nodes spatially before sending
+    nodes.sort((a: any, b: any) => {
+      const ay = a.y ?? 0, by = b.y ?? 0;
+      if (Math.abs(ay - by) > 8) return ay - by;
+      return (a.x ?? 0) - (b.x ?? 0);
+    });
 
     figma.ui.postMessage({
       type: 'selection-for-a11y-ai',
