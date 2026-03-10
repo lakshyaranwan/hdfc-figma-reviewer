@@ -853,90 +853,101 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
   return issues;
 }
 
-// Icon / non-text contrast audit (3:1 for shapes, vectors, icons)
+// Module-level DS icon name set — populated from cache on startup and after each DS load
+let _dsIconNames: Set<string> = new Set();
+
+async function refreshDSIconNames(): Promise<void> {
+  try {
+    const raw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
+    if (!raw) return;
+    const ds = JSON.parse(raw);
+    const names: string[] = (ds.summary && ds.summary.iconNames) ? ds.summary.iconNames : [];
+    _dsIconNames = new Set(names);
+  } catch (_e) {}
+}
+
+// Returns a trimmed DS context object safe to attach to AI messages (no credentials)
+async function getDSContext(): Promise<any | null> {
+  try {
+    const raw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
+    if (!raw) return null;
+    const ds = JSON.parse(raw);
+    const s = ds.summary || {};
+    const slice = (arr: any[], n: number) => Array.isArray(arr) ? arr.slice(0, n) : [];
+    return {
+      componentNames:   slice(s.componentNames, 150),
+      iconNames:        slice(s.iconNames, 100),
+      colorNames:       slice(s.colorNames, 80),
+      textStyleNames:   slice(s.textStyleNames, 40),
+      effectStyleNames: slice(s.effectStyleNames, 20),
+      libraryNames:     s.libraryNames || [],
+      isCurrentFileOnly: ds.isCurrentFileOnly || false,
+    };
+  } catch (_e) { return null; }
+}
+
+// Icon / non-text contrast audit — only scans DS icon INSTANCES, not raw vectors
 function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
   const issues: AccessibilityIssue[] = [];
-  const iconTypes: string[] = ['VECTOR', 'STAR', 'POLYGON', 'ELLIPSE', 'RECTANGLE', 'LINE', 'BOOLEAN_OPERATION'];
 
-  // Check if a vector node looks like an outlined text glyph (flattened text)
-  function isOutlinedTextGlyph(node: SceneNode): boolean {
-    if (node.type !== 'VECTOR') return false;
-    const parent = node.parent;
-    if (!parent || parent.type === 'PAGE' || parent.type === 'DOCUMENT') return false;
-
-    // Single-character generic names like "Vector", letter names, or digit names suggest outlined text
-    const name = node.name.trim();
-    const isGenericName = name === 'Vector' || name.length === 1;
-
-    // Check if parent is a group/frame with multiple similar small vectors (typical of outlined text)
-    if ('children' in parent) {
-      const siblings = (parent as FrameNode).children;
-      if (siblings.length >= 2) {
-        const vectorSiblings = siblings.filter(s => s.type === 'VECTOR' && s.visible);
-        // If most siblings are vectors with generic names, this is likely outlined text
-        if (vectorSiblings.length >= 2) {
-          const genericCount = vectorSiblings.filter(s => s.name.trim() === 'Vector' || s.name.trim().length === 1).length;
-          if (genericCount >= vectorSiblings.length * 0.5) return true;
-        }
-      }
+  function isIconInstance(node: SceneNode): boolean {
+    if (node.type !== 'INSTANCE') return false;
+    const mc = (node as InstanceNode).mainComponent;
+    if (!mc) return false;
+    const name = mc.name.toLowerCase();
+    if (_dsIconNames.size > 0) {
+      return _dsIconNames.has(mc.name) ||
+        name.indexOf('icon') !== -1 ||
+        mc.name.indexOf('Icons/') === 0 ||
+        mc.name.indexOf('ic_') === 0;
     }
-
-    // Very small vectors (< 24px in both dimensions) with generic "Vector" name inside a group
-    if (isGenericName) {
-      const w = 'width' in node ? (node as any).width : 0;
-      const h = 'height' in node ? (node as any).height : 0;
-      if (w < 24 && h < 24 && parent.type === 'GROUP') return true;
-    }
-
-    return false;
+    // Fallback: name-based heuristic only
+    return name.indexOf('icon') !== -1 || mc.name.indexOf('Icons/') === 0 || mc.name.indexOf('ic_') === 0;
   }
 
-  function walk(node: SceneNode) {
+  function checkIconContrast(node: InstanceNode): AccessibilityIssue | null {
+    const fgColor = getNodeFillColor(node);
+    if (!fgColor) return null;
+    const bgColor = getBackgroundColor(node);
+    if (!bgColor) return null;
+    const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+    const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+    const ratio = contrastRatio(fgLum, bgLum);
+    const required = 3;
+    const w = 'width' in node ? (node as any).width : 0;
+    const h = 'height' in node ? (node as any).height : 0;
+    return {
+      nodeId: node.id,
+      nodeName: node.name,
+      type: 'icon_contrast',
+      text: `${Math.round(w)}x${Math.round(h)}`,
+      ratio: Math.round(ratio * 100) / 100,
+      required,
+      fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
+      bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+      fontSize: 0,
+      pass: ratio >= required,
+    };
+  }
+
+  function auditNode(node: SceneNode) {
     if (!node.visible) return;
-    if ('opacity' in node && node.opacity === 0) return;
+    if ('opacity' in node && (node as any).opacity === 0) return;
 
-    if (iconTypes.includes(node.type)) {
-      // Skip vectors that are part of outlined/flattened text
-      if (isOutlinedTextGlyph(node)) return;
-
-      const fgColor = getNodeFillColor(node);
-      if (!fgColor) return;
-
-      const bgColor = getBackgroundColor(node);
-      if (!bgColor) return; // Can't determine background - skip to avoid false positives
-      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
-      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-      const ratio = contrastRatio(fgLum, bgLum);
-      const required = 3;
-
-      const w = 'width' in node ? (node as any).width : 0;
-      const h = 'height' in node ? (node as any).height : 0;
-
-      issues.push({
-        nodeId: node.id,
-        nodeName: node.name,
-        type: 'icon_contrast',
-        text: `${Math.round(w)}x${Math.round(h)}`,
-        ratio: Math.round(ratio * 100) / 100,
-        required,
-        fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
-        fontSize: 0,
-        pass: ratio >= required,
-      });
+    if (isIconInstance(node)) {
+      const result = checkIconContrast(node as InstanceNode);
+      if (result) issues.push(result);
+      return; // Don't recurse into icon internals
     }
 
     if ('children' in node) {
       for (const child of (node as FrameNode).children) {
-        walk(child);
+        auditNode(child);
       }
     }
   }
 
-  for (const node of nodes) {
-    walk(node);
-  }
-
+  for (const node of nodes) auditNode(node);
   return issues;
 }
 
