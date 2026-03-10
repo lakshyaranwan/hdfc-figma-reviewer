@@ -1129,18 +1129,16 @@ async function loadDSFromCurrentFile(): Promise<void> {
 (async () => {
   const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
   const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
+  const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
   const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
   const stale = cacheAge > 24 * 60 * 60 * 1000;
   let summary = null;
-  let libraries = null;
   if (cacheRaw) {
     try {
-      const parsed = JSON.parse(cacheRaw);
-      summary = parsed.summary;
-      libraries = parsed.libraries;
-    } catch (_) {}
+      summary = JSON.parse(cacheRaw).summary;
+    } catch (_e) {}
   }
-  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary, libraries });
+  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
 })();
 
 // Handle messages from UI
