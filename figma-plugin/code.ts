@@ -1101,58 +1101,6 @@ figma.ui.onmessage = async (msg: any) => {
     const A11Y_MAX_NODES = 1200;
     let a11yNodeCount = 0;
 
-    // Collect ALL visible TEXT descendants, sorted by visual importance:
-    // 1. Larger font size first  2. Higher on screen (lower y) first  3. Left before right
-    // This gives the AI the priority-ordered text list it needs to build accurate ARIA labels.
-    function collectVisibleTexts(node: SceneNode, maxDepth: number = 5): Array<{ text: string; fontSize: number; y: number; x: number; fontWeight: string }> {
-      const results: Array<{ text: string; fontSize: number; y: number; x: number; fontWeight: string }> = [];
-
-      function walk(n: SceneNode, depth: number) {
-        if (depth > maxDepth) return;
-        if (!n.visible) return;
-        if ('opacity' in n && (n as any).opacity === 0) return;
-
-        if (n.type === 'TEXT') {
-          const t = n as TextNode;
-          const txt = t.characters.trim();
-          if (!txt) return;
-
-          // Skip placeholder-like text: all-caps design tokens, very long strings unlikely to be labels
-          if (txt.length > 120) return;
-
-          const fs = t.fontSize !== figma.mixed ? (t.fontSize as number) : 12;
-          const fw = t.fontName !== figma.mixed ? ((t.fontName as FontName).style || 'Regular') : 'Regular';
-          const isDecorative = /^(frame|group|layer|icon|vector|rectangle|placeholder)/i.test(txt) && txt.split(' ').length === 1;
-          if (isDecorative) return;
-
-          results.push({
-            text: txt,
-            fontSize: fs,
-            y: 'y' in n ? Math.round((n as any).y) : 0,
-            x: 'x' in n ? Math.round((n as any).x) : 0,
-            fontWeight: fw,
-          });
-        }
-
-        if ('children' in n) {
-          for (const child of (n as FrameNode).children) {
-            walk(child, depth + 1);
-          }
-        }
-      }
-
-      walk(node, 0);
-
-      // Sort: larger font size → top of screen → leftmost
-      results.sort((a, b) => {
-        if (b.fontSize !== a.fontSize) return b.fontSize - a.fontSize; // larger first
-        if (Math.abs(a.y - b.y) > 4) return a.y - b.y;               // higher on screen first
-        return a.x - b.x;                                              // leftmost first
-      });
-
-      return results;
-    }
-
     function extractA11yNode(node: SceneNode, depth: number, parentPathStr: string): any | null {
       if (depth > A11Y_MAX_DEPTH) return null;
       if (a11yNodeCount >= A11Y_MAX_NODES) return null;
@@ -1172,29 +1120,7 @@ figma.ui.onmessage = async (msg: any) => {
         path: currentPath,
       };
 
-      // ── Visible text (SOURCE OF TRUTH — always prefer over layer name) ──
-      // For TEXT nodes: direct characters
-      if (textContent) {
-        n.characters = textContent;
-      }
-
-      // For container nodes: collect all visible descendant texts in priority order
-      // visibleTexts[0] = most visually prominent (largest/topmost) = primary label candidate
-      if (node.type !== 'TEXT' && 'children' in node) {
-        const vt = collectVisibleTexts(node, 4);
-        if (vt.length > 0) {
-          // Expose as array of strings (priority-ordered) for the AI
-          n.visibleTexts = vt.map(t => t.text);
-          // Also expose the raw scored list so AI can see font sizes
-          n.visibleTextDetails = vt.slice(0, 6).map(t => ({
-            text: t.text,
-            fontSize: t.fontSize,
-            fontWeight: t.fontWeight,
-            y: t.y,
-          }));
-        }
-      }
-
+      if (textContent) n.characters = textContent;
       if ('x' in node) n.x = Math.round((node as any).x);
       if ('y' in node) n.y = Math.round((node as any).y);
       if ('width' in node) n.width = Math.round((node as any).width);
@@ -1202,7 +1128,6 @@ figma.ui.onmessage = async (msg: any) => {
       if (node.type === 'TEXT') {
         const t = node as TextNode;
         if (t.fontSize !== figma.mixed) n.fontSize = t.fontSize;
-        if (t.fontName !== figma.mixed) n.fontWeight = (t.fontName as FontName).style || 'Regular';
       }
       if ('cornerRadius' in node && (node as any).cornerRadius !== figma.mixed) {
         n.cornerRadius = (node as any).cornerRadius;

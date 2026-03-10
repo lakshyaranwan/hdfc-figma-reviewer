@@ -226,7 +226,7 @@ HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE (apply universally):
 11. isLeaf=true inside a card alongside action siblings → listitem / interactive card row
 12. parentContext contains card-level info (amount, name, status) → use it to enrich the ariaLabel
 
-CRITICAL: Do NOT use layerName as a decision signal. Layer names in Figma are often "Frame 1234" or "Group 5". Always use: visibleTexts, visibleTextDetails, textContent, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
+CRITICAL: Do NOT use layerName as a decision signal. Layer names in Figma are often "Frame 1234" or "Group 5". Always use: textContent, position (x/y), size (w/h), isComponent, inRepeatingGroup, cornerRadius, fillTypes, parentContext.`;
 
     let systemPrompt = "";
     let userPrompt   = "";
@@ -238,94 +238,8 @@ IGNORE CHROME / STRUCTURAL ELEMENTS:
 - Only process the content area — the unique, screen-specific elements the designer controls.
 ` : "";
 
-    // ── Shared ARIA label construction rules (used for both aria + focus_order) ──
-    const ariaLabelRules = `
-════ ARIA LABEL CONSTRUCTION — NON-NEGOTIABLE RULES ════
-
-RULE A — VISIBLE TEXT IS ALWAYS THE SOURCE OF TRUTH
-  Every node now includes a "visibleTexts" array: the actual visible TEXT node strings inside the component,
-  sorted by visual prominence (largest font first, then topmost, then leftmost).
-  - ALWAYS use visibleTexts[0] as the primary label — this is what the user actually SEES.
-  - NEVER use the "name" / layerName field as a label source. Layer names are Figma internals (e.g. "NEFT", "Frame 1234", "Group 5") and are often wrong.
-  - If visibleTexts exists and has content, it overrides everything else.
-  
-  BAD:  Layer name = "NEFT", visibleTexts = ["UPI"]  →  label = "Payment Method: NEFT"  ← WRONG
-  GOOD: Layer name = "NEFT", visibleTexts = ["UPI"]  →  label = "Payment Method: UPI"   ← CORRECT
-
-RULE B — SEMANTIC PRIORITY ORDER FOR LABELS
-  When a component contains multiple pieces of text, use this priority order:
-  1. PRIMARY ENTITY  — person name, product name, merchant, recipient, title
-  2. PRIMARY VALUE   — amount (₹), status, selection value
-  3. SUPPORTING CONTEXT — bank name, category, metadata (include only if needed to disambiguate)
-  4. INTERACTION HINT — "Tap to edit", "Tap to change", "Double tap to open"
-
-  Example — recipient selector:
-    visibleTexts = ["Anmol Sharma", "State Bank of India", "Account ****8374"]
-    BAD:  "Paying to State Bank of India. Tap to change recipient."
-    GOOD: "Paying to Anmol Sharma. Tap to change recipient."
-
-  Example — payment method selector:
-    visibleTexts = ["Payment Method", "UPI"]  (component layer name = "NEFT")
-    BAD:  "Payment Method: NEFT. Tap to change."
-    GOOD: "Payment Method: UPI. Tap to change."
-
-RULE C — VISUAL HIERARCHY SIGNALS (use visibleTextDetails for this)
-  visibleTextDetails provides fontSize and fontWeight for each text item.
-  - Larger fontSize → more important → use as primary label
-  - Bold / Semibold / Medium → heading or primary label
-  - Small / Regular at bottom → supporting context
-  - Topmost text (lowest y value) → usually the primary label
-  Priority formula: larger font → higher position → bolder weight → leftmost
-
-RULE D — COMMON UI PATTERN DETECTION
-  Detect the pattern from visibleTexts + structure, then use the right template:
-
-  CARD pattern (title + subtitle + metadata):
-    Template: "{title}. {action hint}."
-    Example visibleTexts = ["Anmol Sharma", "SBI Bank", "Account ****8374"]
-    → "Paying to Anmol Sharma. Tap to change recipient."
-
-  SELECTION pattern (label + selected value):
-    Template: "{label}: {selected value}. Tap to change."
-    Example visibleTexts = ["Payment Method", "UPI"]
-    → "Payment Method: UPI. Tap to change."
-
-  AMOUNT DISPLAY pattern (amount + description):
-    Template: "Amount {value}. {action hint}."
-    Example visibleTexts = ["₹15,010", "Total payable"]
-    → "Amount ₹15,010. Tap to edit."
-
-  STATUS BADGE:
-    Template: "{status} status for {entity}"
-    Example: "OVERDUE status for Personal Loan EMI"
-
-  NAVIGATION ITEM:
-    Template: "{label}" (no action hint needed)
-    Example: "Home", "Bills", "Pay"
-
-  OVERFLOW / MORE:
-    Template: "More options for {primary entity}"
-    Example: "More options for Infinia Credit Card"
-
-RULE E — WHAT TO EXCLUDE FROM LABELS
-  Never include in an ARIA label:
-  - Layer names or design token names (e.g. "Frame_1234", "NEFT", "Group_5", "Payment_Method_Selector_Variant_2")
-  - Placeholder text that isn't real content
-  - Decorative / icon names
-  - Redundant bank/institution info when a person name is already present
-
-RULE F — LABEL FORMAT
-  Use this structure: {Primary information}. {Secondary context if needed}. {Interaction hint}.
-  - Keep it concise — screen readers read every word
-  - Do not repeat the same entity twice
-  - "Tap to change" for selectors, "Tap to edit" for inputs, "Tap to open" for cards/links
-
-RULE G — NEVER REDUNDANT
-  BAD:  "Paying to Anmol Sharma at State Bank of India bank account."
-  GOOD: "Paying to Anmol Sharma. Tap to change recipient."`;
-
     if (checkType === "aria") {
-      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1, ARIA 1.2, and mobile screen reader UX (TalkBack, VoiceOver).
+      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1, ARIA 1.2, and mobile/web UI.
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
 Start your response with [ and end with ].
 Be deterministic: given the same input always produce the same output.`;
@@ -339,37 +253,42 @@ ${ignoreChromeInstruction}
 
 ${interactivityRules}
 
-${ariaLabelRules}
+ARIA LABEL QUALITY RULES:
+- Use textContent as the label base — NEVER the layerName
+- Use parentContext to enrich labels with card-level context:
+    "Pay Now button for Personal Loan EMI — ₹6,885.00 — OVERDUE"
+    "Mom's Phone Bill — Mobile Postpaid — ₹885.00 — PAID — View Details button"
+    "More options for Infinia Credit Card"
+    "Bills & Recharges filter — 6 items"
+    "October 4, 2024 — Wednesday"
+- For status badges: include the entity they annotate: "OVERDUE status for Personal Loan EMI"
+- For icons with no text: describe action from context ("Back", "Notifications — 2 unread", "Search")
+- Skip purely decorative nodes: dividers, background rectangles, shadow layers, illustration frames with no meaning
+- Be consistent: same element type always gets the same label pattern
 
-FULL NODE DATA:
-Each node includes:
-- "visibleTexts": array of actual visible text strings sorted by visual prominence (fontSize desc → y asc → x asc). USE THIS as primary label source.
-- "visibleTextDetails": same texts with fontSize and fontWeight for hierarchy inference.
-- "name": Figma layer name — treat as HINT ONLY, NEVER as label source.
-- "parentContext": ancestor text nodes for contextual enrichment.
+FULL NODE DATA (includes parentContext for each node):
 ${designContext}
 
 Return a JSON array. Each item:
 {
   "nodeId": "exact id",
   "nodeName": "layerName value",
-  "primaryVisibleText": "visibleTexts[0] — the most prominent visible text",
+  "textContent": "actual text if any",
   "role": "button | tab | navigation | listitem | gridcell | img | input | status | link | heading | menuitem | checkbox | radio | combobox",
-  "ariaLabel": "Constructed label following Rules A–G above",
-  "patternDetected": "card | selection | amount | status | navigation | overflow | button | other",
-  "context": "Which signals were used: visibleTexts[0], fontSize hierarchy, parentContext, etc."
+  "ariaLabel": "Full descriptive label",
+  "context": "How you inferred this (signals used)"
 }`;
 
     } else {
       // focus_order — visually driven, not layer-order driven
-      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1 focus management (SC 2.4.3) and screen reader UX (TalkBack, VoiceOver).
+      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1 focus management (SC 2.4.3) and screen reader UX.
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
 Start your response with [ and end with ].
 
-CRITICAL PHILOSOPHY: You are sequencing focus for a BLIND USER navigating with a screen reader.
-The Figma layer panel order is COMPLETELY IRRELEVANT.
+CRITICAL PHILOSOPHY: You are sequencing focus for a BLIND USER navigating with a screen reader (e.g. TalkBack, VoiceOver). 
+The Figma layer panel order is COMPLETELY IRRELEVANT — it often reflects design creation order, not UX intent.
 You MUST determine order purely from visual/spatial data: x/y coordinates, element size, and UX patterns.
-For each element's ariaLabel, always use visibleTexts[0] (the most prominent visible text) — NEVER the layer name.`;
+Think: "If I were visually impaired and tabbing through this screen, what is the most logical, intuitive order?"`;
 
       userPrompt = `Define a COMPLETE, VISUALLY-DRIVEN keyboard focus order for the Figma screen: "${pageName}" (file: "${fileName}").
 
@@ -382,51 +301,65 @@ ${repeatingGroups}
 ${interactivityRules}
 ${ignoreChromeInstruction}
 
-${ariaLabelRules}
-
 ═══ FOCUS ORDER SEQUENCING RULES ═══
 
 RULE 1 — VISUAL POSITION IS THE ONLY ORDERING SIGNAL
   - Sequence ENTIRELY by coordinates: lower y → gets earlier focus. Equal y (within 8px) → lower x gets earlier focus.
   - NEVER follow Figma layer panel order. Layer order is irrelevant.
+  - NEVER skip an element because it appears "structural" in the layer panel.
 
 RULE 2 — SCREEN READER READING PATTERN (top-left → bottom-right, zone by zone)
-  Zone 1: TOP ZONE (header area) — back/close → screen title → trailing icons
-  Zone 2: CONTENT ZONE — row by row:
-    - Card groups: heading → supporting text → primary CTA → secondary action → overflow
-    - Filter/chip rows: left chip → ... → last chip (ALL)
-    - Scrollable lists: top item → ... (ALL, none skipped)
-  Zone 3: BOTTOM ZONE (tab bar / nav) — left tab → ... → rightmost tab
-  Zone 4: Floating (FAB, modals) — by y position
+  Zone 1: TOP ZONE (header area) — back/close button → screen title → trailing action icons (e.g. search, filter)
+  Zone 2: CONTENT ZONE (main body) — process row by row:
+    - Each row: leftmost interactive → rightmost interactive → overflow/more button
+    - Card groups: card heading → supporting text → primary action → secondary action → more-options
+    - Filter/chip rows: left chip → next chip → ... → last chip
+    - Scrollable lists: top item → second item → ... (all items, none skipped)
+  Zone 3: BOTTOM ZONE (tab bar / nav) — leftmost tab → next tab → ... → rightmost tab
+  Zone 4: Floating elements (FAB, modals, toasts) — sequenced by y position within viewport
 
 RULE 3 — REPEATING GROUPS: ZERO EXCEPTIONS
-  - inRepeatingGroup=true → EVERY member MUST appear.
-  - Calendar grids: ALL cells row-by-row. Chip rows: left-to-right ALL.
+  - If inRepeatingGroup=true, EVERY SINGLE member MUST appear in the focus list.
+  - Order within the group: ascending y, then ascending x (left-to-right row by row).
+  - Calendar grids: ALL cells sequenced row-by-row. A 7-column × 5-row grid = 35 entries minimum.
+  - Chip rows / tab rows: left-to-right, ALL chips.
+  - Card lists: top card to bottom card, ALL cards.
 
 RULE 4 — COMPONENTS ARE ALWAYS INTERACTIVE
-  - isComponent=true → always include.
+  - isComponent=true → include it. Components represent real UI controls (buttons, cards, list items, inputs).
 
-RULE 5 — DECORATIVE EXCLUSIONS (only valid skips)
-  - Background rectangles, dividers, shadow layers, purely decorative illustrations.
+RULE 5 — DECORATIVE EXCLUSIONS (the ONLY valid reasons to skip a node)
+  - Pure background rectangles with no text and no interactivity signals
+  - Divider lines / separators
+  - Shadow/blur effect layers
+  - Illustration/image frames that are purely visual with no action
 
-RULE 6 — WITHIN-CARD FOCUS ORDER
-  1. Card heading  2. Supporting info  3. Primary CTA  4. Secondary action  5. Overflow ("⋮")
+RULE 6 — ARIA LABELS FROM CONTENT, NOT LAYER NAMES
+  - ariaLabel MUST be derived from textContent + parentContext
+  - Examples of good labels: "Pay Now, ₹6,885, Personal Loan EMI, OVERDUE"
+  - Examples of bad labels: "Button 14", "Frame 456", "Group 3"
 
-FULL NODE DATA:
-Each node includes "visibleTexts" (priority-sorted visible text array) and "visibleTextDetails" (with fontSize/fontWeight).
-Use visibleTexts[0] as the ariaLabel primary — NEVER use "name" (layer name) as a label.
+RULE 7 — WITHIN-CARD FOCUS ORDER
+  When a card contains multiple interactive elements, the within-card order is:
+  1. Card's primary label / heading (heading role, not interactive but announced)
+  2. Supporting info text (if it adds meaningful context)
+  3. Primary CTA button (e.g. "Pay Now", "View Details")
+  4. Secondary action (e.g. "Set Reminder")
+  5. Overflow / more-options button ("⋮")
+
+FULL NODE DATA (use x/y coordinates for sequencing, parentContext for labels):
 ${designContext}
 
 Return a JSON array sorted by focusIndex (1-based, no gaps). Each item MUST include:
 {
   "nodeId": "exact node id from data",
   "nodeName": "layerName value",
-  "primaryVisibleText": "visibleTexts[0] value",
+  "textContent": "actual text content if present",
   "focusIndex": 1,
   "role": "button | tab | navigation | gridcell | input | link | listitem | menuitem | heading | checkbox | radio | combobox | img",
-  "ariaLabel": "Constructed per Rules A–G — uses visibleTexts, NEVER layer name",
-  "visualPosition": "y=N x=N",
-  "rationale": "Zone, y/x coords, isComponent or inRepeatingGroup flag, pattern detected"
+  "ariaLabel": "Full descriptive label using textContent and parentContext — NEVER use layer names",
+  "visualPosition": "y=N x=N — cite the actual coordinates",
+  "rationale": "Why included and where in visual flow (cite zone, y/x coords, isComponent or inRepeatingGroup flag)"
 }`;
     }
 
