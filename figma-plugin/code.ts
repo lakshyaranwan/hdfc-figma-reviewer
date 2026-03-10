@@ -1310,6 +1310,7 @@ figma.ui.onmessage = async (msg: any) => {
       return;
     }
     await fetchAndCacheDS(msg.fileKey, msg.pat);
+    await refreshDSIconNames();
   }
 
   if (msg.type === 'refresh-ds-config') {
@@ -1320,10 +1321,12 @@ figma.ui.onmessage = async (msg: any) => {
       return;
     }
     await fetchAndCacheDS(fileKey, pat);
+    await refreshDSIconNames();
   }
 
   if (msg.type === 'load-ds-from-current-file') {
     await loadDSFromCurrentFile();
+    await refreshDSIconNames();
   }
 
   if (msg.type === 'get-ds-config') {
@@ -1345,6 +1348,7 @@ figma.ui.onmessage = async (msg: any) => {
     await figma.clientStorage.deleteAsync('figma_pat');
     await figma.clientStorage.deleteAsync('ds_cache');
     await figma.clientStorage.deleteAsync('ds_cache_timestamp');
+    _dsIconNames = new Set();
     figma.ui.postMessage({ type: 'ds-config-status', hasDS: false });
   }
 
@@ -1364,12 +1368,8 @@ figma.ui.onmessage = async (msg: any) => {
       if (nodeData) nodes.push(nodeData);
     }
 
-    // Load cached DS context and attach for AI enrichment
-    let dsContext: any = null;
-    try {
-      const dsRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
-      if (dsRaw) dsContext = JSON.parse(dsRaw);
-    } catch (_) {}
+    // Use getDSContext() helper — returns only safe/trimmed summary data
+    const dsContext = await getDSContext();
 
     figma.ui.postMessage({
       type: 'selection-for-a11y-ai',
