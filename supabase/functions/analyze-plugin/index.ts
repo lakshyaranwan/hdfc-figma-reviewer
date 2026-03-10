@@ -192,7 +192,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     
-    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome } = body;
+    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome, dsContext } = body;
     
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
@@ -200,6 +200,7 @@ serve(async (req) => {
     console.log("Raw nodes received:", designData?.length || 0);
     console.log("Categories:", categories);
     console.log("Is custom prompt:", isCustom);
+    console.log("DS context present:", !!dsContext);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");

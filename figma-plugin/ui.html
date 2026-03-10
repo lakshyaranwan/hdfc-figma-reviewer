@@ -2265,7 +2265,7 @@
     let a11yAIResults = { aria: null, focus_order: null }; // AI check results
 
     // ====== AI ACCESSIBILITY CHECK (parallel) ======
-    async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
+    async function runAIAccessibilityCheck(data, checkAria, checkFocus, dsContext) {
       const promises = [];
 
       const runCheck = async (checkType) => {
@@ -2282,7 +2282,8 @@
               checkType,
               fileName: data.fileName,
               pageName: data.pageName,
-              ignoreChrome: getIgnoreChrome()
+              ignoreChrome: getIgnoreChrome(),
+              dsContext: dsContext || null
             })
           });
 
