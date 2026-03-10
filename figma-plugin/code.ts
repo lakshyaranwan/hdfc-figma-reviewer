@@ -1159,9 +1159,11 @@ figma.ui.onmessage = async (msg: any) => {
     const data = getSelectionData();
     if (data.nodes) cacheNodeNames(data.nodes);
     _analysisRootIds = figma.currentPage.selection.map(n => n.id);
+    const dsContext = await getDSContext();
     figma.ui.postMessage({
       type: 'selection-data',
       data,
+      dsContext,
     });
   }
 
