@@ -1288,30 +1288,47 @@ figma.ui.onmessage = async (msg: any) => {
   }
 
   // ============================================================
-  // DESIGN SYSTEM: Read directly from Figma's linked libraries — no PAT needed
+  // DESIGN SYSTEM: Fetch full DS via Figma REST API
   // ============================================================
-  if (msg.type === 'save-ds-config' || msg.type === 'refresh-ds-config') {
-    await fetchAndCacheDS();
+  if (msg.type === 'save-ds-config') {
+    if (!msg.fileKey || !msg.pat) {
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'File key and PAT are required.' });
+      return;
+    }
+    await fetchAndCacheDS(msg.fileKey, msg.pat);
+  }
+
+  if (msg.type === 'refresh-ds-config') {
+    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+    const pat = await figma.clientStorage.getAsync('figma_pat') as string | undefined;
+    if (!fileKey || !pat) {
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'No DS configured. Please connect first.' });
+      return;
+    }
+    await fetchAndCacheDS(fileKey, pat);
+  }
+
+  if (msg.type === 'load-ds-from-current-file') {
+    await loadDSFromCurrentFile();
   }
 
   if (msg.type === 'get-ds-config') {
     const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
     const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
-    const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
-    const stale = cacheAge > 24 * 60 * 60 * 1000;
+    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+    const stale = cacheTimestampRaw
+      ? (Date.now() - parseInt(cacheTimestampRaw)) > 24 * 60 * 60 * 1000
+      : true;
     let summary = null;
-    let libraries = null;
     if (cacheRaw) {
-      try {
-        const parsed = JSON.parse(cacheRaw);
-        summary = parsed.summary;
-        libraries = parsed.libraries;
-      } catch (_) {}
+      try { summary = JSON.parse(cacheRaw).summary; } catch (_e) {}
     }
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary, libraries });
+    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
   }
 
   if (msg.type === 'disconnect-ds') {
+    await figma.clientStorage.deleteAsync('ds_file_key');
+    await figma.clientStorage.deleteAsync('figma_pat');
     await figma.clientStorage.deleteAsync('ds_cache');
     await figma.clientStorage.deleteAsync('ds_cache_timestamp');
     figma.ui.postMessage({ type: 'ds-config-status', hasDS: false });
