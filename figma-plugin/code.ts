@@ -941,103 +941,186 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
 }
 
 // ============================================================
-// DESIGN SYSTEM: Read directly from Figma's linked libraries — no PAT needed
+// DESIGN SYSTEM: Fetch full DS file via Figma REST API
 // ============================================================
 
-async function fetchAndCacheDS(): Promise<void> {
+async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
   try {
-    figma.notify('🔄 Reading design system from linked libraries…');
+    figma.notify('🔄 Loading design system from Figma API…');
 
-    // ── 1. Scan all INSTANCE nodes on the current page ───────────────
-    // Group by their mainComponent's containing library name
-    const allInstances = figma.currentPage.findAllWithCriteria({ types: ['INSTANCE'] });
-    const seenKeys = new Set<string>();
-    // Map: libraryName → { components, icons }
-    const libraryMap: Record<string, { name: string; components: { key: string; name: string }[]; icons: { key: string; name: string }[] }> = {};
+    const response = await fetch(
+      `https://api.figma.com/v1/files/${fileKey}?depth=3`,
+      { headers: { 'X-Figma-Token': pat } }
+    );
 
-    for (const inst of allInstances) {
-      const mc = (inst as InstanceNode).mainComponent;
-      if (!mc || !mc.remote || seenKeys.has(mc.key)) continue;
-      seenKeys.add(mc.key);
-
-      // Derive the library name from the component's containing set or parent chain
-      // mc.parent is the ComponentSet (variant group) or the page; walk up to get a useful name
-      let libName = 'Unknown Library';
-      try {
-        // The remote component lives in another document — its name often starts with "Library Name/"
-        // Figma doesn't expose the library file name directly on mainComponent,
-        // but components shared via team library carry their containing node name as the first path segment.
-        // For a component named "Button/Primary/Large" the library name isn't embedded.
-        // Use figma.importedComponentsByKeyAsync workaround: check mc.parent chain for a page name.
-        // Best practical approach: use the first path segment as the "library namespace" if present,
-        // otherwise bucket by "Unnamed Library".
-        const nameParts = mc.name.split('/');
-        if (nameParts.length >= 2) {
-          // Use top-level namespace as the library grouping proxy
-          libName = nameParts[0].trim();
-        } else if (mc.parent && mc.parent.type === 'COMPONENT_SET') {
-          libName = mc.parent.name.split('/')[0].trim();
-        }
-      } catch (_) {}
-
-      if (!libraryMap[libName]) {
-        libraryMap[libName] = { name: libName, components: [], icons: [] };
+    if (!response.ok) {
+      if (response.status === 403 || response.status === 401) {
+        figma.notify('❌ Invalid PAT or no access to this file. Check your token.');
+      } else {
+        figma.notify(`❌ Figma API error: ${response.status}`);
       }
-
-      const isIcon =
-        mc.name.toLowerCase().includes('icon') ||
-        mc.name.startsWith('Icons/') ||
-        mc.name.startsWith('ic_');
-
-      const entry = { key: mc.key, name: mc.name };
-      libraryMap[libName].components.push(entry);
-      if (isIcon) libraryMap[libName].icons.push(entry);
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: `API error ${response.status}` });
+      return;
     }
 
-    // ── 2. Local styles (these ARE from linked libraries if the file imports them) ──
-    const paintStyles  = figma.getLocalPaintStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
-    const textStyles   = figma.getLocalTextStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
-    const effectStyles = figma.getLocalEffectStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const data = await response.json();
+    const dsData = extractDSData(data, fileKey);
 
-    // ── 3. Build libraries array for the UI picker ───────────────────
-    const libraries = Object.values(libraryMap).map(lib => ({
-      name: lib.name,
-      componentCount: lib.components.length,
-      iconCount: lib.icons.length,
-      componentNames: lib.components.map(c => c.name),
-      iconNames: lib.icons.map(c => c.name),
-    })).sort((a, b) => b.componentCount - a.componentCount); // most components first
-
-    const totalComponents = libraries.reduce((sum, l) => sum + l.componentCount, 0);
-    const totalIcons      = libraries.reduce((sum, l) => sum + l.iconCount, 0);
-
-    const dsData = {
-      libraries,
-      paintStyles,
-      textStyles,
-      effectStyles,
-      componentCount: totalComponents,
-      colorCount:     paintStyles.length,
-      iconCount:      totalIcons,
-      // Flat summary for AI prompt injection (all libraries merged)
-      summary: {
-        libraries:        libraries.map(l => ({ name: l.name, count: l.componentCount })),
-        colorNames:       paintStyles.map(s => s.name),
-        textStyleNames:   textStyles.map(s => s.name),
-        effectStyleNames: effectStyles.map(s => s.name),
-        componentNames:   libraries.reduce((acc: string[], l) => acc.concat(l.componentNames), []),
-        iconNames:        libraries.reduce((acc: string[], l) => acc.concat(l.iconNames), []),
-      },
-    };
-
+    await figma.clientStorage.setAsync('ds_file_key', fileKey);
+    await figma.clientStorage.setAsync('figma_pat', pat);
     await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
 
-    figma.notify(`✅ DS loaded — ${totalComponents} components across ${libraries.length} librar${libraries.length === 1 ? 'y' : 'ies'}`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, libraries });
+    figma.notify(`✅ DS loaded — ${dsData.componentCount} components · ${dsData.colorCount} colors · ${dsData.iconCount} icons`);
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
+
   } catch (e) {
-    console.error('fetchAndCacheDS error:', e);
-    figma.notify('❌ Could not read design system libraries.');
+    figma.notify('❌ Failed to fetch DS file. Check manifest.json networkAccess.');
+    figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: String(e) });
+  }
+}
+
+function extractDSData(figmaFile: any, fileKey: string): any {
+  // ── Styles from root-level styles map ─────────────────────────
+  const paintStyles: any[] = [];
+  const textStyles: any[] = [];
+  const effectStyles: any[] = [];
+
+  const stylesMap = figmaFile.styles || {};
+  const styleKeys = Object.keys(stylesMap);
+  for (let i = 0; i < styleKeys.length; i++) {
+    const id = styleKeys[i];
+    const s = stylesMap[id] as any;
+    const entry = { id, name: s.name, key: s.key };
+    if (s.styleType === 'FILL')   paintStyles.push(entry);
+    if (s.styleType === 'TEXT')   textStyles.push(entry);
+    if (s.styleType === 'EFFECT') effectStyles.push(entry);
+  }
+
+  // ── Components — walk all pages ───────────────────────────────
+  const allComponents: any[] = [];
+  const libraryMap: { [key: string]: any[] } = {};
+
+  function walkNode(node: any, pageName: string): void {
+    if (!node) return;
+    if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
+      const entry = { key: node.key, name: node.name, page: pageName };
+      allComponents.push(entry);
+      if (!libraryMap[pageName]) libraryMap[pageName] = [];
+      libraryMap[pageName].push(entry);
+    }
+    const children = node.children;
+    if (children && children.length) {
+      for (let i = 0; i < children.length; i++) {
+        walkNode(children[i], pageName);
+      }
+    }
+  }
+
+  const pages = (figmaFile.document && figmaFile.document.children) ? figmaFile.document.children : [];
+  for (let p = 0; p < pages.length; p++) {
+    const page = pages[p];
+    const pageChildren = page.children || [];
+    for (let c = 0; c < pageChildren.length; c++) {
+      walkNode(pageChildren[c], page.name);
+    }
+  }
+
+  // ── Icon components ─────────────────────────────────────────
+  const iconComponents: any[] = [];
+  for (let i = 0; i < allComponents.length; i++) {
+    const comp = allComponents[i];
+    if (
+      comp.name.toLowerCase().indexOf('icon') !== -1 ||
+      comp.name.indexOf('Icons/') === 0 ||
+      comp.name.indexOf('ic_') === 0
+    ) {
+      iconComponents.push(comp);
+    }
+  }
+
+  const colorNames: string[] = [];
+  for (let i = 0; i < Math.min(paintStyles.length, 80); i++) colorNames.push(paintStyles[i].name);
+  const textStyleNames: string[] = [];
+  for (let i = 0; i < Math.min(textStyles.length, 40); i++) textStyleNames.push(textStyles[i].name);
+  const effectStyleNames: string[] = [];
+  for (let i = 0; i < Math.min(effectStyles.length, 20); i++) effectStyleNames.push(effectStyles[i].name);
+  const componentNames: string[] = [];
+  for (let i = 0; i < Math.min(allComponents.length, 150); i++) componentNames.push(allComponents[i].name);
+  const iconNames: string[] = [];
+  for (let i = 0; i < Math.min(iconComponents.length, 100); i++) iconNames.push(iconComponents[i].name);
+
+  return {
+    fileKey,
+    paintStyles,
+    textStyles,
+    effectStyles,
+    allComponents,
+    iconComponents,
+    libraryMap,
+    componentCount: allComponents.length,
+    colorCount: paintStyles.length,
+    iconCount: iconComponents.length,
+    summary: {
+      colorNames,
+      textStyleNames,
+      effectStyleNames,
+      componentNames,
+      iconNames,
+      libraryNames: Object.keys(libraryMap),
+    }
+  };
+}
+
+async function loadDSFromCurrentFile(): Promise<void> {
+  try {
+    figma.notify('🔄 Scanning components used in this file…');
+    const paintStyles = figma.getLocalPaintStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const textStyles = figma.getLocalTextStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const effectStyles = figma.getLocalEffectStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const seen = new Set<string>();
+    const allComponents: any[] = [];
+    const instances = figma.currentPage.findAllWithCriteria({ types: ['INSTANCE'] });
+    for (let i = 0; i < instances.length; i++) {
+      const inst = instances[i] as InstanceNode;
+      const mc = inst.mainComponent;
+      if (mc && !seen.has(mc.key)) {
+        seen.add(mc.key);
+        allComponents.push({ key: mc.key, name: mc.name, page: mc.remote ? 'External Library' : 'This File' });
+      }
+    }
+    const iconComponents: any[] = [];
+    for (let i = 0; i < allComponents.length; i++) {
+      const c = allComponents[i];
+      if (c.name.toLowerCase().indexOf('icon') !== -1 || c.name.indexOf('Icons/') === 0 || c.name.indexOf('ic_') === 0) {
+        iconComponents.push(c);
+      }
+    }
+    const colorNames = paintStyles.slice(0, 80).map(s => s.name);
+    const textStyleNames = textStyles.slice(0, 40).map(s => s.name);
+    const componentNames = allComponents.slice(0, 150).map(c => c.name);
+    const iconNames = iconComponents.slice(0, 100).map(c => c.name);
+    const dsData = {
+      paintStyles, textStyles, effectStyles,
+      allComponents, iconComponents, libraryMap: {},
+      componentCount: allComponents.length,
+      colorCount: paintStyles.length,
+      iconCount: iconComponents.length,
+      isCurrentFileOnly: true,
+      summary: {
+        colorNames,
+        textStyleNames,
+        componentNames,
+        iconNames,
+        libraryNames: ['This file only'],
+      }
+    };
+    await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
+    await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
+    figma.notify(`✅ Loaded ${dsData.componentCount} components from current file`);
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
+  } catch (e) {
+    figma.notify('❌ Failed to scan current file');
     figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: String(e) });
   }
 }
@@ -1046,18 +1129,16 @@ async function fetchAndCacheDS(): Promise<void> {
 (async () => {
   const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
   const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
+  const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
   const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
   const stale = cacheAge > 24 * 60 * 60 * 1000;
   let summary = null;
-  let libraries = null;
   if (cacheRaw) {
     try {
-      const parsed = JSON.parse(cacheRaw);
-      summary = parsed.summary;
-      libraries = parsed.libraries;
-    } catch (_) {}
+      summary = JSON.parse(cacheRaw).summary;
+    } catch (_e) {}
   }
-  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary, libraries });
+  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
 })();
 
 // Handle messages from UI
@@ -1207,30 +1288,47 @@ figma.ui.onmessage = async (msg: any) => {
   }
 
   // ============================================================
-  // DESIGN SYSTEM: Read directly from Figma's linked libraries — no PAT needed
+  // DESIGN SYSTEM: Fetch full DS via Figma REST API
   // ============================================================
-  if (msg.type === 'save-ds-config' || msg.type === 'refresh-ds-config') {
-    await fetchAndCacheDS();
+  if (msg.type === 'save-ds-config') {
+    if (!msg.fileKey || !msg.pat) {
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'File key and PAT are required.' });
+      return;
+    }
+    await fetchAndCacheDS(msg.fileKey, msg.pat);
+  }
+
+  if (msg.type === 'refresh-ds-config') {
+    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+    const pat = await figma.clientStorage.getAsync('figma_pat') as string | undefined;
+    if (!fileKey || !pat) {
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'No DS configured. Please connect first.' });
+      return;
+    }
+    await fetchAndCacheDS(fileKey, pat);
+  }
+
+  if (msg.type === 'load-ds-from-current-file') {
+    await loadDSFromCurrentFile();
   }
 
   if (msg.type === 'get-ds-config') {
     const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
     const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
-    const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
-    const stale = cacheAge > 24 * 60 * 60 * 1000;
+    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+    const stale = cacheTimestampRaw
+      ? (Date.now() - parseInt(cacheTimestampRaw)) > 24 * 60 * 60 * 1000
+      : true;
     let summary = null;
-    let libraries = null;
     if (cacheRaw) {
-      try {
-        const parsed = JSON.parse(cacheRaw);
-        summary = parsed.summary;
-        libraries = parsed.libraries;
-      } catch (_) {}
+      try { summary = JSON.parse(cacheRaw).summary; } catch (_e) {}
     }
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary, libraries });
+    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
   }
 
   if (msg.type === 'disconnect-ds') {
+    await figma.clientStorage.deleteAsync('ds_file_key');
+    await figma.clientStorage.deleteAsync('figma_pat');
     await figma.clientStorage.deleteAsync('ds_cache');
     await figma.clientStorage.deleteAsync('ds_cache_timestamp');
     figma.ui.postMessage({ type: 'ds-config-status', hasDS: false });
