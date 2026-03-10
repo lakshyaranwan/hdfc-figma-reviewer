@@ -270,6 +270,7 @@ ${spatialSummary}
 
 ${repeatingGroups}
 ${ignoreChromeInstruction}
+${dsPromptSection}
 
 ${interactivityRules}
 
