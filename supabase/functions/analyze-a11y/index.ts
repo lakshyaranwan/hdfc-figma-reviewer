@@ -362,14 +362,14 @@ Return a JSON array. Each item:
 
     } else {
       // focus_order — visually driven, not layer-order driven
-      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1 focus management (SC 2.4.3) and screen reader UX.
+      systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1 focus management (SC 2.4.3) and screen reader UX (TalkBack, VoiceOver).
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
 Start your response with [ and end with ].
 
-CRITICAL PHILOSOPHY: You are sequencing focus for a BLIND USER navigating with a screen reader (e.g. TalkBack, VoiceOver). 
-The Figma layer panel order is COMPLETELY IRRELEVANT — it often reflects design creation order, not UX intent.
+CRITICAL PHILOSOPHY: You are sequencing focus for a BLIND USER navigating with a screen reader.
+The Figma layer panel order is COMPLETELY IRRELEVANT.
 You MUST determine order purely from visual/spatial data: x/y coordinates, element size, and UX patterns.
-Think: "If I were visually impaired and tabbing through this screen, what is the most logical, intuitive order?"`;
+For each element's ariaLabel, always use visibleTexts[0] (the most prominent visible text) — NEVER the layer name.`;
 
       userPrompt = `Define a COMPLETE, VISUALLY-DRIVEN keyboard focus order for the Figma screen: "${pageName}" (file: "${fileName}").
 
@@ -382,65 +382,51 @@ ${repeatingGroups}
 ${interactivityRules}
 ${ignoreChromeInstruction}
 
+${ariaLabelRules}
+
 ═══ FOCUS ORDER SEQUENCING RULES ═══
 
 RULE 1 — VISUAL POSITION IS THE ONLY ORDERING SIGNAL
   - Sequence ENTIRELY by coordinates: lower y → gets earlier focus. Equal y (within 8px) → lower x gets earlier focus.
   - NEVER follow Figma layer panel order. Layer order is irrelevant.
-  - NEVER skip an element because it appears "structural" in the layer panel.
 
 RULE 2 — SCREEN READER READING PATTERN (top-left → bottom-right, zone by zone)
-  Zone 1: TOP ZONE (header area) — back/close button → screen title → trailing action icons (e.g. search, filter)
-  Zone 2: CONTENT ZONE (main body) — process row by row:
-    - Each row: leftmost interactive → rightmost interactive → overflow/more button
-    - Card groups: card heading → supporting text → primary action → secondary action → more-options
-    - Filter/chip rows: left chip → next chip → ... → last chip
-    - Scrollable lists: top item → second item → ... (all items, none skipped)
-  Zone 3: BOTTOM ZONE (tab bar / nav) — leftmost tab → next tab → ... → rightmost tab
-  Zone 4: Floating elements (FAB, modals, toasts) — sequenced by y position within viewport
+  Zone 1: TOP ZONE (header area) — back/close → screen title → trailing icons
+  Zone 2: CONTENT ZONE — row by row:
+    - Card groups: heading → supporting text → primary CTA → secondary action → overflow
+    - Filter/chip rows: left chip → ... → last chip (ALL)
+    - Scrollable lists: top item → ... (ALL, none skipped)
+  Zone 3: BOTTOM ZONE (tab bar / nav) — left tab → ... → rightmost tab
+  Zone 4: Floating (FAB, modals) — by y position
 
 RULE 3 — REPEATING GROUPS: ZERO EXCEPTIONS
-  - If inRepeatingGroup=true, EVERY SINGLE member MUST appear in the focus list.
-  - Order within the group: ascending y, then ascending x (left-to-right row by row).
-  - Calendar grids: ALL cells sequenced row-by-row. A 7-column × 5-row grid = 35 entries minimum.
-  - Chip rows / tab rows: left-to-right, ALL chips.
-  - Card lists: top card to bottom card, ALL cards.
+  - inRepeatingGroup=true → EVERY member MUST appear.
+  - Calendar grids: ALL cells row-by-row. Chip rows: left-to-right ALL.
 
 RULE 4 — COMPONENTS ARE ALWAYS INTERACTIVE
-  - isComponent=true → include it. Components represent real UI controls (buttons, cards, list items, inputs).
+  - isComponent=true → always include.
 
-RULE 5 — DECORATIVE EXCLUSIONS (the ONLY valid reasons to skip a node)
-  - Pure background rectangles with no text and no interactivity signals
-  - Divider lines / separators
-  - Shadow/blur effect layers
-  - Illustration/image frames that are purely visual with no action
+RULE 5 — DECORATIVE EXCLUSIONS (only valid skips)
+  - Background rectangles, dividers, shadow layers, purely decorative illustrations.
 
-RULE 6 — ARIA LABELS FROM CONTENT, NOT LAYER NAMES
-  - ariaLabel MUST be derived from textContent + parentContext
-  - Examples of good labels: "Pay Now, ₹6,885, Personal Loan EMI, OVERDUE"
-  - Examples of bad labels: "Button 14", "Frame 456", "Group 3"
+RULE 6 — WITHIN-CARD FOCUS ORDER
+  1. Card heading  2. Supporting info  3. Primary CTA  4. Secondary action  5. Overflow ("⋮")
 
-RULE 7 — WITHIN-CARD FOCUS ORDER
-  When a card contains multiple interactive elements, the within-card order is:
-  1. Card's primary label / heading (heading role, not interactive but announced)
-  2. Supporting info text (if it adds meaningful context)
-  3. Primary CTA button (e.g. "Pay Now", "View Details")
-  4. Secondary action (e.g. "Set Reminder")
-  5. Overflow / more-options button ("⋮")
-
-FULL NODE DATA (use x/y coordinates for sequencing, parentContext for labels):
+FULL NODE DATA:
+Each node includes "visibleTexts" (priority-sorted visible text array) and "visibleTextDetails" (with fontSize/fontWeight).
+Use visibleTexts[0] as the ariaLabel primary — NEVER use "name" (layer name) as a label.
 ${designContext}
 
 Return a JSON array sorted by focusIndex (1-based, no gaps). Each item MUST include:
 {
   "nodeId": "exact node id from data",
   "nodeName": "layerName value",
-  "textContent": "actual text content if present",
+  "primaryVisibleText": "visibleTexts[0] value",
   "focusIndex": 1,
   "role": "button | tab | navigation | gridcell | input | link | listitem | menuitem | heading | checkbox | radio | combobox | img",
-  "ariaLabel": "Full descriptive label using textContent and parentContext — NEVER use layer names",
-  "visualPosition": "y=N x=N — cite the actual coordinates",
-  "rationale": "Why included and where in visual flow (cite zone, y/x coords, isComponent or inRepeatingGroup flag)"
+  "ariaLabel": "Constructed per Rules A–G — uses visibleTexts, NEVER layer name",
+  "visualPosition": "y=N x=N",
+  "rationale": "Zone, y/x coords, isComponent or inRepeatingGroup flag, pattern detected"
 }`;
     }
 
