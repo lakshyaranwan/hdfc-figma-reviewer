@@ -186,6 +186,7 @@ serve(async (req) => {
 
     const spatialSummary  = buildSpatialSummary(flatNodes);
     const repeatingGroups = findRepeatingGroups(flatNodes);
+    const visualZones     = buildVisualZones(flatNodes);
 
     // ── Build parent-context map so the AI knows what surrounds each node ───
     // Map nodeId → list of ancestor textContents (closest first)
