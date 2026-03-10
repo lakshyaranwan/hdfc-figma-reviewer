@@ -1553,11 +1553,11 @@
       }
 
       if (msg.type === 'ds-loaded') {
-        updateDsUI({ hasDS: true, fileKey: msg.fileKey, stale: false });
-        renderDsSummary(msg.summary);
-        showToast('✅ Design system connected!', 'success');
+        updateDsUI({ hasDS: true, stale: false, summary: msg.summary, libraries: msg.libraries });
+        renderDsLibraries(msg.libraries, msg.summary);
+        showToast('✅ Design system loaded!', 'success');
         const btn = document.getElementById('dsConnectBtn');
-        if (btn) { btn.disabled = false; btn.textContent = 'Connect Design System'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Load from Linked Libraries'; }
       }
 
       if (msg.type === 'ds-stale') {
@@ -1580,7 +1580,7 @@
     function saveAndLoadDS() {
       const btn = document.getElementById('dsConnectBtn');
       btn.disabled = true;
-      btn.textContent = 'Loading…';
+      btn.textContent = 'Scanning libraries…';
       parent.postMessage({ pluginMessage: { type: 'save-ds-config' } }, '*');
     }
 
@@ -1592,6 +1592,8 @@
     function disconnectDS() {
       parent.postMessage({ pluginMessage: { type: 'disconnect-ds' } }, '*');
       updateDsUI({ hasDS: false });
+      const chips = document.getElementById('dsSummaryChips');
+      if (chips) chips.innerHTML = '';
       showToast('Design system disconnected.', '');
     }
 
@@ -1611,14 +1613,20 @@
       }
 
       if (msg.hasDS) {
+        const libs = msg.libraries || [];
+        const totalComponents = libs.reduce((s, l) => s + (l.componentCount || 0), 0);
+        const libCount = libs.length;
+
         if (badge) { badge.textContent = msg.stale ? 'Outdated' : 'Connected'; badge.className = 'ds-badge ' + (msg.stale ? 'stale' : 'connected'); }
-        if (statusDot)   statusDot.style.background   = msg.stale ? '#D97706' : 'var(--success)';
-        if (statusLabel) statusLabel.textContent       = msg.stale ? 'DS cache may be outdated' : 'Design system connected';
-        if (statusSub)   statusSub.textContent         = msg.summary
-          ? `${msg.summary.componentNames?.length || 0} components · ${msg.summary.colorNames?.length || 0} colors`
-          : 'Loaded from linked libraries';
+        if (statusDot)   statusDot.style.background = msg.stale ? '#D97706' : 'var(--success)';
+        if (statusLabel) statusLabel.textContent     = msg.stale ? 'Cache may be outdated' : 'Design system connected';
+        if (statusSub)   statusSub.textContent       = libCount > 0
+          ? `${libCount} librar${libCount === 1 ? 'y' : 'ies'} · ${totalComponents} components`
+          : (msg.summary ? `${msg.summary.componentNames?.length || 0} components · ${msg.summary.colorNames?.length || 0} colors` : 'Loaded from linked libraries');
         if (connectedState) connectedState.style.display = 'block';
         if (setupState)     setupState.style.display     = 'none';
+        // Re-render library chips if we have data
+        if (libs.length > 0) renderDsLibraries(libs, msg.summary);
       } else {
         if (badge) { badge.textContent = 'Not connected'; badge.className = 'ds-badge'; }
         if (connectedState) connectedState.style.display = 'none';
@@ -1626,18 +1634,33 @@
       }
     }
 
-
-    function renderDsSummary(summary) {
+    function renderDsLibraries(libraries, summary) {
       const chips = document.getElementById('dsSummaryChips');
-      if (!chips || !summary) return;
-      const items = [
-        summary.componentNames?.length  && `${summary.componentNames.length} components`,
-        summary.colorNames?.length       && `${summary.colorNames.length} color tokens`,
-        summary.textStyleNames?.length   && `${summary.textStyleNames.length} text styles`,
-      ].filter(Boolean);
-      chips.innerHTML = items.map(label =>
-        `<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:var(--hdfc-light);color:var(--hdfc-primary);font-weight:600;">${label}</span>`
-      ).join('');
+      if (!chips) return;
+
+      // Show per-library breakdown
+      if (libraries && libraries.length > 0) {
+        chips.innerHTML = libraries.map(lib => {
+          const iconBit = lib.iconCount > 0 ? ` · ${lib.iconCount} icons` : '';
+          return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:var(--hdfc-light);width:100%;box-sizing:border-box;margin-bottom:2px;">
+            <span style="font-size:11px;flex:1;font-weight:600;color:var(--hdfc-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${lib.name}</span>
+            <span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">${lib.componentCount} components${iconBit}</span>
+          </div>`;
+        }).join('');
+        return;
+      }
+
+      // Fallback: show aggregate summary chips
+      if (summary) {
+        const items = [
+          summary.componentNames?.length  && `${summary.componentNames.length} components`,
+          summary.colorNames?.length       && `${summary.colorNames.length} color tokens`,
+          summary.textStyleNames?.length   && `${summary.textStyleNames.length} text styles`,
+        ].filter(Boolean);
+        chips.innerHTML = items.map(label =>
+          `<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:var(--hdfc-light);color:var(--hdfc-primary);font-weight:600;">${label}</span>`
+        ).join('');
+      }
     }
 
     // On plugin load — ask code.ts if DS is already configured
