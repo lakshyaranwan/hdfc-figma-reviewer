@@ -1268,20 +1268,16 @@
               <button class="ds-btn ds-btn-danger" onclick="disconnectDS()">Disconnect</button>
             </div>
           </div>
-          <!-- Setup state -->
+          <!-- Setup state — no credentials needed -->
           <div id="dsSetupState">
-            <div class="ds-field">
-              <label>Figma DS File URL or Key</label>
-              <input type="text" id="dsFileKeyInput" placeholder="https://figma.com/design/XXXXX/... or just XXXXX" />
-              <div class="ds-hint">Paste the full Figma file URL or just the file key from the URL.</div>
-            </div>
-            <div class="ds-field">
-              <label>Personal Access Token</label>
-              <input type="password" id="dsPATInput" placeholder="figd_xxxx…" autocomplete="off" />
-              <div class="ds-hint">🔒 Stored locally in your plugin only — <strong>never sent to our servers</strong>. Needs "File content (read)" permission.</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6;">
+              Reads component names, color tokens, and text styles directly from the
+              <strong>libraries enabled on this Figma file</strong>. No API key or file URL needed.
             </div>
             <div class="ds-actions">
-              <button class="ds-btn ds-btn-primary" id="dsConnectBtn" onclick="saveAndLoadDS()">Connect Design System</button>
+              <button class="ds-btn ds-btn-primary" id="dsConnectBtn" onclick="saveAndLoadDS()">
+                📚 Load from Linked Libraries
+              </button>
             </div>
           </div>
         </div>
