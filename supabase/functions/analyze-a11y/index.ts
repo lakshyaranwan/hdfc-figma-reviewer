@@ -85,19 +85,27 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 }
 
 // Pre-compute a spatial overview so the AI understands the screen layout
+// Returns ALL interactive candidates sorted by visual position (y then x)
 function buildSpatialSummary(flatNodes: any[]): string {
-  const withPos = flatNodes.filter(n => n.x !== undefined && n.y !== undefined && n.textContent);
+  const withPos = flatNodes.filter(n => n.x !== undefined && n.y !== undefined);
   if (withPos.length === 0) return "";
 
-  // Sort top-to-bottom, left-to-right, take the first 40 meaningful text nodes
+  // Sort top-to-bottom, left-to-right — this is the canonical visual reading order
   const sorted = withPos
     .sort((a, b) => a.y - b.y || a.x - b.x)
-    .slice(0, 40);
+    .slice(0, 80);
 
-  const lines = sorted.map(n =>
-    `  [y=${n.y} x=${n.x} ${n.w}×${n.h}] "${n.textContent}" (${n.type}${n.isComponent ? " COMPONENT" : ""}${n.inRepeatingGroup ? ` REPEATING×${n.repeatingSiblingCount}` : ""})`
-  );
-  return `SPATIAL CONTENT MAP (top-to-bottom reading order, text nodes only):\n${lines.join("\n")}`;
+  const lines = sorted.map(n => {
+    const label = n.textContent ? `"${n.textContent}"` : `[${n.type}]`;
+    const flags = [
+      n.isComponent ? "COMPONENT" : "",
+      n.inRepeatingGroup ? `REPEATING×${n.repeatingSiblingCount}` : "",
+      n.isLeaf ? "LEAF" : "",
+      n.cornerRadius ? `r=${n.cornerRadius}` : "",
+    ].filter(Boolean).join(" ");
+    return `  [y=${n.y} x=${n.x} ${n.w}×${n.h}] ${label} type=${n.type}${flags ? " " + flags : ""}`;
+  });
+  return `FULL SPATIAL MAP — sorted by visual position (TOP→BOTTOM, LEFT→RIGHT). Use this as the ground truth for focus sequencing:\n${lines.join("\n")}`;
 }
 
 // Identify "repeating groups" — grids/lists of similar-sized nodes that are all likely interactive
@@ -113,12 +121,41 @@ function findRepeatingGroups(flatNodes: any[]): string {
   const summaries: string[] = [];
   for (const [size, members] of Object.entries(groups)) {
     if (members.length < 3) continue;
-    const sample = members.slice(0, 5).map(m => m.textContent ? `"${m.textContent}"` : m.layerName).join(", ");
-    summaries.push(`  - ${members.length} elements of size ${size} (e.g. ${sample}...)`);
+    // Sort members spatially so we can show them in visual order
+    const sortedMembers = [...members].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    const sample = sortedMembers.slice(0, 6).map(m => m.textContent ? `"${m.textContent}"` : m.layerName).join(", ");
+    summaries.push(`  - ${members.length} elements of size ${size} (visual order: ${sample}...)`);
   }
 
   if (summaries.length === 0) return "";
-  return `DETECTED REPEATING INTERACTIVE GROUPS (grids, lists, chip rows — every member is likely focusable):\n${summaries.join("\n")}`;
+  return `DETECTED REPEATING INTERACTIVE GROUPS (grids, lists, chip rows — every member MUST be in focus order, sequenced by y then x):\n${summaries.join("\n")}`;
+}
+
+// Build visual zone boundaries to help AI understand screen structure
+function buildVisualZones(flatNodes: any[]): string {
+  const withPos = flatNodes.filter(n => n.x !== undefined && n.y !== undefined && n.w && n.h);
+  if (withPos.length === 0) return "";
+
+  const allYs = withPos.map(n => n.y + n.h);
+  const maxY = Math.max(...allYs);
+  const minY = Math.min(...withPos.map(n => n.y));
+
+  // Heuristic zone detection based on vertical position
+  const topZoneCutoff   = minY + (maxY - minY) * 0.12;  // top 12% = header/status bar
+  const bottomZoneCutoff = maxY - (maxY - minY) * 0.10;  // bottom 10% = nav bar/tab bar
+
+  const topZoneNodes    = withPos.filter(n => (n.y + n.h) <= topZoneCutoff);
+  const bottomZoneNodes = withPos.filter(n => n.y >= bottomZoneCutoff);
+  const contentNodes    = withPos.filter(n => n.y > topZoneCutoff && (n.y + n.h) < bottomZoneCutoff);
+
+  const lines: string[] = [];
+  lines.push(`VISUAL ZONES (used to determine focus order sections):`);
+  lines.push(`  TOP ZONE    (y ≤ ${Math.round(topZoneCutoff)}): ${topZoneNodes.length} nodes — typically header / status bar / app bar`);
+  lines.push(`  CONTENT     (${Math.round(topZoneCutoff)} < y < ${Math.round(bottomZoneCutoff)}): ${contentNodes.length} nodes — main scrollable content`);
+  lines.push(`  BOTTOM ZONE (y ≥ ${Math.round(bottomZoneCutoff)}): ${bottomZoneNodes.length} nodes — typically bottom nav / tab bar / FAB`);
+  lines.push(`  NOTE: Process focus TOP→BOTTOM across zones. Within a zone, process LEFT→RIGHT.`);
+
+  return lines.join("\n");
 }
 
 serve(async (req) => {
