@@ -1268,20 +1268,16 @@
               <button class="ds-btn ds-btn-danger" onclick="disconnectDS()">Disconnect</button>
             </div>
           </div>
-          <!-- Setup state -->
+          <!-- Setup state — no credentials needed -->
           <div id="dsSetupState">
-            <div class="ds-field">
-              <label>Figma DS File URL or Key</label>
-              <input type="text" id="dsFileKeyInput" placeholder="https://figma.com/design/XXXXX/... or just XXXXX" />
-              <div class="ds-hint">Paste the full Figma file URL or just the file key from the URL.</div>
-            </div>
-            <div class="ds-field">
-              <label>Personal Access Token</label>
-              <input type="password" id="dsPATInput" placeholder="figd_xxxx…" autocomplete="off" />
-              <div class="ds-hint">🔒 Stored locally in your plugin only — <strong>never sent to our servers</strong>. Needs "File content (read)" permission.</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6;">
+              Reads component names, color tokens, and text styles directly from the
+              <strong>libraries enabled on this Figma file</strong>. No API key or file URL needed.
             </div>
             <div class="ds-actions">
-              <button class="ds-btn ds-btn-primary" id="dsConnectBtn" onclick="saveAndLoadDS()">Connect Design System</button>
+              <button class="ds-btn ds-btn-primary" id="dsConnectBtn" onclick="saveAndLoadDS()">
+                📚 Load from Linked Libraries
+              </button>
             </div>
           </div>
         </div>
@@ -1582,24 +1578,10 @@
     }
 
     function saveAndLoadDS() {
-      const rawInput = document.getElementById('dsFileKeyInput').value.trim();
-      const pat      = document.getElementById('dsPATInput').value.trim();
-
-      if (!rawInput || !pat) {
-        showToast('Please enter both a file URL/key and a Personal Access Token.', 'error');
-        return;
-      }
-
-      const match   = rawInput.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
-      const fileKey = match ? match[1] : rawInput;
-
       const btn = document.getElementById('dsConnectBtn');
       btn.disabled = true;
-      btn.textContent = 'Connecting…';
-
-      parent.postMessage({
-        pluginMessage: { type: 'save-ds-config', fileKey, pat }
-      }, '*');
+      btn.textContent = 'Loading…';
+      parent.postMessage({ pluginMessage: { type: 'save-ds-config' } }, '*');
     }
 
     function refreshDS() {
@@ -1624,7 +1606,7 @@
       if (msg.error) {
         showToast('❌ ' + msg.error, 'error');
         const btn = document.getElementById('dsConnectBtn');
-        if (btn) { btn.disabled = false; btn.textContent = 'Connect Design System'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Load from Linked Libraries'; }
         return;
       }
 
@@ -1632,7 +1614,9 @@
         if (badge) { badge.textContent = msg.stale ? 'Outdated' : 'Connected'; badge.className = 'ds-badge ' + (msg.stale ? 'stale' : 'connected'); }
         if (statusDot)   statusDot.style.background   = msg.stale ? '#D97706' : 'var(--success)';
         if (statusLabel) statusLabel.textContent       = msg.stale ? 'DS cache may be outdated' : 'Design system connected';
-        if (statusSub)   statusSub.textContent         = msg.fileKey ? `File: ${msg.fileKey}` : '';
+        if (statusSub)   statusSub.textContent         = msg.summary
+          ? `${msg.summary.componentNames?.length || 0} components · ${msg.summary.colorNames?.length || 0} colors`
+          : 'Loaded from linked libraries';
         if (connectedState) connectedState.style.display = 'block';
         if (setupState)     setupState.style.display     = 'none';
       } else {
@@ -1641,6 +1625,7 @@
         if (setupState)     setupState.style.display     = 'block';
       }
     }
+
 
     function renderDsSummary(summary) {
       const chips = document.getElementById('dsSummaryChips');

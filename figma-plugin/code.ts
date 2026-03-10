@@ -989,47 +989,89 @@ function extractDSData(figmaFile: any) {
   };
 }
 
-async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
+async function fetchAndCacheDS(): Promise<void> {
   try {
-    figma.notify('🔄 Loading design system…');
-    const response = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}?depth=3`,
-      { headers: { 'X-Figma-Token': pat } }
-    );
+    figma.notify('🔄 Reading design system from linked libraries…');
 
-    if (!response.ok) {
-      const msg = response.status === 403
-        ? '❌ DS file: permission denied. Check your PAT has file-read access.'
-        : `❌ DS file: could not fetch (${response.status}). Check file key.`;
-      figma.notify(msg);
-      figma.ui.postMessage({ type: 'ds-load-error', message: msg });
-      return;
+    // ── 1. Paint / Color styles ──────────────────────────────────
+    const paintStyles = figma.getLocalPaintStyles().map(s => ({
+      id: s.id, name: s.name, key: s.key,
+    }));
+
+    // ── 2. Text styles ───────────────────────────────────────────
+    const textStyles = figma.getLocalTextStyles().map(s => ({
+      id: s.id, name: s.name, key: s.key,
+    }));
+
+    // ── 3. Effect styles ─────────────────────────────────────────
+    const effectStyles = figma.getLocalEffectStyles().map(s => ({
+      id: s.id, name: s.name, key: s.key,
+    }));
+
+    // ── 4. Scan instances already on the page to collect library component names ──
+    // Most reliable approach: walk all INSTANCE nodes and read their mainComponent
+    const instanceComponents: { key: string; name: string; remote: boolean }[] = [];
+    const seen = new Set<string>();
+    const allInstances = figma.currentPage.findAllWithCriteria({ types: ['INSTANCE'] });
+    for (const inst of allInstances) {
+      const mc = (inst as InstanceNode).mainComponent;
+      if (mc && !seen.has(mc.key)) {
+        seen.add(mc.key);
+        instanceComponents.push({ key: mc.key, name: mc.name, remote: mc.remote });
+      }
     }
 
-    const data = await response.json();
-    const dsData = extractDSData(data);
+    // Separate DS (remote/library) components from local ones
+    const dsComponents = instanceComponents.filter(c => c.remote);
+
+    // ── 5. Build icon component list ─────────────────────────────
+    const iconComponents = dsComponents.filter(c =>
+      c.name.toLowerCase().includes('icon') ||
+      c.name.startsWith('Icons/') ||
+      c.name.startsWith('ic_')
+    );
+
+    const dsData = {
+      paintStyles,
+      textStyles,
+      effectStyles,
+      dsComponents,
+      iconComponents,
+      componentCount: dsComponents.length,
+      colorCount: paintStyles.length,
+      iconCount: iconComponents.length,
+      summary: {
+        colorNames:       paintStyles.map(s => s.name).slice(0, 80),
+        textStyleNames:   textStyles.map(s => s.name).slice(0, 40),
+        effectStyleNames: effectStyles.map(s => s.name).slice(0, 20),
+        componentNames:   dsComponents.map(c => c.name).slice(0, 100),
+        iconNames:        iconComponents.map(c => c.name).slice(0, 100),
+      },
+    };
 
     await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
 
-    figma.notify(`✅ Design system loaded: ${dsData.componentCount} components, ${dsData.colorCount} colors`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, fileKey });
+    figma.notify(`✅ DS loaded — ${dsData.componentCount} components, ${dsData.colorCount} colors, ${dsData.iconCount} icons`);
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
   } catch (e) {
-    const msg = '❌ Failed to load DS file — check your network connection.';
-    figma.notify(msg);
-    figma.ui.postMessage({ type: 'ds-load-error', message: msg });
+    console.error('fetchAndCacheDS error:', e);
+    figma.notify('❌ Could not read design system libraries.');
+    figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: String(e) });
   }
 }
 
-// Do NOT send initial selection data - selection is captured on-demand only
-// when user clicks the selection box in the UI
-// On startup: check DS config and notify UI
+// On startup: check DS cache and notify UI
 (async () => {
-  const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+  const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
   const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
   const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
   const stale = cacheAge > 24 * 60 * 60 * 1000;
-  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!fileKey, fileKey, stale });
+  let summary = null;
+  if (cacheRaw) {
+    try { summary = JSON.parse(cacheRaw).summary; } catch (_) {}
+  }
+  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary });
 })();
 
 // Handle messages from UI
@@ -1179,40 +1221,25 @@ figma.ui.onmessage = async (msg: any) => {
   }
 
   // ============================================================
-  // DESIGN SYSTEM: Save config + PAT into clientStorage (never leaves Figma)
+  // DESIGN SYSTEM: Read directly from Figma's linked libraries — no PAT needed
   // ============================================================
-  if (msg.type === 'save-ds-config') {
-    const { fileKey, pat } = msg;
-    if (!fileKey || !pat) {
-      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'File key and PAT are required.' });
-      return;
-    }
-    await figma.clientStorage.setAsync('ds_file_key', fileKey);
-    await figma.clientStorage.setAsync('figma_pat', pat);
-    await fetchAndCacheDS(fileKey, pat);
+  if (msg.type === 'save-ds-config' || msg.type === 'refresh-ds-config') {
+    await fetchAndCacheDS();
   }
 
   if (msg.type === 'get-ds-config') {
-    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
+    const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
     const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
     const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
     const stale = cacheAge > 24 * 60 * 60 * 1000;
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!fileKey, fileKey, stale });
-  }
-
-  if (msg.type === 'refresh-ds') {
-    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
-    const pat = await figma.clientStorage.getAsync('figma_pat') as string | undefined;
-    if (!fileKey || !pat) {
-      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'No DS configured yet.' });
-      return;
+    let summary = null;
+    if (cacheRaw) {
+      try { summary = JSON.parse(cacheRaw).summary; } catch (_) {}
     }
-    await fetchAndCacheDS(fileKey, pat);
+    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, summary });
   }
 
   if (msg.type === 'disconnect-ds') {
-    await figma.clientStorage.deleteAsync('ds_file_key');
-    await figma.clientStorage.deleteAsync('figma_pat');
     await figma.clientStorage.deleteAsync('ds_cache');
     await figma.clientStorage.deleteAsync('ds_cache_timestamp');
     figma.ui.postMessage({ type: 'ds-config-status', hasDS: false });
