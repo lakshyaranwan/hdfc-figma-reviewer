@@ -948,66 +948,93 @@ async function fetchAndCacheDS(): Promise<void> {
   try {
     figma.notify('🔄 Reading design system from linked libraries…');
 
-    // 1. Paint / Color styles
-    const paintStyles = figma.getLocalPaintStyles().map(s => ({
-      id: s.id, name: s.name, key: s.key,
-    }));
-
-    // 2. Text styles
-    const textStyles = figma.getLocalTextStyles().map(s => ({
-      id: s.id, name: s.name, key: s.key,
-    }));
-
-    // 3. Effect styles
-    const effectStyles = figma.getLocalEffectStyles().map(s => ({
-      id: s.id, name: s.name, key: s.key,
-    }));
-
-    // 4. Scan instances already on the page to collect library component names
-    const instanceComponents: { key: string; name: string; remote: boolean }[] = [];
-    const seen = new Set<string>();
+    // ── 1. Scan all INSTANCE nodes on the current page ───────────────
+    // Group by their mainComponent's containing library name
     const allInstances = figma.currentPage.findAllWithCriteria({ types: ['INSTANCE'] });
+    const seenKeys = new Set<string>();
+    // Map: libraryName → { components, icons }
+    const libraryMap: Record<string, { name: string; components: { key: string; name: string }[]; icons: { key: string; name: string }[] }> = {};
+
     for (const inst of allInstances) {
       const mc = (inst as InstanceNode).mainComponent;
-      if (mc && !seen.has(mc.key)) {
-        seen.add(mc.key);
-        instanceComponents.push({ key: mc.key, name: mc.name, remote: mc.remote });
+      if (!mc || !mc.remote || seenKeys.has(mc.key)) continue;
+      seenKeys.add(mc.key);
+
+      // Derive the library name from the component's containing set or parent chain
+      // mc.parent is the ComponentSet (variant group) or the page; walk up to get a useful name
+      let libName = 'Unknown Library';
+      try {
+        // The remote component lives in another document — its name often starts with "Library Name/"
+        // Figma doesn't expose the library file name directly on mainComponent,
+        // but components shared via team library carry their containing node name as the first path segment.
+        // For a component named "Button/Primary/Large" the library name isn't embedded.
+        // Use figma.importedComponentsByKeyAsync workaround: check mc.parent chain for a page name.
+        // Best practical approach: use the first path segment as the "library namespace" if present,
+        // otherwise bucket by "Unnamed Library".
+        const nameParts = mc.name.split('/');
+        if (nameParts.length >= 2) {
+          // Use top-level namespace as the library grouping proxy
+          libName = nameParts[0].trim();
+        } else if (mc.parent && mc.parent.type === 'COMPONENT_SET') {
+          libName = mc.parent.name.split('/')[0].trim();
+        }
+      } catch (_) {}
+
+      if (!libraryMap[libName]) {
+        libraryMap[libName] = { name: libName, components: [], icons: [] };
       }
+
+      const isIcon =
+        mc.name.toLowerCase().includes('icon') ||
+        mc.name.startsWith('Icons/') ||
+        mc.name.startsWith('ic_');
+
+      const entry = { key: mc.key, name: mc.name };
+      libraryMap[libName].components.push(entry);
+      if (isIcon) libraryMap[libName].icons.push(entry);
     }
 
-    // Separate DS (remote/library) components from local ones
-    const dsComponents = instanceComponents.filter(c => c.remote);
+    // ── 2. Local styles (these ARE from linked libraries if the file imports them) ──
+    const paintStyles  = figma.getLocalPaintStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const textStyles   = figma.getLocalTextStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const effectStyles = figma.getLocalEffectStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
 
-    // 5. Build icon component list
-    const iconComponents = dsComponents.filter(c =>
-      c.name.toLowerCase().includes('icon') ||
-      c.name.startsWith('Icons/') ||
-      c.name.startsWith('ic_')
-    );
+    // ── 3. Build libraries array for the UI picker ───────────────────
+    const libraries = Object.values(libraryMap).map(lib => ({
+      name: lib.name,
+      componentCount: lib.components.length,
+      iconCount: lib.icons.length,
+      componentNames: lib.components.map(c => c.name),
+      iconNames: lib.icons.map(c => c.name),
+    })).sort((a, b) => b.componentCount - a.componentCount); // most components first
+
+    const totalComponents = libraries.reduce((sum, l) => sum + l.componentCount, 0);
+    const totalIcons      = libraries.reduce((sum, l) => sum + l.iconCount, 0);
 
     const dsData = {
+      libraries,
       paintStyles,
       textStyles,
       effectStyles,
-      dsComponents,
-      iconComponents,
-      componentCount: dsComponents.length,
-      colorCount: paintStyles.length,
-      iconCount: iconComponents.length,
+      componentCount: totalComponents,
+      colorCount:     paintStyles.length,
+      iconCount:      totalIcons,
+      // Flat summary for AI prompt injection (all libraries merged)
       summary: {
-        colorNames:       paintStyles.map(s => s.name).slice(0, 80),
-        textStyleNames:   textStyles.map(s => s.name).slice(0, 40),
-        effectStyleNames: effectStyles.map(s => s.name).slice(0, 20),
-        componentNames:   dsComponents.map(c => c.name).slice(0, 100),
-        iconNames:        iconComponents.map(c => c.name).slice(0, 100),
+        libraries:        libraries.map(l => ({ name: l.name, count: l.componentCount })),
+        colorNames:       paintStyles.map(s => s.name),
+        textStyleNames:   textStyles.map(s => s.name),
+        effectStyleNames: effectStyles.map(s => s.name),
+        componentNames:   libraries.flatMap(l => l.componentNames),
+        iconNames:        libraries.flatMap(l => l.iconNames),
       },
     };
 
     await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
 
-    figma.notify(`✅ DS loaded — ${dsData.componentCount} components, ${dsData.colorCount} colors, ${dsData.iconCount} icons`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
+    figma.notify(`✅ DS loaded — ${totalComponents} components across ${libraries.length} librar${libraries.length === 1 ? 'y' : 'ies'}`);
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, libraries });
   } catch (e) {
     console.error('fetchAndCacheDS error:', e);
     figma.notify('❌ Could not read design system libraries.');
