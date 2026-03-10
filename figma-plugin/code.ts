@@ -940,6 +940,87 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
   return issues;
 }
 
+// ============================================================
+// DESIGN SYSTEM: Fetch DS file from Figma REST API and cache locally
+// The PAT never leaves Figma — it is only stored in figma.clientStorage
+// and used here to make a server-side fetch FROM within the plugin sandbox.
+// ============================================================
+
+function extractDSData(figmaFile: any) {
+  const colors: Record<string, { name: string }> = {};
+  const textStyles: Record<string, { name: string }> = {};
+  const effectStyles: Record<string, { name: string }> = {};
+  const components: Record<string, string> = {}; // key → name
+
+  // Extract published styles from the styles map at the file root
+  for (const [id, style] of Object.entries(figmaFile.styles || {})) {
+    const s = style as any;
+    if (s.styleType === 'FILL')   colors[id]       = { name: s.name };
+    if (s.styleType === 'TEXT')   textStyles[id]   = { name: s.name };
+    if (s.styleType === 'EFFECT') effectStyles[id] = { name: s.name };
+  }
+
+  // Walk pages for COMPONENT and COMPONENT_SET nodes — structure-agnostic
+  function walkForComponents(node: any) {
+    if (!node) return;
+    if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
+      if (node.key) components[node.key] = node.name;
+    }
+    for (const child of node.children || []) {
+      walkForComponents(child);
+    }
+  }
+  for (const page of figmaFile.document?.children || []) {
+    walkForComponents(page);
+  }
+
+  return {
+    colors,
+    textStyles,
+    effectStyles,
+    components,
+    componentCount: Object.keys(components).length,
+    colorCount: Object.keys(colors).length,
+    summary: {
+      colorNames:      Object.values(colors).map((c) => c.name).slice(0, 60),
+      textStyleNames:  Object.values(textStyles).map((t) => t.name).slice(0, 40),
+      componentNames:  Object.values(components).slice(0, 100),
+    },
+  };
+}
+
+async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
+  try {
+    figma.notify('🔄 Loading design system…');
+    const response = await fetch(
+      `https://api.figma.com/v1/files/${fileKey}?depth=3`,
+      { headers: { 'X-Figma-Token': pat } }
+    );
+
+    if (!response.ok) {
+      const msg = response.status === 403
+        ? '❌ DS file: permission denied. Check your PAT has file-read access.'
+        : `❌ DS file: could not fetch (${response.status}). Check file key.`;
+      figma.notify(msg);
+      figma.ui.postMessage({ type: 'ds-load-error', message: msg });
+      return;
+    }
+
+    const data = await response.json();
+    const dsData = extractDSData(data);
+
+    await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
+    await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
+
+    figma.notify(`✅ Design system loaded: ${dsData.componentCount} components, ${dsData.colorCount} colors`);
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, fileKey });
+  } catch (e) {
+    const msg = '❌ Failed to load DS file — check your network connection.';
+    figma.notify(msg);
+    figma.ui.postMessage({ type: 'ds-load-error', message: msg });
+  }
+}
+
 // Do NOT send initial selection data - selection is captured on-demand only
 // when user clicks the selection box in the UI
 
