@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["ES2017"],
+    "target": "ES2019",
+    "lib": ["ES2019"],
     "strict": false,
     "skipLibCheck": true,
     "types": ["@figma/plugin-typings"]
