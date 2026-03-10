@@ -916,7 +916,7 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
         nodeId: node.id,
         nodeName: node.name,
         type: 'icon_contrast',
-        text: `${Math.round(w)}×${Math.round(h)}`,
+        text: `${Math.round(w)}x${Math.round(h)}`,
         ratio: Math.round(ratio * 100) / 100,
         required,
         fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
@@ -941,75 +941,29 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
 }
 
 // ============================================================
-// DESIGN SYSTEM: Fetch DS file from Figma REST API and cache locally
-// The PAT never leaves Figma — it is only stored in figma.clientStorage
-// and used here to make a server-side fetch FROM within the plugin sandbox.
+// DESIGN SYSTEM: Read directly from Figma's linked libraries — no PAT needed
 // ============================================================
-
-function extractDSData(figmaFile: any) {
-  const colors: Record<string, { name: string }> = {};
-  const textStyles: Record<string, { name: string }> = {};
-  const effectStyles: Record<string, { name: string }> = {};
-  const components: Record<string, string> = {}; // key → name
-
-  // Extract published styles from the styles map at the file root
-  for (const [id, style] of Object.entries(figmaFile.styles || {})) {
-    const s = style as any;
-    if (s.styleType === 'FILL')   colors[id]       = { name: s.name };
-    if (s.styleType === 'TEXT')   textStyles[id]   = { name: s.name };
-    if (s.styleType === 'EFFECT') effectStyles[id] = { name: s.name };
-  }
-
-  // Walk pages for COMPONENT and COMPONENT_SET nodes — structure-agnostic
-  function walkForComponents(node: any) {
-    if (!node) return;
-    if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
-      if (node.key) components[node.key] = node.name;
-    }
-    for (const child of node.children || []) {
-      walkForComponents(child);
-    }
-  }
-  for (const page of figmaFile.document?.children || []) {
-    walkForComponents(page);
-  }
-
-  return {
-    colors,
-    textStyles,
-    effectStyles,
-    components,
-    componentCount: Object.keys(components).length,
-    colorCount: Object.keys(colors).length,
-    summary: {
-      colorNames:      Object.values(colors).map((c) => c.name).slice(0, 60),
-      textStyleNames:  Object.values(textStyles).map((t) => t.name).slice(0, 40),
-      componentNames:  Object.values(components).slice(0, 100),
-    },
-  };
-}
 
 async function fetchAndCacheDS(): Promise<void> {
   try {
     figma.notify('🔄 Reading design system from linked libraries…');
 
-    // ── 1. Paint / Color styles ──────────────────────────────────
+    // 1. Paint / Color styles
     const paintStyles = figma.getLocalPaintStyles().map(s => ({
       id: s.id, name: s.name, key: s.key,
     }));
 
-    // ── 2. Text styles ───────────────────────────────────────────
+    // 2. Text styles
     const textStyles = figma.getLocalTextStyles().map(s => ({
       id: s.id, name: s.name, key: s.key,
     }));
 
-    // ── 3. Effect styles ─────────────────────────────────────────
+    // 3. Effect styles
     const effectStyles = figma.getLocalEffectStyles().map(s => ({
       id: s.id, name: s.name, key: s.key,
     }));
 
-    // ── 4. Scan instances already on the page to collect library component names ──
-    // Most reliable approach: walk all INSTANCE nodes and read their mainComponent
+    // 4. Scan instances already on the page to collect library component names
     const instanceComponents: { key: string; name: string; remote: boolean }[] = [];
     const seen = new Set<string>();
     const allInstances = figma.currentPage.findAllWithCriteria({ types: ['INSTANCE'] });
@@ -1024,7 +978,7 @@ async function fetchAndCacheDS(): Promise<void> {
     // Separate DS (remote/library) components from local ones
     const dsComponents = instanceComponents.filter(c => c.remote);
 
-    // ── 5. Build icon component list ─────────────────────────────
+    // 5. Build icon component list
     const iconComponents = dsComponents.filter(c =>
       c.name.toLowerCase().includes('icon') ||
       c.name.startsWith('Icons/') ||
@@ -1252,10 +1206,15 @@ figma.ui.onmessage = async (msg: any) => {
       return;
     }
 
-    // Use a deeper extraction for A11y — more nodes, more depth, capture all interactive elements
-    const A11Y_MAX_DEPTH = 12;
-    const A11Y_MAX_NODES = 2000;
-...
+    // Extract nodes for A11y analysis
+    _extractedNodeCount = 0;
+    const nodes: DesignNode[] = [];
+    for (const node of selection) {
+      if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
+      const nodeData = extractNodeData(node, 0);
+      if (nodeData) nodes.push(nodeData);
+    }
+
     // Load cached DS context and attach for AI enrichment
     let dsContext: any = null;
     try {
