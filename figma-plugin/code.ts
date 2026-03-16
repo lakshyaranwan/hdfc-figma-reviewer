@@ -984,7 +984,9 @@ async function getDSContext(): Promise<any | null> {
       componentNames:   slice(s.componentNames, 150),
       iconNames:        slice(s.iconNames, 100),
       colorNames:       slice(s.colorNames, 80),
+      colorTokenMap:    s.colorTokenMap   || [],   // [{ name, hex }] for accurate AI matching
       textStyleNames:   slice(s.textStyleNames, 40),
+      textStyleMap:     s.textStyleMap    || [],   // [{ name, family, size, weight }]
       effectStyleNames: slice(s.effectStyleNames, 20),
       libraryNames:     s.libraryNames || [],
       isCurrentFileOnly: ds.isCurrentFileOnly || false,
