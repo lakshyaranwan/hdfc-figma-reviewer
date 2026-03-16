@@ -1444,12 +1444,6 @@ figma.ui.onmessage = async (msg: any) => {
     const { nodeId, nodeName, interaction, role, label } = msg;
 
     try {
-      const targetNode = figma.getNodeById(nodeId) as SceneNode | null;
-      if (!targetNode) {
-        figma.ui.postMessage({ type: 'annotation-done', success: false, error: 'Node not found.' });
-        return;
-      }
-
       await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
       await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
 
