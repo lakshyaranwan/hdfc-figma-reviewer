@@ -1740,6 +1740,10 @@
           showToast('❌ ' + (msg.error || 'Failed to create annotation'), 'error');
         }
       }
+
+      if (msg.type === 'selection-node-changed') {
+        updateAnnotBar(msg.nodeId, msg.nodeName);
+      }
       
       if (msg.type === 'analyze-data') {
         runAnalysis(msg.data);
