@@ -1290,8 +1290,39 @@ function extractDSData(figmaFile: any, fileKey: string): any {
 async function loadDSFromCurrentFile(): Promise<void> {
   try {
     figma.notify('🔄 Scanning components used in this file…');
-    const paintStyles = figma.getLocalPaintStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
-    const textStyles = figma.getLocalTextStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+
+    // Capture local paint styles with actual hex color values
+    const localPaintStylesFull = figma.getLocalPaintStyles();
+    const paintStyles = localPaintStylesFull.map(s => ({ id: s.id, name: s.name, key: s.key }));
+
+    // Build colorTokenMap: { name, hex } from local paint styles (direct access to fill values)
+    const colorTokenMap: { name: string; hex: string }[] = [];
+    for (const style of localPaintStylesFull.slice(0, 80)) {
+      const paints = style.paints;
+      for (const paint of paints) {
+        if (paint.type === 'SOLID' && paint.color) {
+          const { r, g, b } = paint.color;
+          const toH = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0');
+          colorTokenMap.push({ name: style.name, hex: `#${toH(r)}${toH(g)}${toH(b)}`.toUpperCase() });
+          break;
+        }
+      }
+    }
+
+    // Capture local text styles with actual font metadata
+    const localTextStylesFull = figma.getLocalTextStyles();
+    const textStyles = localTextStylesFull.map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const textStyleMap: { name: string; family: string; size: number; weight: string }[] = [];
+    for (const style of localTextStylesFull.slice(0, 40)) {
+      const fontName = style.fontName as FontName;
+      textStyleMap.push({
+        name: style.name,
+        family: fontName ? fontName.family : '',
+        size: style.fontSize as number || 0,
+        weight: fontName ? fontName.style : '',
+      });
+    }
+
     const effectStyles = figma.getLocalEffectStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
     const seen = new Set<string>();
     const allComponents: any[] = [];
@@ -1307,12 +1338,16 @@ async function loadDSFromCurrentFile(): Promise<void> {
     const iconComponents: any[] = [];
     for (let i = 0; i < allComponents.length; i++) {
       const c = allComponents[i];
-      if (c.name.toLowerCase().indexOf('icon') !== -1 || c.name.indexOf('Icons/') === 0 || c.name.indexOf('ic_') === 0) {
+      if (c.name.toLowerCase().indexOf('icon') !== -1 || c.name.indexOf('Icons/') === 0 || c.name.indexOf('ic_') === 0 || c.name.indexOf('Icon/') === 0) {
         iconComponents.push(c);
       }
     }
-    const colorNames = paintStyles.slice(0, 80).map(s => s.name);
-    const textStyleNames = textStyles.slice(0, 40).map(s => s.name);
+    const colorNames = colorTokenMap.length > 0
+      ? colorTokenMap.map(t => t.name)
+      : paintStyles.slice(0, 80).map(s => s.name);
+    const textStyleNames = textStyleMap.length > 0
+      ? textStyleMap.map(t => t.name)
+      : textStyles.slice(0, 40).map(s => s.name);
     const componentNames = allComponents.slice(0, 150).map(c => c.name);
     const iconNames = iconComponents.slice(0, 100).map(c => c.name);
     const dsData = {
@@ -1324,7 +1359,9 @@ async function loadDSFromCurrentFile(): Promise<void> {
       isCurrentFileOnly: true,
       summary: {
         colorNames,
+        colorTokenMap,
         textStyleNames,
+        textStyleMap,
         componentNames,
         iconNames,
         libraryNames: ['This file only'],
@@ -1332,7 +1369,7 @@ async function loadDSFromCurrentFile(): Promise<void> {
     };
     await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
-    figma.notify(`✅ Loaded ${dsData.componentCount} components from current file`);
+    figma.notify(`✅ Loaded ${dsData.componentCount} components · ${colorTokenMap.length} color tokens from current file`);
     const dsContextOnLoad = await getDSContext();
     figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, dsContext: dsContextOnLoad });
   } catch (e) {
