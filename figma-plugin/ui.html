@@ -1309,25 +1309,24 @@
   <div class="annot-bar" id="annotBar">
     <div class="annot-bar-title">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="10" rx="2" stroke="#6b7280" stroke-width="1.5"/><line x1="3.5" y1="4" x2="8.5" y2="4" stroke="#6b7280" stroke-width="1.2"/><line x1="3.5" y1="6.5" x2="6.5" y2="6.5" stroke="#6b7280" stroke-width="1.2"/></svg>
-      <span>Annotate selected element</span>
+      <span>Annotate</span>
     </div>
     <div class="annot-fields">
       <div class="annot-field">
         <label><span class="annot-dot dot-interaction"></span>Interaction</label>
-        <input type="text" id="annotInteraction" placeholder="e.g. Whole field is…">
+        <input type="text" id="annotInteraction" placeholder="e.g. Whole field is…" oninput="checkAnnotFields()">
       </div>
       <div class="annot-field">
         <label><span class="annot-dot dot-role"></span>Role / State</label>
-        <input type="text" id="annotRole" placeholder="e.g. Input Field">
+        <input type="text" id="annotRole" placeholder="e.g. Input Field" oninput="checkAnnotFields()">
       </div>
       <div class="annot-field">
         <label><span class="annot-dot dot-label"></span>Label</label>
-        <input type="text" id="annotLabel" placeholder="e.g. Enter Name…">
+        <input type="text" id="annotLabel" placeholder="e.g. Enter Name…" oninput="checkAnnotFields()">
       </div>
     </div>
     <div class="annot-bar-footer">
-      <div class="annot-target" id="annotTarget">No element selected</div>
-      <div style="display:flex;gap:6px;">
+      <div style="display:flex;gap:6px;margin-left:auto;">
         <button class="annot-clear-btn" onclick="clearAnnotFields()" title="Clear fields">✕ Clear</button>
         <button class="annot-generate-btn" id="annotGenerateBtn" onclick="generateAnnotation()" disabled>
           ✦ Generate
@@ -1594,29 +1593,19 @@
     let collapsedCategories = new Set();
 
     // ── Annotation Bar ───────────────────────────────────────────────────────
-    let _annotSelectedNodeId   = null;
-    let _annotSelectedNodeName = null;
-
-    function updateAnnotBar(nodeId, nodeName) {
-      _annotSelectedNodeId   = nodeId   || null;
-      _annotSelectedNodeName = nodeName || null;
-      const target  = document.getElementById('annotTarget');
-      const btn     = document.getElementById('annotGenerateBtn');
-      if (_annotSelectedNodeId) {
-        target.textContent = '📎 ' + (_annotSelectedNodeName || nodeId);
-        target.className   = 'annot-target has-selection';
-        btn.disabled = false;
-      } else {
-        target.textContent = 'No element selected';
-        target.className   = 'annot-target';
-        btn.disabled = true;
-      }
+    function checkAnnotFields() {
+      const interaction = document.getElementById('annotInteraction').value.trim();
+      const role        = document.getElementById('annotRole').value.trim();
+      const label       = document.getElementById('annotLabel').value.trim();
+      const btn         = document.getElementById('annotGenerateBtn');
+      btn.disabled      = !interaction && !role && !label;
     }
 
     function clearAnnotFields() {
       document.getElementById('annotInteraction').value = '';
       document.getElementById('annotRole').value        = '';
       document.getElementById('annotLabel').value       = '';
+      checkAnnotFields();
     }
 
     function generateAnnotation() {
@@ -1624,28 +1613,17 @@
       const role        = document.getElementById('annotRole').value.trim();
       const label       = document.getElementById('annotLabel').value.trim();
 
-      if (!_annotSelectedNodeId) {
-        showToast('Select an element in Figma first.', 'error');
-        return;
-      }
       if (!interaction && !role && !label) {
         showToast('Fill in at least one field before generating.', 'error');
         return;
       }
 
       const btn = document.getElementById('annotGenerateBtn');
-      btn.disabled  = true;
+      btn.disabled    = true;
       btn.textContent = '⏳ Generating…';
 
       parent.postMessage({
-        pluginMessage: {
-          type:        'create-annotation',
-          nodeId:      _annotSelectedNodeId,
-          nodeName:    _annotSelectedNodeName,
-          interaction,
-          role,
-          label,
-        }
+        pluginMessage: { type: 'create-annotation', nodeId: null, nodeName: null, interaction, role, label }
       }, '*');
     }
 
