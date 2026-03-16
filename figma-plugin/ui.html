@@ -1544,6 +1544,12 @@
         <!-- Per-check status chips -->
         <div id="a11yStatusChips" style="display:none; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
 
+        <!-- DS active indicator -->
+        <div id="a11yDsPill" style="display:none; align-items:center; gap:6px; padding:7px 12px; background:#D1FAE5; border-radius:8px; margin-bottom:10px; font-size:11px; font-weight:600; color:var(--success);">
+          <span>🗂️</span>
+          <span id="a11yDsPillText">Design System active — ARIA labels & focus order will reference DS components</span>
+        </div>
+
         <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
           <span>♿</span>
           <span>Run Accessibility Check</span>
