@@ -2703,8 +2703,25 @@
         return;
       }
       
-      a11yIssues = issues;
+      // Preserve any gradient results already pushed to a11yIssues by
+      // sampleGradientAndComputeContrast (they arrive before this message).
+      // Only replace non-gradient entries so we don't duplicate solid-bg results.
+      const gradientAlready = a11yIssues.filter(i => i.isGradientBg);
+      const incomingIds = new Set((issues || []).map(i => i.nodeId));
+      // Also keep gradient results whose nodeId isn't in the solid-bg batch
+      const gradientToKeep = gradientAlready.filter(i => !incomingIds.has(i.nodeId));
+      a11yIssues = [...(issues || []), ...gradientToKeep];
       renderA11yResults();
+
+      // If gradient checks are still in-flight, re-render once they all finish
+      if (_gradientChecksInFlight > 0) {
+        const poll = setInterval(() => {
+          if (_gradientChecksInFlight <= 0) {
+            clearInterval(poll);
+            renderA11yResults();
+          }
+        }, 100);
+      }
     }
     
     function setA11ySort(sort) {
