@@ -46,13 +46,22 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     // Include key style properties only (not full nested style objects)
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
-      simplified.fills = node.fills.map((f: any) => ({
-        type: f.type,
-        color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
-      }));
+      simplified.fills = node.fills.map((f: any) => {
+        const hex = f.color ? `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}` : undefined;
+        return {
+          type: f.type,
+          color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
+          hex,
+        };
+      });
     }
     if (node.fontSize) simplified.fontSize = node.fontSize;
     if (node.fontName) simplified.fontName = node.fontName;
+    // Pass through bound DS style IDs — used to detect already-linked styles
+    if (node.textStyleId) simplified.textStyleId = node.textStyleId;
+    if (node.textStyleName) simplified.textStyleName = node.textStyleName;
+    if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
+    if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
     if (node.cornerRadius) simplified.cornerRadius = node.cornerRadius;
     if (node.opacity !== undefined && node.opacity !== 1) simplified.opacity = node.opacity;
     if (node.constraints) simplified.constraints = node.constraints;
@@ -354,17 +363,25 @@ ${dsContext ? `- When a UX pattern could be solved by a DS component (e.g. a bot
       ${allowedCategories.includes("ui") ? `
 SPECIAL INSTRUCTIONS FOR UI REVIEW:
 - Review visual hierarchy, spacing, alignment, typography, and color usage
+
+CRITICAL — AVOID FALSE POSITIVES ON STYLES ALREADY USING DS TOKENS:
+- Each node in the design data may have a "textStyleId" / "textStyleName" field and/or a "fillStyleId" / "fillStyleName" field.
+- If a node has "textStyleId" set (non-null), that text node is ALREADY using a bound DS text style. Do NOT flag it for typography deviation.
+- If a node has "fillStyleId" set (non-null), that node is ALREADY using a bound DS color token. Do NOT flag it for color deviation.
+- Only flag nodes that have fills/typography values BUT no bound style ID.
+
 ${dsContext ? `
-- DS COLOR AUDIT: For every fill/color rgba value in the design data, convert it to hex and compare against the DS color token map below.
+- DS COLOR AUDIT: For every fill/color on nodes that do NOT have a fillStyleId, convert the hex field to compare against the DS color token map below.
   DS COLOR TOKEN MAP (TokenName=HexValue): [${
     (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-      ? dsContext.colorTokenMap.slice(0, 60).map((t: any) => `${t.name}=${t.hex}`).join(', ')
+      ? dsContext.colorTokenMap.slice(0, 80).map((t: any) => `${t.name}=${t.hex}`).join(', ')
       : (dsContext.colorNames || []).slice(0, 60).join(', ')
   }]
-  If the rgba fill converts to a hex that is NOT in this map, flag it as a "ui" issue.
+  If the hex fill is NOT in this map, flag it as a "ui" issue.
   CRITICAL: In the "suggestion" field, name the CLOSEST color token by hex distance AND include its hex value.
-  Format — suggestion: "Replace rgba(28,63,202,1) [#1C3FCA] with DS color token 'Primary/Blue-700' [#1C40CA] — nearest match by color."
-- DS TYPOGRAPHY AUDIT: For every text node, check its font family+size+weight against DS text styles.
+  Format — suggestion: "Replace #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest match by color."
+
+- DS TYPOGRAPHY AUDIT: For every text node that does NOT have a textStyleId, check font family+size+weight against DS text styles.
   DS TEXT STYLE MAP (StyleName=Family SizePx Weight): [${
     (dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
       ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}=${t.family} ${t.size}px ${t.weight}`).join(', ')
@@ -372,8 +389,12 @@ ${dsContext ? `
   }]
   Flag deviations as "ui" issues. In the suggestion, name the closest matching text style AND its font/size/weight values.
   Format — suggestion: "Replace Inter 100px Bold with DS text style 'Heading/Display' (Inter 96px ExtraBold) — closest match."
+
 - DS SPACING AUDIT: Check padding/margin values against DS spacing conventions. Flag non-standard values and suggest the nearest DS spacing increment.
-` : ""}
+` : `
+- COLOR TOKEN SUGGESTIONS (no DS connected): For any fill color on a node that appears to be a raw custom hex (not a semantic value), note the hex value and suggest the designer assigns it a token. Use the hex field (e.g. "fills[0].hex") directly from the design data.
+  Example: "Text color #1C3FCA is applied directly — consider defining it as a named color token for consistency."
+`}
 ` : ""}
 
 ${allowedCategories.includes("ux_writing") ? `
@@ -405,16 +426,16 @@ ${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join('
 DS FEEDBACK RULES — apply to ALL categories, not just "design_system":
 1. COMPONENT SUBSTITUTION: When a node appears to be a custom-built version of a DS component (matching shape, role, or pattern), flag it in "design_system" category. Name the exact DS component to use.
    Example suggestion: "Use DS component 'Button/Primary' instead of this custom frame — matches the shape and role exactly."
-2. TOKEN DEVIATION (UI): When a color fill (rgba value in design data) doesn't match any DS color token, flag it in "ui" category.
-   CRITICAL: You have the EXACT hex value for every DS color token above (format: TokenName=#HEX). Convert the rgba fill to hex and find the closest matching token by color distance.
-   Example suggestion: "Replace rgba(28,63,202,1) [which is #1C3FCA] with DS color token 'Primary/Blue-700' [#1C40CA] — nearest brand color."
-   If colorTokenMap is unavailable, pick the closest name from the color token list.
-3. TEXT STYLE DEVIATION (UI): When a font/size/weight doesn't map to a DS text style, flag it in "ui".
-   CRITICAL: You have the font metadata for each text style above (format: StyleName(Family SizePx Weight)). Match by family+size+weight combination.
+2. TOKEN DEVIATION (UI): ONLY flag color deviations on nodes that do NOT have a "fillStyleId" field. If a node has fillStyleId set, it is already using a DS color token — skip it.
+   For nodes without fillStyleId: use the "hex" field in fills[] directly. Compare that hex to the DS COLOR TOKEN MAP and find the closest token.
+   Example suggestion: "Replace fill #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest brand color."
+3. TEXT STYLE DEVIATION (UI): ONLY flag typography deviations on nodes that do NOT have a "textStyleId" field. If a node has textStyleId set, it is already using a DS text style — this is CORRECT usage, do NOT flag it.
+   For nodes without textStyleId: check font family+size+weight against DS text styles.
+   CRITICAL: If the node has textStyleId, it is 100% correct and must NOT be flagged — even if the font values seem unusual.
    Example suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' (Inter 16px Regular) — exact match."
 4. CONSISTENCY VIA DS (Consistency): When the same UI pattern appears multiple times but one uses a DS component and another uses a custom frame — flag the inconsistency.
-5. DS CORRECT USAGE: When a node's name matches a DS component name exactly, it's correct usage — do NOT flag it as an issue.
-6. ALWAYS be specific: cite exact DS token/style/component names AND their values in every suggestion — never say "use a DS token" without naming it AND its hex value.
+5. DS CORRECT USAGE: When a node has a textStyleId OR fillStyleId, it is using the DS correctly. Do NOT flag these as deviations.
+6. ALWAYS be specific: cite exact DS token/style/component names AND their hex/size/weight values in every suggestion.
 
 Use category "design_system" ONLY for structural component substitution issues. Use "ui" for token/style deviations.
 ` : '';

@@ -110,6 +110,28 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
     if (textNode.fontName !== figma.mixed) baseData.fontName = textNode.fontName;
     if (textNode.textAlignHorizontal) baseData.textAlignHorizontal = textNode.textAlignHorizontal;
     if (textNode.textAlignVertical) baseData.textAlignVertical = textNode.textAlignVertical;
+    // CRITICAL: Capture bound style IDs so AI knows this node already uses a DS style
+    if (textNode.textStyleId && textNode.textStyleId !== figma.mixed) {
+      (baseData as any).textStyleId = textNode.textStyleId;
+      (baseData as any).textStyleName = figma.getStyleById(textNode.textStyleId as string)?.name || null;
+    }
+    // Capture fill style (color token)
+    if ('fillStyleId' in textNode && textNode.fillStyleId && textNode.fillStyleId !== figma.mixed) {
+      (baseData as any).fillStyleId = textNode.fillStyleId;
+      (baseData as any).fillStyleName = figma.getStyleById(textNode.fillStyleId as string)?.name || null;
+    }
+  }
+
+  // Capture fill/stroke style IDs for non-text nodes too
+  if (node.type !== 'TEXT') {
+    if ('fillStyleId' in node && (node as any).fillStyleId && (node as any).fillStyleId !== figma.mixed) {
+      (baseData as any).fillStyleId = (node as any).fillStyleId;
+      (baseData as any).fillStyleName = figma.getStyleById((node as any).fillStyleId)?.name || null;
+    }
+    if ('strokeStyleId' in node && (node as any).strokeStyleId) {
+      (baseData as any).strokeStyleId = (node as any).strokeStyleId;
+      (baseData as any).strokeStyleName = figma.getStyleById((node as any).strokeStyleId)?.name || null;
+    }
   }
 
   // Auto-layout properties
