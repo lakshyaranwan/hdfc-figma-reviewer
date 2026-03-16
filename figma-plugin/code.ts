@@ -785,9 +785,25 @@ function hasGradientFill(node: SceneNode): boolean {
   return false;
 }
 
+// Returns true if node has a fully-opaque solid fill that completely occludes anything behind it
+function hasOpaqueSolidFill(node: SceneNode): boolean {
+  if (!('fills' in node)) return false;
+  const fills = node.fills;
+  if (fills === figma.mixed || !Array.isArray(fills)) return false;
+  for (const fill of fills as readonly Paint[]) {
+    if (fill.visible === false) continue;
+    if (fill.type === 'SOLID') {
+      const fillOpacity = fill.opacity ?? 1;
+      const nodeOpacity = ('opacity' in node) ? (node as any).opacity ?? 1 : 1;
+      // Consider opaque if combined opacity >= 95%
+      if (fillOpacity * nodeOpacity >= 0.95) return true;
+    }
+  }
+  return false;
+}
+
 // Walk up parent chain to find background color
-// Returns null if background cannot be determined (image fills, no fills at all)
-// Returns { color, isGradient, gradientNode } where gradientNode is the first ancestor with a gradient fill
+// Returns null if background cannot be determined (image fills, no fills at all, or gradient behind semi-transparent layer)
 function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
@@ -796,22 +812,28 @@ function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number 
     if (hasImageFill(sceneNode)) return null;
     // Gradient fills: skip here (handled separately via pixel sampling)
     if (hasGradientFill(sceneNode)) return null;
-    const color = getNodeFillColor(sceneNode);
-    if (color) return color;
+    // Only return this color if the fill is fully opaque — semi-transparent fills
+    // let the layers behind bleed through, so we can't rely on this color alone.
+    if (hasOpaqueSolidFill(sceneNode)) {
+      return getNodeFillColor(sceneNode);
+    }
     current = current.parent;
   }
   // No background found at all - return null instead of assuming white
   return null;
 }
 
-// Walk up parent chain looking for the nearest ancestor with a gradient fill
+// Walk up parent chain looking for the nearest ancestor with a gradient fill.
+// Also returns the gradient parent if a semi-transparent solid fill sits between
+// the text and the gradient (the gradient still bleeds through).
 function getGradientBackgroundParent(node: SceneNode): SceneNode | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
     if (hasGradientFill(sceneNode)) return sceneNode;
-    // Stop if we hit a solid-fill layer (it occludes the gradient)
-    if (getNodeFillColor(sceneNode)) return null;
+    // Stop only if this layer is FULLY opaque — it completely hides what's behind it
+    if (hasOpaqueSolidFill(sceneNode)) return null;
+    // Semi-transparent fills don't fully occlude the gradient, keep walking
     current = current.parent;
   }
   return null;
