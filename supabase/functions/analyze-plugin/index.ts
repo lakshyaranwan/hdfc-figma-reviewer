@@ -380,23 +380,30 @@ This screen is built using a connected Design System. You have access to the ful
 DS INVENTORY:
 - Components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 100).join(', ')}
 - Icon components: ${(dsContext.iconNames || []).slice(0, 60).join(', ')}
-- Color tokens: ${(dsContext.colorNames || []).slice(0, 50).join(', ')}
-- Text styles: ${(dsContext.textStyleNames || []).slice(0, 30).join(', ')}
+- Color tokens (${(dsContext.colorTokenMap || dsContext.colorNames || []).length} total): ${
+  (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
+    ? dsContext.colorTokenMap.slice(0, 60).map((t: any) => `${t.name}=${t.hex}`).join(', ')
+    : (dsContext.colorNames || []).slice(0, 60).join(', ')
+}
+- Text styles: ${(dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
+  ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}(${t.family} ${t.size}px ${t.weight})`).join(', ')
+  : (dsContext.textStyleNames || []).slice(0, 30).join(', ')}
 - Effect styles: ${(dsContext.effectStyleNames || []).slice(0, 10).join(', ')}
 ${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join(', ')}` : ""}
 
 DS FEEDBACK RULES — apply to ALL categories, not just "design_system":
 1. COMPONENT SUBSTITUTION: When a node appears to be a custom-built version of a DS component (matching shape, role, or pattern), flag it in "design_system" category. Name the exact DS component to use.
    Example suggestion: "Use DS component 'Button/Primary' instead of this custom frame — matches the shape and role exactly."
-2. TOKEN DEVIATION (UI): When a color fill (rgba value in design data) doesn't match any DS color token name, flag it in "ui" category.
-   CRITICAL: Always name the CLOSEST DS color token in your suggestion. Pick from this list: [${(dsContext.colorNames || []).slice(0, 60).join(', ')}].
-   Example suggestion: "Replace rgba(28,63,202,1) with DS token 'Primary/Blue-700' — the nearest brand color token."
-3. TEXT STYLE DEVIATION (UI): When a font/size doesn't map to a DS text style, flag it in "ui".
-   CRITICAL: Always name the CLOSEST DS text style in your suggestion. Pick from this list: [${(dsContext.textStyleNames || []).slice(0, 30).join(', ')}].
-   Example suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' — matches this size and weight."
+2. TOKEN DEVIATION (UI): When a color fill (rgba value in design data) doesn't match any DS color token, flag it in "ui" category.
+   CRITICAL: You have the EXACT hex value for every DS color token above (format: TokenName=#HEX). Convert the rgba fill to hex and find the closest matching token by color distance.
+   Example suggestion: "Replace rgba(28,63,202,1) [which is #1C3FCA] with DS color token 'Primary/Blue-700' [#1C40CA] — nearest brand color."
+   If colorTokenMap is unavailable, pick the closest name from the color token list.
+3. TEXT STYLE DEVIATION (UI): When a font/size/weight doesn't map to a DS text style, flag it in "ui".
+   CRITICAL: You have the font metadata for each text style above (format: StyleName(Family SizePx Weight)). Match by family+size+weight combination.
+   Example suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' (Inter 16px Regular) — exact match."
 4. CONSISTENCY VIA DS (Consistency): When the same UI pattern appears multiple times but one uses a DS component and another uses a custom frame — flag the inconsistency.
 5. DS CORRECT USAGE: When a node's name matches a DS component name exactly, it's correct usage — do NOT flag it as an issue.
-6. ALWAYS be specific: cite exact DS token/style/component names in every suggestion — never say "use a DS token" without naming it.
+6. ALWAYS be specific: cite exact DS token/style/component names AND their values in every suggestion — never say "use a DS token" without naming it AND its hex value.
 
 Use category "design_system" ONLY for structural component substitution issues. Use "ui" for token/style deviations.
 ` : '';
