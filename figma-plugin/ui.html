@@ -1736,6 +1736,7 @@
         window._dsContext = msg.dsContext || null; // store DS context for analysis
         updateSelectionUI();
         handleSelectionReceived(msg.data);
+        updateDsChipVisibility();
         // Update annotation bar target
         if (msg.data && msg.data.nodes && msg.data.nodes.length > 0) {
           const firstNode = msg.data.nodes[0];
