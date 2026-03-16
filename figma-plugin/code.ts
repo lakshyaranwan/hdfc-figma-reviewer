@@ -1089,7 +1089,8 @@ async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
 
     figma.notify(`✅ DS loaded — ${dsData.componentCount} components · ${dsData.colorCount} colors · ${dsData.iconCount} icons`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
+    const dsContextOnLoad = await getDSContext();
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, dsContext: dsContextOnLoad });
 
   } catch (e) {
     figma.notify('❌ Failed to fetch DS file. Check manifest.json networkAccess.');
