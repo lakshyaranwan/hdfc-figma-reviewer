@@ -239,17 +239,36 @@ HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE:
     // ── DS context injection ──────────────────────────────────────────────────
     const dsPromptSection = dsContext ? `
 ═══ DESIGN SYSTEM CONTEXT ═══
-This screen uses a Design System. Use this to produce better ARIA labels and focus annotations.
+This screen is built on a Design System. Use this to produce significantly more accurate and specific ARIA labels and focus annotations.
 
-Known icon component names from DS: ${(dsContext.iconNames || []).slice(0, 60).join(', ')}
-Known component names: ${(dsContext.componentNames || []).slice(0, 60).join(', ')}
+DS ICON COMPONENTS (use layer name → semantic meaning):
+${(dsContext.iconNames || []).slice(0, 80).join(', ')}
 
-RULES:
-1. When you see a node whose layerName matches a known DS icon name (e.g. "Icons/Arrow/Left/24/Dark"), infer its semantic meaning from the name and use that as the ARIA label. E.g. "Icons/Arrow/Left/24/Dark" in a header → label: "Back".
-2. When you see "Icons/Notification/Bell/24" → label: "Notifications".
-3. Use the DS component name structure (e.g. "Button/Primary", "Card/Transaction") to better infer the role and purpose of unlabelled components.
-4. Do NOT use the DS component name as the literal ARIA label — infer the semantic meaning from context + name combined.
+DS COMPONENT NAMES (use to infer role and purpose):
+${(dsContext.componentNames || []).slice(0, 80).join(', ')}
+
+DS COLOR TOKENS: ${(dsContext.colorNames || []).slice(0, 30).join(', ')}
+DS TEXT STYLES: ${(dsContext.textStyleNames || []).slice(0, 20).join(', ')}
+${dsContext.libraryNames?.length ? `Libraries: ${dsContext.libraryNames.join(', ')}` : ""}
+
+DS-SPECIFIC RULES:
+1. ICON NAMING: When a node's layerName exactly matches or closely matches a DS icon name, infer its semantic purpose from the name structure:
+   - "Icons/Arrow/Left/24" in a header → role: "button", ariaLabel: "Back"
+   - "Icons/Notification/Bell/24" → ariaLabel: "Notifications"
+   - "Icons/Navigation/Home/24" → ariaLabel: "Home"
+   - "Icons/Action/Close/24" in a modal header → ariaLabel: "Close"
+   - Pattern: [Category]/[Semantic]/[Direction|Size] — use [Semantic] + context to form the label
+2. COMPONENT ROLES: Use the DS component name hierarchy to infer roles:
+   - "Button/Primary" → role: "button"
+   - "Card/Transaction" → role: "listitem" (tappable if interactive)
+   - "Input/Text" → role: "input"
+   - "Navigation/Tab" → role: "tab"
+   - "Chip/Filter" → role: "radio" or "checkbox"
+3. COMPOSITE LABEL ENRICHMENT: When a DS component (e.g. "Card/Account") contains allText, combine the DS-inferred role with the allText for a richer label.
+4. NEVER use the raw DS component name as the ARIA label — always derive semantic meaning.
+5. For focus order: use DS component types to infer interactivity. All DS "Button", "Input", "Card", "Tab", "Chip" variants are interactive and must be included in focus order.
 ` : '';
+
 
     let systemPrompt = "";
     let userPrompt = "";
