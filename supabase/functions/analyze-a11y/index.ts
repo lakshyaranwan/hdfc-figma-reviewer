@@ -251,6 +251,9 @@ RULES:
 4. Do NOT use the DS component name as the literal ARIA label — infer the semantic meaning from context + name combined.
 ` : '';
 
+    let systemPrompt = "";
+    let userPrompt = "";
+
     if (checkType === "aria") {
       systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1, ARIA 1.2, and mobile banking UX.
 You MUST respond with ONLY a valid JSON array — no markdown, no explanation, no preamble.
