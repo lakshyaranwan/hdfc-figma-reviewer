@@ -835,52 +835,77 @@ interface AccessibilityIssue {
   pass: boolean;
 }
 
-// Run text contrast audit on selected nodes
-function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
-  const issues: AccessibilityIssue[] = [];
-
+// Collect all TEXT nodes from a subtree
+function collectTextNodes(nodes: readonly SceneNode[]): TextNode[] {
+  const result: TextNode[] = [];
   function walk(node: SceneNode) {
     if (!node.visible) return;
-    if ('opacity' in node && node.opacity === 0) return;
-
-    if (node.type === 'TEXT') {
-      const textNode = node as TextNode;
-      const fgColor = getNodeFillColor(textNode);
-      if (!fgColor) return; // no fill to check
-
-      const bgColor = getBackgroundColor(textNode);
-      if (!bgColor) return; // Can't determine background (image fill, etc.) - skip to avoid false positives
-      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
-      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-      const ratio = contrastRatio(fgLum, bgLum);
-
-      // WCAG AA: 4.5:1 for ALL text (no large text exception)
-      const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
-      const required = 4.5;
-
-      issues.push({
-        nodeId: textNode.id,
-        nodeName: textNode.name,
-        type: 'text_contrast',
-        text: textNode.characters.substring(0, 60),
-        ratio: Math.round(ratio * 100) / 100,
-        required,
-        fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
-        fontSize: Math.round(fontSize),
-        pass: ratio >= required,
-      });
-    }
-
+    if ('opacity' in node && (node as any).opacity === 0) return;
+    if (node.type === 'TEXT') result.push(node as TextNode);
     if ('children' in node) {
-      for (const child of (node as FrameNode).children) {
-        walk(child);
-      }
+      for (const child of (node as FrameNode).children) walk(child);
     }
   }
+  for (const node of nodes) walk(node);
+  return result;
+}
 
-  for (const node of nodes) {
-    walk(node);
+// Run text contrast audit on selected nodes (async to support gradient pixel-sampling)
+async function runTextContrastAudit(nodes: readonly SceneNode[]): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+  const textNodes = collectTextNodes(nodes);
+
+  for (const textNode of textNodes) {
+    const fgColor = getNodeFillColor(textNode);
+    if (!fgColor) continue;
+
+    // Check if the background is a gradient — if so, use pixel sampling
+    const gradientParent = getGradientBackgroundParent(textNode);
+    if (gradientParent) {
+      try {
+        // Export the text node's bounding box as PNG
+        const bytes = await textNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
+        const fgHex = rgbToHex(fgColor.r, fgColor.g, fgColor.b);
+        const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
+        // Send image bytes to UI for pixel sampling; UI will post back the result
+        figma.ui.postMessage({
+          type: 'gradient-contrast-check',
+          nodeId: textNode.id,
+          nodeName: textNode.name,
+          text: textNode.characters.substring(0, 60),
+          fontSize: Math.round(fontSize),
+          fgColor: fgHex,
+          imageBytes: Array.from(bytes),
+        });
+        // We'll collect this result later via a separate message — skip pushing here
+        continue;
+      } catch (_e) {
+        // Export failed — fall through to regular solid bg check
+      }
+    }
+
+    const bgColor = getBackgroundColor(textNode);
+    if (!bgColor) continue; // image fill or undetermined — skip
+    const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+    const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+    const ratio = contrastRatio(fgLum, bgLum);
+
+    // WCAG AA: 4.5:1 for ALL text (no large text exception)
+    const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
+    const required = 4.5;
+
+    issues.push({
+      nodeId: textNode.id,
+      nodeName: textNode.name,
+      type: 'text_contrast',
+      text: textNode.characters.substring(0, 60),
+      ratio: Math.round(ratio * 100) / 100,
+      required,
+      fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
+      bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+      fontSize: Math.round(fontSize),
+      pass: ratio >= required,
+    });
   }
 
   return issues;
