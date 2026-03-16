@@ -1003,18 +1003,52 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
     const mc = (node as InstanceNode).mainComponent;
     if (!mc) return false;
     const name = mc.name.toLowerCase();
+    // If DS is loaded, match against known icon names first, then fallback to heuristics
     if (_dsIconNames.size > 0) {
       return _dsIconNames.has(mc.name) ||
         name.indexOf('icon') !== -1 ||
         mc.name.indexOf('Icons/') === 0 ||
-        mc.name.indexOf('ic_') === 0;
+        mc.name.indexOf('ic_') === 0 ||
+        mc.name.indexOf('Icon/') === 0;
     }
     // Fallback: name-based heuristic only
-    return name.indexOf('icon') !== -1 || mc.name.indexOf('Icons/') === 0 || mc.name.indexOf('ic_') === 0;
+    return name.indexOf('icon') !== -1 || mc.name.indexOf('Icons/') === 0 || mc.name.indexOf('ic_') === 0 || mc.name.indexOf('Icon/') === 0;
+  }
+
+  // Walk into node children to find the first meaningful fill color.
+  // Icon instances are containers — the actual fill is on an inner vector/shape.
+  function getIconFillColor(node: SceneNode): { r: number; g: number; b: number } | null {
+    // Try the node itself first
+    const direct = getNodeFillColor(node);
+    if (direct) return direct;
+
+    // Recurse into children (limited depth)
+    function walkForFill(n: SceneNode, depth: number): { r: number; g: number; b: number } | null {
+      if (depth > 5) return null;
+      if (!n.visible) return null;
+      if ('opacity' in n && (n as any).opacity === 0) return null;
+      const c = getNodeFillColor(n);
+      if (c) return c;
+      if ('children' in n) {
+        for (const child of (n as FrameNode).children) {
+          const found = walkForFill(child as SceneNode, depth + 1);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    if ('children' in node) {
+      for (const child of (node as FrameNode).children) {
+        const found = walkForFill(child as SceneNode, 0);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   function checkIconContrast(node: InstanceNode): AccessibilityIssue | null {
-    const fgColor = getNodeFillColor(node);
+    const fgColor = getIconFillColor(node);
     if (!fgColor) return null;
     const bgColor = getBackgroundColor(node);
     if (!bgColor) return null;
