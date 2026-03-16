@@ -1856,13 +1856,30 @@
 
     function disconnectDS() {
       parent.postMessage({ pluginMessage: { type: 'disconnect-ds' } }, '*');
+      window._dsContext = null;
       updateDsUI({ hasDS: false });
+      updateDsChipVisibility();
       const chips = document.getElementById('dsSummaryChips');
       if (chips) chips.innerHTML = '';
       showToast('Design system disconnected.', '');
     }
 
-    function updateDsUI(msg) {
+    // Show/hide DS chip in category list and DS pills whenever DS state changes
+    function updateDsChipVisibility() {
+      const hasDS = !!window._dsContext;
+
+      // Design review chip + pill
+      const dsChip = document.getElementById('dsChip');
+      const reviewDsPill = document.getElementById('reviewDsPill');
+      if (dsChip) dsChip.style.display = hasDS ? 'flex' : 'none';
+      if (reviewDsPill) reviewDsPill.style.display = hasDS ? 'flex' : 'none';
+
+      // A11y DS pill
+      const a11yDsPill = document.getElementById('a11yDsPill');
+      if (a11yDsPill) a11yDsPill.style.display = hasDS ? 'flex' : 'none';
+    }
+
+
       const badge          = document.getElementById('dsBadge');
       const connectedState = document.getElementById('dsConnectedState');
       const setupState     = document.getElementById('dsSetupState');
