@@ -984,7 +984,9 @@ async function getDSContext(): Promise<any | null> {
       componentNames:   slice(s.componentNames, 150),
       iconNames:        slice(s.iconNames, 100),
       colorNames:       slice(s.colorNames, 80),
+      colorTokenMap:    s.colorTokenMap   || [],   // [{ name, hex }] for accurate AI matching
       textStyleNames:   slice(s.textStyleNames, 40),
+      textStyleMap:     s.textStyleMap    || [],   // [{ name, family, size, weight }]
       effectStyleNames: slice(s.effectStyleNames, 20),
       libraryNames:     s.libraryNames || [],
       isCurrentFileOnly: ds.isCurrentFileOnly || false,
@@ -1001,18 +1003,52 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
     const mc = (node as InstanceNode).mainComponent;
     if (!mc) return false;
     const name = mc.name.toLowerCase();
+    // If DS is loaded, match against known icon names first, then fallback to heuristics
     if (_dsIconNames.size > 0) {
       return _dsIconNames.has(mc.name) ||
         name.indexOf('icon') !== -1 ||
         mc.name.indexOf('Icons/') === 0 ||
-        mc.name.indexOf('ic_') === 0;
+        mc.name.indexOf('ic_') === 0 ||
+        mc.name.indexOf('Icon/') === 0;
     }
     // Fallback: name-based heuristic only
-    return name.indexOf('icon') !== -1 || mc.name.indexOf('Icons/') === 0 || mc.name.indexOf('ic_') === 0;
+    return name.indexOf('icon') !== -1 || mc.name.indexOf('Icons/') === 0 || mc.name.indexOf('ic_') === 0 || mc.name.indexOf('Icon/') === 0;
+  }
+
+  // Walk into node children to find the first meaningful fill color.
+  // Icon instances are containers — the actual fill is on an inner vector/shape.
+  function getIconFillColor(node: SceneNode): { r: number; g: number; b: number } | null {
+    // Try the node itself first
+    const direct = getNodeFillColor(node);
+    if (direct) return direct;
+
+    // Recurse into children (limited depth)
+    function walkForFill(n: SceneNode, depth: number): { r: number; g: number; b: number } | null {
+      if (depth > 5) return null;
+      if (!n.visible) return null;
+      if ('opacity' in n && (n as any).opacity === 0) return null;
+      const c = getNodeFillColor(n);
+      if (c) return c;
+      if ('children' in n) {
+        for (const child of (n as FrameNode).children) {
+          const found = walkForFill(child as SceneNode, depth + 1);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    if ('children' in node) {
+      for (const child of (node as FrameNode).children) {
+        const found = walkForFill(child as SceneNode, 0);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   function checkIconContrast(node: InstanceNode): AccessibilityIssue | null {
-    const fgColor = getNodeFillColor(node);
+    const fgColor = getIconFillColor(node);
     if (!fgColor) return null;
     const bgColor = getBackgroundColor(node);
     if (!bgColor) return null;
@@ -1177,6 +1213,57 @@ function extractDSData(figmaFile: any, fileKey: string): any {
   const iconNames: string[] = [];
   for (let i = 0; i < Math.min(iconComponents.length, 100); i++) iconNames.push(iconComponents[i].name);
 
+  // ── Build color token map: extract hex values from document nodes that use each style ──
+  // The styles map in the REST response doesn't include actual paint values — we need to
+  // walk document nodes to find a node that references each style and extract its fill.
+  const colorTokenMap: { name: string; hex: string }[] = [];
+  const seenStyleIds = new Set<string>();
+
+  function extractHexFromNode(node: any): string | null {
+    const fills = node.fills;
+    if (!Array.isArray(fills)) return null;
+    for (const fill of fills) {
+      if (fill.type === 'SOLID' && fill.color) {
+        const { r, g, b } = fill.color;
+        const toH = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0');
+        return `#${toH(r)}${toH(g)}${toH(b)}`.toUpperCase();
+      }
+    }
+    return null;
+  }
+
+  function walkForColorValues(node: any): void {
+    if (!node) return;
+    if (node.styles && node.styles.fill) {
+      const styleId = node.styles.fill;
+      if (!seenStyleIds.has(styleId)) {
+        seenStyleIds.add(styleId);
+        const styleEntry = stylesMap[styleId];
+        if (styleEntry) {
+          const hex = extractHexFromNode(node);
+          if (hex) colorTokenMap.push({ name: styleEntry.name, hex });
+        }
+      }
+    }
+    const children = node.children;
+    if (children && children.length) {
+      for (let i = 0; i < children.length; i++) {
+        if (colorTokenMap.length >= 80) break;
+        walkForColorValues(children[i]);
+      }
+    }
+  }
+
+  if (colorTokenMap.length < 80) {
+    const pages2 = (figmaFile.document && figmaFile.document.children) ? figmaFile.document.children : [];
+    for (let p = 0; p < pages2.length && colorTokenMap.length < 80; p++) {
+      const pageChildren2 = pages2[p].children || [];
+      for (let c = 0; c < pageChildren2.length && colorTokenMap.length < 80; c++) {
+        walkForColorValues(pageChildren2[c]);
+      }
+    }
+  }
+
   return {
     fileKey,
     paintStyles,
@@ -1190,6 +1277,7 @@ function extractDSData(figmaFile: any, fileKey: string): any {
     iconCount: iconComponents.length,
     summary: {
       colorNames,
+      colorTokenMap,
       textStyleNames,
       effectStyleNames,
       componentNames,
@@ -1202,8 +1290,39 @@ function extractDSData(figmaFile: any, fileKey: string): any {
 async function loadDSFromCurrentFile(): Promise<void> {
   try {
     figma.notify('🔄 Scanning components used in this file…');
-    const paintStyles = figma.getLocalPaintStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
-    const textStyles = figma.getLocalTextStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
+
+    // Capture local paint styles with actual hex color values
+    const localPaintStylesFull = figma.getLocalPaintStyles();
+    const paintStyles = localPaintStylesFull.map(s => ({ id: s.id, name: s.name, key: s.key }));
+
+    // Build colorTokenMap: { name, hex } from local paint styles (direct access to fill values)
+    const colorTokenMap: { name: string; hex: string }[] = [];
+    for (const style of localPaintStylesFull.slice(0, 80)) {
+      const paints = style.paints;
+      for (const paint of paints) {
+        if (paint.type === 'SOLID' && paint.color) {
+          const { r, g, b } = paint.color;
+          const toH = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0');
+          colorTokenMap.push({ name: style.name, hex: `#${toH(r)}${toH(g)}${toH(b)}`.toUpperCase() });
+          break;
+        }
+      }
+    }
+
+    // Capture local text styles with actual font metadata
+    const localTextStylesFull = figma.getLocalTextStyles();
+    const textStyles = localTextStylesFull.map(s => ({ id: s.id, name: s.name, key: s.key }));
+    const textStyleMap: { name: string; family: string; size: number; weight: string }[] = [];
+    for (const style of localTextStylesFull.slice(0, 40)) {
+      const fontName = style.fontName as FontName;
+      textStyleMap.push({
+        name: style.name,
+        family: fontName ? fontName.family : '',
+        size: style.fontSize as number || 0,
+        weight: fontName ? fontName.style : '',
+      });
+    }
+
     const effectStyles = figma.getLocalEffectStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
     const seen = new Set<string>();
     const allComponents: any[] = [];
@@ -1219,12 +1338,16 @@ async function loadDSFromCurrentFile(): Promise<void> {
     const iconComponents: any[] = [];
     for (let i = 0; i < allComponents.length; i++) {
       const c = allComponents[i];
-      if (c.name.toLowerCase().indexOf('icon') !== -1 || c.name.indexOf('Icons/') === 0 || c.name.indexOf('ic_') === 0) {
+      if (c.name.toLowerCase().indexOf('icon') !== -1 || c.name.indexOf('Icons/') === 0 || c.name.indexOf('ic_') === 0 || c.name.indexOf('Icon/') === 0) {
         iconComponents.push(c);
       }
     }
-    const colorNames = paintStyles.slice(0, 80).map(s => s.name);
-    const textStyleNames = textStyles.slice(0, 40).map(s => s.name);
+    const colorNames = colorTokenMap.length > 0
+      ? colorTokenMap.map(t => t.name)
+      : paintStyles.slice(0, 80).map(s => s.name);
+    const textStyleNames = textStyleMap.length > 0
+      ? textStyleMap.map(t => t.name)
+      : textStyles.slice(0, 40).map(s => s.name);
     const componentNames = allComponents.slice(0, 150).map(c => c.name);
     const iconNames = iconComponents.slice(0, 100).map(c => c.name);
     const dsData = {
@@ -1236,7 +1359,9 @@ async function loadDSFromCurrentFile(): Promise<void> {
       isCurrentFileOnly: true,
       summary: {
         colorNames,
+        colorTokenMap,
         textStyleNames,
+        textStyleMap,
         componentNames,
         iconNames,
         libraryNames: ['This file only'],
@@ -1244,7 +1369,7 @@ async function loadDSFromCurrentFile(): Promise<void> {
     };
     await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
-    figma.notify(`✅ Loaded ${dsData.componentCount} components from current file`);
+    figma.notify(`✅ Loaded ${dsData.componentCount} components · ${colorTokenMap.length} color tokens from current file`);
     const dsContextOnLoad = await getDSContext();
     figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, dsContext: dsContextOnLoad });
   } catch (e) {
