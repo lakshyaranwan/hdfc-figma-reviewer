@@ -1593,29 +1593,19 @@
     let collapsedCategories = new Set();
 
     // ── Annotation Bar ───────────────────────────────────────────────────────
-    let _annotSelectedNodeId   = null;
-    let _annotSelectedNodeName = null;
-
-    function updateAnnotBar(nodeId, nodeName) {
-      _annotSelectedNodeId   = nodeId   || null;
-      _annotSelectedNodeName = nodeName || null;
-      const target  = document.getElementById('annotTarget');
-      const btn     = document.getElementById('annotGenerateBtn');
-      if (_annotSelectedNodeId) {
-        target.textContent = '📎 ' + (_annotSelectedNodeName || nodeId);
-        target.className   = 'annot-target has-selection';
-        btn.disabled = false;
-      } else {
-        target.textContent = 'No element selected';
-        target.className   = 'annot-target';
-        btn.disabled = true;
-      }
+    function checkAnnotFields() {
+      const interaction = document.getElementById('annotInteraction').value.trim();
+      const role        = document.getElementById('annotRole').value.trim();
+      const label       = document.getElementById('annotLabel').value.trim();
+      const btn         = document.getElementById('annotGenerateBtn');
+      btn.disabled      = !interaction && !role && !label;
     }
 
     function clearAnnotFields() {
       document.getElementById('annotInteraction').value = '';
       document.getElementById('annotRole').value        = '';
       document.getElementById('annotLabel').value       = '';
+      checkAnnotFields();
     }
 
     function generateAnnotation() {
@@ -1623,28 +1613,17 @@
       const role        = document.getElementById('annotRole').value.trim();
       const label       = document.getElementById('annotLabel').value.trim();
 
-      if (!_annotSelectedNodeId) {
-        showToast('Select an element in Figma first.', 'error');
-        return;
-      }
       if (!interaction && !role && !label) {
         showToast('Fill in at least one field before generating.', 'error');
         return;
       }
 
       const btn = document.getElementById('annotGenerateBtn');
-      btn.disabled  = true;
+      btn.disabled    = true;
       btn.textContent = '⏳ Generating…';
 
       parent.postMessage({
-        pluginMessage: {
-          type:        'create-annotation',
-          nodeId:      _annotSelectedNodeId,
-          nodeName:    _annotSelectedNodeName,
-          interaction,
-          role,
-          label,
-        }
+        pluginMessage: { type: 'create-annotation', nodeId: null, nodeName: null, interaction, role, label }
       }, '*');
     }
 
