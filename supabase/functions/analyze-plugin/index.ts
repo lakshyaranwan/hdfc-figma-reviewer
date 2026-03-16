@@ -363,17 +363,25 @@ ${dsContext ? `- When a UX pattern could be solved by a DS component (e.g. a bot
       ${allowedCategories.includes("ui") ? `
 SPECIAL INSTRUCTIONS FOR UI REVIEW:
 - Review visual hierarchy, spacing, alignment, typography, and color usage
+
+CRITICAL — AVOID FALSE POSITIVES ON STYLES ALREADY USING DS TOKENS:
+- Each node in the design data may have a "textStyleId" / "textStyleName" field and/or a "fillStyleId" / "fillStyleName" field.
+- If a node has "textStyleId" set (non-null), that text node is ALREADY using a bound DS text style. Do NOT flag it for typography deviation.
+- If a node has "fillStyleId" set (non-null), that node is ALREADY using a bound DS color token. Do NOT flag it for color deviation.
+- Only flag nodes that have fills/typography values BUT no bound style ID.
+
 ${dsContext ? `
-- DS COLOR AUDIT: For every fill/color rgba value in the design data, convert it to hex and compare against the DS color token map below.
+- DS COLOR AUDIT: For every fill/color on nodes that do NOT have a fillStyleId, convert the hex field to compare against the DS color token map below.
   DS COLOR TOKEN MAP (TokenName=HexValue): [${
     (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-      ? dsContext.colorTokenMap.slice(0, 60).map((t: any) => `${t.name}=${t.hex}`).join(', ')
+      ? dsContext.colorTokenMap.slice(0, 80).map((t: any) => `${t.name}=${t.hex}`).join(', ')
       : (dsContext.colorNames || []).slice(0, 60).join(', ')
   }]
-  If the rgba fill converts to a hex that is NOT in this map, flag it as a "ui" issue.
+  If the hex fill is NOT in this map, flag it as a "ui" issue.
   CRITICAL: In the "suggestion" field, name the CLOSEST color token by hex distance AND include its hex value.
-  Format — suggestion: "Replace rgba(28,63,202,1) [#1C3FCA] with DS color token 'Primary/Blue-700' [#1C40CA] — nearest match by color."
-- DS TYPOGRAPHY AUDIT: For every text node, check its font family+size+weight against DS text styles.
+  Format — suggestion: "Replace #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest match by color."
+
+- DS TYPOGRAPHY AUDIT: For every text node that does NOT have a textStyleId, check font family+size+weight against DS text styles.
   DS TEXT STYLE MAP (StyleName=Family SizePx Weight): [${
     (dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
       ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}=${t.family} ${t.size}px ${t.weight}`).join(', ')
@@ -381,8 +389,12 @@ ${dsContext ? `
   }]
   Flag deviations as "ui" issues. In the suggestion, name the closest matching text style AND its font/size/weight values.
   Format — suggestion: "Replace Inter 100px Bold with DS text style 'Heading/Display' (Inter 96px ExtraBold) — closest match."
+
 - DS SPACING AUDIT: Check padding/margin values against DS spacing conventions. Flag non-standard values and suggest the nearest DS spacing increment.
-` : ""}
+` : `
+- COLOR TOKEN SUGGESTIONS (no DS connected): For any fill color on a node that appears to be a raw custom hex (not a semantic value), note the hex value and suggest the designer assigns it a token. Use the hex field (e.g. "fills[0].hex") directly from the design data.
+  Example: "Text color #1C3FCA is applied directly — consider defining it as a named color token for consistency."
+`}
 ` : ""}
 
 ${allowedCategories.includes("ux_writing") ? `
