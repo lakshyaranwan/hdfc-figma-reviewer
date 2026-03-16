@@ -1786,6 +1786,11 @@
         const badge = document.getElementById('dsBadge');
         if (badge) { badge.textContent = 'Outdated — refresh?'; badge.className = 'ds-badge stale'; }
       }
+
+      // ── Gradient background contrast: pixel-sample via canvas ──────────────
+      if (msg.type === 'gradient-contrast-check') {
+        sampleGradientAndComputeContrast(msg);
+      }
     };
 
     // ── Design System Panel ──────────────────────────────────────────
