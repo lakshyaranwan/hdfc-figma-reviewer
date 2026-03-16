@@ -1258,7 +1258,8 @@ async function loadDSFromCurrentFile(): Promise<void> {
       summary = JSON.parse(cacheRaw).summary;
     } catch (_e) {}
   }
-  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
+  const dsContext = cacheRaw ? await getDSContext() : null;
+  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary, dsContext });
 })();
 
 // Broadcast selection change to UI so annotation bar can update
