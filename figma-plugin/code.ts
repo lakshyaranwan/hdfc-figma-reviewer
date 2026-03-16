@@ -1366,7 +1366,8 @@ figma.ui.onmessage = async (msg: any) => {
     }
     const checkText = msg.checkText !== false;
     const checkIcon = msg.checkIcon !== false;
-    const textIssues = checkText ? runTextContrastAudit(selection) : [];
+    // runTextContrastAudit is now async (gradient pixel-sampling via UI canvas)
+    const textIssues = checkText ? await runTextContrastAudit(selection) : [];
     const iconIssues = checkIcon ? runIconContrastAudit(selection) : [];
     const issues = [...textIssues, ...iconIssues];
     figma.ui.postMessage({ type: 'accessibility-results', issues });
