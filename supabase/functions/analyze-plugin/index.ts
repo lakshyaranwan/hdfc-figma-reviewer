@@ -46,13 +46,22 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     // Include key style properties only (not full nested style objects)
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
-      simplified.fills = node.fills.map((f: any) => ({
-        type: f.type,
-        color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
-      }));
+      simplified.fills = node.fills.map((f: any) => {
+        const hex = f.color ? `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}` : undefined;
+        return {
+          type: f.type,
+          color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
+          hex,
+        };
+      });
     }
     if (node.fontSize) simplified.fontSize = node.fontSize;
     if (node.fontName) simplified.fontName = node.fontName;
+    // Pass through bound DS style IDs — used to detect already-linked styles
+    if (node.textStyleId) simplified.textStyleId = node.textStyleId;
+    if (node.textStyleName) simplified.textStyleName = node.textStyleName;
+    if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
+    if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
     if (node.cornerRadius) simplified.cornerRadius = node.cornerRadius;
     if (node.opacity !== undefined && node.opacity !== 1) simplified.opacity = node.opacity;
     if (node.constraints) simplified.constraints = node.constraints;
