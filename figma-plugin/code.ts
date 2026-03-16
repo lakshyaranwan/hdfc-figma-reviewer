@@ -102,7 +102,7 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
     }
   }
 
-  // Text properties (always include - they're lightweight and important)
+  // Text properties — ALWAYS include regardless of depth (critical for color/style audits)
   if (node.type === 'TEXT') {
     const textNode = node as TextNode;
     baseData.characters = textNode.characters;
@@ -110,12 +110,30 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
     if (textNode.fontName !== figma.mixed) baseData.fontName = textNode.fontName;
     if (textNode.textAlignHorizontal) baseData.textAlignHorizontal = textNode.textAlignHorizontal;
     if (textNode.textAlignVertical) baseData.textAlignVertical = textNode.textAlignVertical;
-    // CRITICAL: Capture bound style IDs so AI knows this node already uses a DS style
+
+    // ALWAYS capture fills for text nodes at any depth — needed for color token audit
+    if (textNode.fills !== figma.mixed && (textNode.fills as readonly Paint[]).length > 0) {
+      baseData.fills = (textNode.fills as readonly Paint[]).map(fill => {
+        const r = 'color' in fill && fill.color ? Math.round(fill.color.r * 255) : 0;
+        const g = 'color' in fill && fill.color ? Math.round(fill.color.g * 255) : 0;
+        const b = 'color' in fill && fill.color ? Math.round(fill.color.b * 255) : 0;
+        const hex = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+        return {
+          type: fill.type,
+          visible: fill.visible,
+          opacity: fill.opacity,
+          color: 'color' in fill ? fill.color : undefined,
+          hex,
+        };
+      });
+    }
+
+    // Bound DS text style — if set, this node is already using a DS style correctly
     if (textNode.textStyleId && textNode.textStyleId !== figma.mixed) {
       (baseData as any).textStyleId = textNode.textStyleId;
       (baseData as any).textStyleName = figma.getStyleById(textNode.textStyleId as string)?.name || null;
     }
-    // Capture fill style (color token)
+    // Bound DS color/fill style — if set, this fill is already a DS token
     if ('fillStyleId' in textNode && textNode.fillStyleId && textNode.fillStyleId !== figma.mixed) {
       (baseData as any).fillStyleId = textNode.fillStyleId;
       (baseData as any).fillStyleName = figma.getStyleById(textNode.fillStyleId as string)?.name || null;
