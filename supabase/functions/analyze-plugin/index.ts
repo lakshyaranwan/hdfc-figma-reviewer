@@ -426,16 +426,16 @@ ${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join('
 DS FEEDBACK RULES — apply to ALL categories, not just "design_system":
 1. COMPONENT SUBSTITUTION: When a node appears to be a custom-built version of a DS component (matching shape, role, or pattern), flag it in "design_system" category. Name the exact DS component to use.
    Example suggestion: "Use DS component 'Button/Primary' instead of this custom frame — matches the shape and role exactly."
-2. TOKEN DEVIATION (UI): When a color fill (rgba value in design data) doesn't match any DS color token, flag it in "ui" category.
-   CRITICAL: You have the EXACT hex value for every DS color token above (format: TokenName=#HEX). Convert the rgba fill to hex and find the closest matching token by color distance.
-   Example suggestion: "Replace rgba(28,63,202,1) [which is #1C3FCA] with DS color token 'Primary/Blue-700' [#1C40CA] — nearest brand color."
-   If colorTokenMap is unavailable, pick the closest name from the color token list.
-3. TEXT STYLE DEVIATION (UI): When a font/size/weight doesn't map to a DS text style, flag it in "ui".
-   CRITICAL: You have the font metadata for each text style above (format: StyleName(Family SizePx Weight)). Match by family+size+weight combination.
+2. TOKEN DEVIATION (UI): ONLY flag color deviations on nodes that do NOT have a "fillStyleId" field. If a node has fillStyleId set, it is already using a DS color token — skip it.
+   For nodes without fillStyleId: use the "hex" field in fills[] directly. Compare that hex to the DS COLOR TOKEN MAP and find the closest token.
+   Example suggestion: "Replace fill #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest brand color."
+3. TEXT STYLE DEVIATION (UI): ONLY flag typography deviations on nodes that do NOT have a "textStyleId" field. If a node has textStyleId set, it is already using a DS text style — this is CORRECT usage, do NOT flag it.
+   For nodes without textStyleId: check font family+size+weight against DS text styles.
+   CRITICAL: If the node has textStyleId, it is 100% correct and must NOT be flagged — even if the font values seem unusual.
    Example suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' (Inter 16px Regular) — exact match."
 4. CONSISTENCY VIA DS (Consistency): When the same UI pattern appears multiple times but one uses a DS component and another uses a custom frame — flag the inconsistency.
-5. DS CORRECT USAGE: When a node's name matches a DS component name exactly, it's correct usage — do NOT flag it as an issue.
-6. ALWAYS be specific: cite exact DS token/style/component names AND their values in every suggestion — never say "use a DS token" without naming it AND its hex value.
+5. DS CORRECT USAGE: When a node has a textStyleId OR fillStyleId, it is using the DS correctly. Do NOT flag these as deviations.
+6. ALWAYS be specific: cite exact DS token/style/component names AND their hex/size/weight values in every suggestion.
 
 Use category "design_system" ONLY for structural component substitution issues. Use "ui" for token/style deviations.
 ` : '';
