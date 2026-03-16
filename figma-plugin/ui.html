@@ -2932,14 +2932,30 @@
           i.src = url;
         });
 
-        // Draw at small resolution (20×20) for fast average sampling
+        // Draw the full gradient parent image onto a temp canvas, then crop to
+        // the text node's bounding box region (provided as 0–1 fractions).
         const SAMPLE_SIZE = 20;
         const canvas = document.getElementById('gradientSampleCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Intermediate full-size canvas to draw the full image first
+        const fullCanvas = document.createElement('canvas');
+        fullCanvas.width  = img.naturalWidth  || img.width;
+        fullCanvas.height = img.naturalHeight || img.height;
+        const fullCtx = fullCanvas.getContext('2d');
+        fullCtx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        // Crop coordinates (fractional → pixel)
+        const cropX = (msg.cropX != null ? msg.cropX : 0) * fullCanvas.width;
+        const cropY = (msg.cropY != null ? msg.cropY : 0) * fullCanvas.height;
+        const cropW = Math.max(1, (msg.cropW != null ? msg.cropW : 1) * fullCanvas.width);
+        const cropH = Math.max(1, (msg.cropH != null ? msg.cropH : 1) * fullCanvas.height);
+
+        // Draw the cropped region into the 20×20 sample canvas
         canvas.width  = SAMPLE_SIZE;
         canvas.height = SAMPLE_SIZE;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-        URL.revokeObjectURL(url);
+        ctx.drawImage(fullCanvas, cropX, cropY, cropW, cropH, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
 
         const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
         let sumR = 0, sumG = 0, sumB = 0, count = 0;
@@ -2965,7 +2981,6 @@
         const ratio   = contrastRatioUI(fgLum, bgLum);
         const required = 4.5;
 
-        // Push this issue into a11yIssues alongside regular contrast results
         const issue = {
           nodeId:   msg.nodeId,
           nodeName: msg.nodeName,

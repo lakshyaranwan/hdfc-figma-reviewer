@@ -863,11 +863,25 @@ async function runTextContrastAudit(nodes: readonly SceneNode[]): Promise<Access
     const gradientParent = getGradientBackgroundParent(textNode);
     if (gradientParent) {
       try {
-        // Export the text node's bounding box as PNG
-        const bytes = await textNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
+        // Export the GRADIENT PARENT (not the text node) so we get the actual background pixels.
+        // Then tell the UI which sub-region (text bbox relative to parent) to sample.
+        const bytes = await gradientParent.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
         const fgHex = rgbToHex(fgColor.r, fgColor.g, fgColor.b);
         const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
-        // Send image bytes to UI for pixel sampling; UI will post back the result
+
+        // Compute text node's absolute bounds relative to the gradient parent
+        const px = ('absoluteBoundingBox' in textNode && textNode.absoluteBoundingBox)
+          ? textNode.absoluteBoundingBox.x - gradientParent.absoluteBoundingBox.x
+          : textNode.x - ('x' in gradientParent ? gradientParent.x : 0);
+        const py = ('absoluteBoundingBox' in textNode && textNode.absoluteBoundingBox)
+          ? textNode.absoluteBoundingBox.y - gradientParent.absoluteBoundingBox.y
+          : textNode.y - ('y' in gradientParent ? gradientParent.y : 0);
+        const pw = 'width' in gradientParent ? gradientParent.width : 1;
+        const ph = 'height' in gradientParent ? gradientParent.height : 1;
+        const tw = textNode.width || pw;
+        const th = textNode.height || ph;
+
+        // Send image bytes + crop info to UI for pixel sampling
         figma.ui.postMessage({
           type: 'gradient-contrast-check',
           nodeId: textNode.id,
@@ -876,8 +890,13 @@ async function runTextContrastAudit(nodes: readonly SceneNode[]): Promise<Access
           fontSize: Math.round(fontSize),
           fgColor: fgHex,
           imageBytes: Array.from(bytes),
+          // crop region as fractions [0,1] of the exported image
+          cropX: Math.max(0, px / pw),
+          cropY: Math.max(0, py / ph),
+          cropW: Math.min(1, tw / pw),
+          cropH: Math.min(1, th / ph),
         });
-        // We'll collect this result later via a separate message — skip pushing here
+        // Result collected via canvas pixel-sampling in UI — skip pushing here
         continue;
       } catch (_e) {
         // Export failed — fall through to regular solid bg check
