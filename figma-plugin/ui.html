@@ -1150,24 +1150,46 @@
     .ds-status-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--hdfc-surface); border-radius: 6px; margin-bottom: 10px; }
     .ds-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-    /* ── Annotation Bar ── */
+    /* ── Annotation Bar (collapsible) ── */
     .annot-bar {
       background: #111827;
       border-bottom: 1px solid #1f2937;
-      padding: 10px 14px;
     }
-    .annot-bar-title {
+    .annot-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      color: #6b7280;
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: #6b7280;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      text-align: left;
+      transition: color 0.15s;
     }
-    .annot-bar-title span { color: #9ca3af; }
+    .annot-toggle:hover { color: #9ca3af; }
+    .annot-toggle-chevron {
+      margin-left: auto;
+      transition: transform 0.2s;
+      color: #4b5563;
+    }
+    .annot-toggle-chevron.open { transform: rotate(180deg); }
+    .annot-body {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.22s ease, padding 0.22s ease;
+      padding: 0 14px;
+    }
+    .annot-body.open {
+      max-height: 200px;
+      padding: 0 14px 10px;
+    }
     .annot-fields {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -1195,8 +1217,8 @@
       vertical-align: middle;
     }
     .annot-field label .dot-interaction { background: #a855f7; }
-    .annot-field label .dot-role       { background: #f97316; }
-    .annot-field label .dot-label      { background: #6366f1; }
+    .annot-field label .dot-role        { background: #f97316; }
+    .annot-field label .dot-label       { background: #6366f1; }
     .annot-field input {
       background: #1f2937;
       border: 1px solid #374151;
@@ -1213,18 +1235,9 @@
     .annot-bar-footer {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      justify-content: flex-end;
+      gap: 6px;
     }
-    .annot-target {
-      font-size: 10px;
-      color: #6b7280;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px;
-    }
-    .annot-target.has-selection { color: #34d399; }
     .annot-generate-btn {
       background: #4f46e5;
       color: #fff;
