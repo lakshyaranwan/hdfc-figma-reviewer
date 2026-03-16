@@ -1213,6 +1213,57 @@ function extractDSData(figmaFile: any, fileKey: string): any {
   const iconNames: string[] = [];
   for (let i = 0; i < Math.min(iconComponents.length, 100); i++) iconNames.push(iconComponents[i].name);
 
+  // ── Build color token map: extract hex values from document nodes that use each style ──
+  // The styles map in the REST response doesn't include actual paint values — we need to
+  // walk document nodes to find a node that references each style and extract its fill.
+  const colorTokenMap: { name: string; hex: string }[] = [];
+  const seenStyleIds = new Set<string>();
+
+  function extractHexFromNode(node: any): string | null {
+    const fills = node.fills;
+    if (!Array.isArray(fills)) return null;
+    for (const fill of fills) {
+      if (fill.type === 'SOLID' && fill.color) {
+        const { r, g, b } = fill.color;
+        const toH = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0');
+        return `#${toH(r)}${toH(g)}${toH(b)}`.toUpperCase();
+      }
+    }
+    return null;
+  }
+
+  function walkForColorValues(node: any): void {
+    if (!node) return;
+    if (node.styles && node.styles.fill) {
+      const styleId = node.styles.fill;
+      if (!seenStyleIds.has(styleId)) {
+        seenStyleIds.add(styleId);
+        const styleEntry = stylesMap[styleId];
+        if (styleEntry) {
+          const hex = extractHexFromNode(node);
+          if (hex) colorTokenMap.push({ name: styleEntry.name, hex });
+        }
+      }
+    }
+    const children = node.children;
+    if (children && children.length) {
+      for (let i = 0; i < children.length; i++) {
+        if (colorTokenMap.length >= 80) break;
+        walkForColorValues(children[i]);
+      }
+    }
+  }
+
+  if (colorTokenMap.length < 80) {
+    const pages2 = (figmaFile.document && figmaFile.document.children) ? figmaFile.document.children : [];
+    for (let p = 0; p < pages2.length && colorTokenMap.length < 80; p++) {
+      const pageChildren2 = pages2[p].children || [];
+      for (let c = 0; c < pageChildren2.length && colorTokenMap.length < 80; c++) {
+        walkForColorValues(pageChildren2[c]);
+      }
+    }
+  }
+
   return {
     fileKey,
     paintStyles,
@@ -1226,6 +1277,7 @@ function extractDSData(figmaFile: any, fileKey: string): any {
     iconCount: iconComponents.length,
     summary: {
       colorNames,
+      colorTokenMap,
       textStyleNames,
       effectStyleNames,
       componentNames,
