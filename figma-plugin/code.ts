@@ -1153,6 +1153,21 @@ async function loadDSFromCurrentFile(): Promise<void> {
   figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
 })();
 
+// Broadcast selection change to UI so annotation bar can update
+figma.on('selectionchange', () => {
+  const sel = figma.currentPage.selection;
+  if (sel.length > 0) {
+    const node = sel[0];
+    figma.ui.postMessage({
+      type: 'selection-node-changed',
+      nodeId:   node.id,
+      nodeName: node.name,
+    });
+  } else {
+    figma.ui.postMessage({ type: 'selection-node-changed', nodeId: null, nodeName: null });
+  }
+});
+
 // Handle messages from UI
 figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'get-selection') {
