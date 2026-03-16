@@ -1508,30 +1508,25 @@ figma.ui.onmessage = async (msg: any) => {
       if (role)        entries.push({ type: 'role',        value: role });
       if (label)       entries.push({ type: 'label',       value: label });
 
-      // Position cards to the right of the target node
-      const absX = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
-        ? targetNode.absoluteBoundingBox.x
-        : (targetNode as any).x || 0;
-      const absY = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
-        ? targetNode.absoluteBoundingBox.y
-        : (targetNode as any).y || 0;
-      const nodeH = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
-        ? targetNode.absoluteBoundingBox.height
-        : (targetNode as any).height || 100;
-      const nodeW = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
-        ? targetNode.absoluteBoundingBox.width
-        : (targetNode as any).width || 100;
+      // Place cards in the centre of the current viewport so they appear
+      // exactly where the designer is looking — no connector, no repositioning.
+      const vp     = figma.viewport;
+      const vpCx   = vp.center.x;
+      const vpCy   = vp.center.y;
 
-      const startX = absX + nodeW + 40;
-      let   curY   = absY;
+      // Stack cards vertically, centred on the viewport centre
+      const totalCards = entries.length;
+      const estimatedCardH = 90; // approximate before auto-layout resolves
+      const totalH = totalCards * estimatedCardH + (totalCards - 1) * CARD_GAP;
+      let curY = vpCy - totalH / 2;
+      const startX = vpCx - CARD_W / 2;
 
-      // Determine parent to append cards into
-      const parent = targetNode.parent as (FrameNode | PageNode | GroupNode);
+      // Always append to the current page so cards are never clipped by a frame
+      const page = figma.currentPage;
 
       const createdCards: FrameNode[] = [];
 
       for (const entry of entries) {
-        // Card frame
         const card = figma.createFrame();
         card.name  = `A11y Annotation · ${PILL_CONFIGS[entry.type].label}`;
         card.fills = [{ type: 'SOLID', color: BG_COLOR }];
@@ -1539,48 +1534,24 @@ figma.ui.onmessage = async (msg: any) => {
         card.layoutMode   = 'VERTICAL';
         card.primaryAxisSizingMode  = 'AUTO';
         card.counterAxisSizingMode  = 'FIXED';
-        card.resize(CARD_W, 80); // will auto-grow height
+        card.resize(CARD_W, 80);
         card.paddingLeft = card.paddingRight  = CARD_PAD;
         card.paddingTop  = card.paddingBottom = CARD_PAD;
         card.itemSpacing = 8;
         card.x = startX;
         card.y = curY;
 
-        // Pill
         const pill = await makePill(entry.type);
         card.appendChild(pill);
 
-        // Body text — wrap to card width
         const body = makeBodyText(entry.value);
         card.appendChild(body);
-        // Let auto-layout set width, then constrain text
         body.layoutSizingHorizontal = 'FILL';
 
-        parent.appendChild(card);
+        page.appendChild(card);
         createdCards.push(card);
 
-        // Stack vertically
-        curY += (card.height || 80) + CARD_GAP;
-      }
-
-      // Draw a thin connector line from node edge to first card
-      if (createdCards.length > 0) {
-        const line = figma.createLine();
-        line.name  = 'Annotation connector';
-        line.strokes = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.45 } }];
-        line.strokeWeight = 1;
-        // We can't easily draw diagonals in Figma via plugin, so just a short horizontal
-        // Place it at the midpoint of the node's right edge
-        const midY = absY + nodeH / 2;
-        line.x     = absX + nodeW;
-        line.y     = midY;
-        line.resize(40, 0);
-        parent.appendChild(line);
-      }
-
-      // Zoom to show the annotations
-      if (createdCards.length > 0) {
-        figma.viewport.scrollAndZoomIntoView([targetNode, ...createdCards]);
+        curY += estimatedCardH + CARD_GAP;
       }
 
       figma.ui.postMessage({ type: 'annotation-done', success: true });
