@@ -1519,18 +1519,16 @@
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 4.5:1 for all text</div>
             </div>
           </label>
-          <!-- Icon Contrast hidden for now
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckIcon" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
+          <label id="iconContrastLabel" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: not-allowed; transition: all 0.2s; opacity: 0.5;" title="Connect a Design System to enable icon contrast checking">
+            <input type="checkbox" id="a11yCheckIcon" disabled style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
             <div style="flex: 1;">
               <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🎨</span> Icon / Non-Text Contrast
+                <span>🎨</span> Icon Contrast
+                <span id="iconContrastDSBadge" style="font-size: 10px; padding: 2px 7px; border-radius: 10px; background: #FEF3C7; color: #D97706; font-weight: 600; border: 1px solid #FDE68A;">Requires DS</span>
               </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 3:1 for icons & UI components</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="iconContrastSubtext">Connect your Design System above to check DS icon instances — 3:1 WCAG AA</div>
             </div>
           </label>
-          -->
-          <input type="checkbox" id="a11yCheckIcon" style="display:none;">
           <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
             <input type="checkbox" id="a11yCheckAria" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
             <div style="flex: 1;">
@@ -1878,6 +1876,35 @@
       // A11y DS pill
       const a11yDsPill = document.getElementById('a11yDsPill');
       if (a11yDsPill) a11yDsPill.style.display = hasDS ? 'flex' : 'none';
+
+      // Icon contrast — only available when DS is connected (scans DS icon instances only)
+      const iconContrastLabel = document.getElementById('iconContrastLabel');
+      const iconContrastCheckbox = document.getElementById('a11yCheckIcon');
+      const iconContrastDSBadge = document.getElementById('iconContrastDSBadge');
+      const iconContrastSubtext = document.getElementById('iconContrastSubtext');
+      if (iconContrastLabel) {
+        iconContrastLabel.style.opacity = hasDS ? '1' : '0.5';
+        iconContrastLabel.style.cursor = hasDS ? 'pointer' : 'not-allowed';
+        if (!hasDS) {
+          iconContrastLabel.onmouseover = null;
+          iconContrastLabel.onmouseout = null;
+        } else {
+          iconContrastLabel.onmouseover = function() { this.style.borderColor = 'var(--hdfc-primary)'; };
+          iconContrastLabel.onmouseout = function() { this.style.borderColor = 'var(--border)'; };
+        }
+      }
+      if (iconContrastCheckbox) {
+        iconContrastCheckbox.disabled = !hasDS;
+        if (!hasDS) iconContrastCheckbox.checked = false;
+      }
+      if (iconContrastDSBadge) {
+        iconContrastDSBadge.style.display = hasDS ? 'none' : 'inline';
+      }
+      if (iconContrastSubtext) {
+        iconContrastSubtext.textContent = hasDS
+          ? 'Checks DS icon instances only — WCAG AA 3:1'
+          : 'Connect your Design System above to check DS icon instances — 3:1 WCAG AA';
+      }
     }
 
     function updateDsUI(msg) {
