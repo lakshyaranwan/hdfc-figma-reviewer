@@ -1721,6 +1721,24 @@
         window._dsContext = msg.dsContext || null; // store DS context for analysis
         updateSelectionUI();
         handleSelectionReceived(msg.data);
+        // Update annotation bar target
+        if (msg.data && msg.data.nodes && msg.data.nodes.length > 0) {
+          const firstNode = msg.data.nodes[0];
+          updateAnnotBar(firstNode.id, firstNode.name);
+        } else {
+          updateAnnotBar(null, null);
+        }
+      }
+
+      if (msg.type === 'annotation-done') {
+        const btn = document.getElementById('annotGenerateBtn');
+        if (btn) { btn.disabled = false; btn.textContent = '✦ Generate'; }
+        if (msg.success) {
+          showToast('✅ Annotations placed on canvas!', 'success');
+          clearAnnotFields();
+        } else {
+          showToast('❌ ' + (msg.error || 'Failed to create annotation'), 'error');
+        }
       }
       
       if (msg.type === 'analyze-data') {
