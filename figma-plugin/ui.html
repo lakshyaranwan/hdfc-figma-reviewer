@@ -2838,13 +2838,17 @@
     }
     
     function renderA11yItem(issue) {
+      const gradientBadge = issue.isGradientBg
+        ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#FFF7ED;color:#D97706;border:1px solid #FDE68A;font-weight:600;margin-left:4px;" title="Background sampled from gradient via pixel average">∿ Gradient</span>`
+        : '';
       return `
         <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div style="flex: 1; min-width: 0;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px; flex-wrap:wrap;">
                 <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
                 <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
+                ${gradientBadge}
               </div>
               <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
             </div>
@@ -2856,7 +2860,7 @@
           <div class="a11y-colors">
             <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
             <span style="font-size: 11px; color: var(--text-muted);">on</span>
-            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
+            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}${issue.isGradientBg ? ' (gradient avg)' : ''}"></div>
             <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
             <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
           </div>
