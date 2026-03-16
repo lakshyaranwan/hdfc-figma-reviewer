@@ -1775,12 +1775,17 @@
       }
 
       if (msg.type === 'ds-config-status') {
+        if (msg.dsContext) window._dsContext = msg.dsContext;
+        else if (!msg.hasDS) window._dsContext = null;
         updateDsUI(msg);
+        updateDsChipVisibility();
       }
 
       if (msg.type === 'ds-loaded') {
+        if (msg.dsContext) window._dsContext = msg.dsContext;
         updateDsUI({ hasDS: true, stale: false, summary: msg.summary });
-        showToast('✅ Design system loaded!', 'success');
+        updateDsChipVisibility();
+        showToast('✅ Design system loaded! DS context now active for all reviews.', 'success');
         const btn = document.getElementById('dsConnectBtn');
         if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
       }
@@ -1789,6 +1794,7 @@
         const badge = document.getElementById('dsBadge');
         if (badge) { badge.textContent = 'Outdated — refresh?'; badge.className = 'ds-badge stale'; }
       }
+
 
       // ── Gradient background contrast: pixel-sample via canvas ──────────────
       if (msg.type === 'gradient-contrast-check') {
