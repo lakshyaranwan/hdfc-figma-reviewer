@@ -1066,17 +1066,18 @@ async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
     figma.notify('🔄 Loading design system from Figma API…');
 
     const response = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}?depth=3`,
+      `https://api.figma.com/v1/files/${fileKey}?depth=2`,
       { headers: { 'X-Figma-Token': pat } }
     );
 
     if (!response.ok) {
       if (response.status === 403 || response.status === 401) {
         figma.notify('❌ Invalid PAT or no access to this file. Check your token.');
+        figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'Invalid token or no access to this Figma file. Make sure your Personal Access Token has read access.' });
       } else {
         figma.notify(`❌ Figma API error: ${response.status}`);
+        figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: `Figma API error ${response.status}` });
       }
-      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: `API error ${response.status}` });
       return;
     }
 
@@ -1093,8 +1094,16 @@ async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
     figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, dsContext: dsContextOnLoad });
 
   } catch (e) {
-    figma.notify('❌ Failed to fetch DS file. Check manifest.json networkAccess.');
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: String(e) });
+    const msg = String(e);
+    // A fetch TypeError usually means the domain is blocked by the sandbox
+    const isNetworkBlock = msg.indexOf('TypeError') !== -1 || msg.indexOf('fetch') !== -1 || msg.indexOf('network') !== -1;
+    if (isNetworkBlock) {
+      figma.notify('❌ Network blocked. Re-import the plugin from manifest.json and try again.');
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'Network request blocked. Please close the plugin, re-import it from the updated manifest.json in Figma (Plugins → Development → Import plugin from manifest), then try again.' });
+    } else {
+      figma.notify('❌ Failed to fetch DS file: ' + msg);
+      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: msg });
+    }
   }
 }
 
