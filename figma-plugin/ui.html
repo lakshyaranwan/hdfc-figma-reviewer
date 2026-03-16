@@ -1876,6 +1876,35 @@
       // A11y DS pill
       const a11yDsPill = document.getElementById('a11yDsPill');
       if (a11yDsPill) a11yDsPill.style.display = hasDS ? 'flex' : 'none';
+
+      // Icon contrast — only available when DS is connected (scans DS icon instances only)
+      const iconContrastLabel = document.getElementById('iconContrastLabel');
+      const iconContrastCheckbox = document.getElementById('a11yCheckIcon');
+      const iconContrastDSBadge = document.getElementById('iconContrastDSBadge');
+      const iconContrastSubtext = document.getElementById('iconContrastSubtext');
+      if (iconContrastLabel) {
+        iconContrastLabel.style.opacity = hasDS ? '1' : '0.5';
+        iconContrastLabel.style.cursor = hasDS ? 'pointer' : 'not-allowed';
+        if (!hasDS) {
+          iconContrastLabel.onmouseover = null;
+          iconContrastLabel.onmouseout = null;
+        } else {
+          iconContrastLabel.onmouseover = function() { this.style.borderColor = 'var(--hdfc-primary)'; };
+          iconContrastLabel.onmouseout = function() { this.style.borderColor = 'var(--border)'; };
+        }
+      }
+      if (iconContrastCheckbox) {
+        iconContrastCheckbox.disabled = !hasDS;
+        if (!hasDS) iconContrastCheckbox.checked = false;
+      }
+      if (iconContrastDSBadge) {
+        iconContrastDSBadge.style.display = hasDS ? 'none' : 'inline';
+      }
+      if (iconContrastSubtext) {
+        iconContrastSubtext.textContent = hasDS
+          ? 'Checks DS icon instances only — WCAG AA 3:1'
+          : 'Connect your Design System above to check DS icon instances — 3:1 WCAG AA';
+      }
     }
 
     function updateDsUI(msg) {
