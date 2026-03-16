@@ -768,19 +768,52 @@ function hasImageFill(node: SceneNode): boolean {
   return false;
 }
 
+// Check if a node has a gradient fill
+function hasGradientFill(node: SceneNode): boolean {
+  if (!('fills' in node)) return false;
+  const fills = node.fills;
+  if (fills === figma.mixed || !Array.isArray(fills)) return false;
+  for (const fill of fills as readonly Paint[]) {
+    if (fill.visible === false) continue;
+    if (
+      fill.type === 'GRADIENT_LINEAR' ||
+      fill.type === 'GRADIENT_RADIAL' ||
+      fill.type === 'GRADIENT_ANGULAR' ||
+      fill.type === 'GRADIENT_DIAMOND'
+    ) return true;
+  }
+  return false;
+}
+
 // Walk up parent chain to find background color
 // Returns null if background cannot be determined (image fills, no fills at all)
+// Returns { color, isGradient, gradientNode } where gradientNode is the first ancestor with a gradient fill
 function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
     // If a parent has an image fill, we can't determine the bg color
     if (hasImageFill(sceneNode)) return null;
+    // Gradient fills: skip here (handled separately via pixel sampling)
+    if (hasGradientFill(sceneNode)) return null;
     const color = getNodeFillColor(sceneNode);
     if (color) return color;
     current = current.parent;
   }
   // No background found at all - return null instead of assuming white
+  return null;
+}
+
+// Walk up parent chain looking for the nearest ancestor with a gradient fill
+function getGradientBackgroundParent(node: SceneNode): SceneNode | null {
+  let current: BaseNode | null = node.parent;
+  while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
+    const sceneNode = current as SceneNode;
+    if (hasGradientFill(sceneNode)) return sceneNode;
+    // Stop if we hit a solid-fill layer (it occludes the gradient)
+    if (getNodeFillColor(sceneNode)) return null;
+    current = current.parent;
+  }
   return null;
 }
 
