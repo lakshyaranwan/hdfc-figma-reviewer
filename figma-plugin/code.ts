@@ -1089,7 +1089,8 @@ async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
 
     figma.notify(`✅ DS loaded — ${dsData.componentCount} components · ${dsData.colorCount} colors · ${dsData.iconCount} icons`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
+    const dsContextOnLoad = await getDSContext();
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, dsContext: dsContextOnLoad });
 
   } catch (e) {
     figma.notify('❌ Failed to fetch DS file. Check manifest.json networkAccess.');
@@ -1235,7 +1236,8 @@ async function loadDSFromCurrentFile(): Promise<void> {
     await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
     await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
     figma.notify(`✅ Loaded ${dsData.componentCount} components from current file`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
+    const dsContextOnLoad = await getDSContext();
+    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary, dsContext: dsContextOnLoad });
   } catch (e) {
     figma.notify('❌ Failed to scan current file');
     figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: String(e) });
@@ -1256,7 +1258,8 @@ async function loadDSFromCurrentFile(): Promise<void> {
       summary = JSON.parse(cacheRaw).summary;
     } catch (_e) {}
   }
-  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
+  const dsContext = cacheRaw ? await getDSContext() : null;
+  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary, dsContext });
 })();
 
 // Broadcast selection change to UI so annotation bar can update

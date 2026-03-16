@@ -1487,6 +1487,15 @@
             <input type="checkbox" value="high_level">
             <span>💡 High Level</span>
           </label>
+          <label class="category-chip" id="dsChip" style="display:none;">
+            <input type="checkbox" value="design_system" checked>
+            <span>🗂️ Design System</span>
+          </label>
+        </div>
+        <!-- DS active indicator for design review -->
+        <div id="reviewDsPill" style="display:none; align-items:center; gap:6px; padding:7px 12px; background:#D1FAE5; border-radius:8px; margin-top:8px; font-size:11px; font-weight:600; color:var(--success);">
+          <span>🗂️</span>
+          <span>DS active — review will flag deviations from your Design System</span>
         </div>
       </div>
       
@@ -1543,6 +1552,12 @@
         </div>
         <!-- Per-check status chips -->
         <div id="a11yStatusChips" style="display:none; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
+
+        <!-- DS active indicator -->
+        <div id="a11yDsPill" style="display:none; align-items:center; gap:6px; padding:7px 12px; background:#D1FAE5; border-radius:8px; margin-bottom:10px; font-size:11px; font-weight:600; color:var(--success);">
+          <span>🗂️</span>
+          <span id="a11yDsPillText">Design System active — ARIA labels & focus order will reference DS components</span>
+        </div>
 
         <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
           <span>♿</span>
@@ -1721,6 +1736,7 @@
         window._dsContext = msg.dsContext || null; // store DS context for analysis
         updateSelectionUI();
         handleSelectionReceived(msg.data);
+        updateDsChipVisibility();
         // Update annotation bar target
         if (msg.data && msg.data.nodes && msg.data.nodes.length > 0) {
           const firstNode = msg.data.nodes[0];
@@ -1775,12 +1791,17 @@
       }
 
       if (msg.type === 'ds-config-status') {
+        if (msg.dsContext) window._dsContext = msg.dsContext;
+        else if (!msg.hasDS) window._dsContext = null;
         updateDsUI(msg);
+        updateDsChipVisibility();
       }
 
       if (msg.type === 'ds-loaded') {
+        if (msg.dsContext) window._dsContext = msg.dsContext;
         updateDsUI({ hasDS: true, stale: false, summary: msg.summary });
-        showToast('✅ Design system loaded!', 'success');
+        updateDsChipVisibility();
+        showToast('✅ Design system loaded! DS context now active for all reviews.', 'success');
         const btn = document.getElementById('dsConnectBtn');
         if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
       }
@@ -1789,6 +1810,7 @@
         const badge = document.getElementById('dsBadge');
         if (badge) { badge.textContent = 'Outdated — refresh?'; badge.className = 'ds-badge stale'; }
       }
+
 
       // ── Gradient background contrast: pixel-sample via canvas ──────────────
       if (msg.type === 'gradient-contrast-check') {
@@ -1835,13 +1857,30 @@
 
     function disconnectDS() {
       parent.postMessage({ pluginMessage: { type: 'disconnect-ds' } }, '*');
+      window._dsContext = null;
       updateDsUI({ hasDS: false });
+      updateDsChipVisibility();
       const chips = document.getElementById('dsSummaryChips');
       if (chips) chips.innerHTML = '';
       showToast('Design system disconnected.', '');
     }
 
-    function updateDsUI(msg) {
+    // Show/hide DS chip in category list and DS pills whenever DS state changes
+    function updateDsChipVisibility() {
+      const hasDS = !!window._dsContext;
+
+      // Design review chip + pill
+      const dsChip = document.getElementById('dsChip');
+      const reviewDsPill = document.getElementById('reviewDsPill');
+      if (dsChip) dsChip.style.display = hasDS ? 'flex' : 'none';
+      if (reviewDsPill) reviewDsPill.style.display = hasDS ? 'flex' : 'none';
+
+      // A11y DS pill
+      const a11yDsPill = document.getElementById('a11yDsPill');
+      if (a11yDsPill) a11yDsPill.style.display = hasDS ? 'flex' : 'none';
+    }
+
+
       const badge          = document.getElementById('dsBadge');
       const connectedState = document.getElementById('dsConnectedState');
       const setupState     = document.getElementById('dsSetupState');

@@ -257,7 +257,14 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
+    const systemPrompt = dsContext
+      ? `You are an expert UX/UI designer and design systems specialist, acting as a senior design manager and reviewer.
+You have deep knowledge of the attached Design System — you know every component, token, and pattern.
+Your job: give thorough, specific feedback that actively references the DS. Every piece of feedback should either flag a DS deviation, confirm a correct usage, or provide DS-guided recommendations.
+CRITICAL: You MUST respond with ONLY a valid JSON array, no other text.
+Do not include markdown code blocks, explanations, or any text outside the JSON array.
+Start your response with [ and end with ].`
+      : `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
 You provide thorough, quality feedback - focus on real issues that matter.
 CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
 Do not include markdown code blocks, explanations, or any text outside the JSON array.
@@ -334,6 +341,24 @@ SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
 - Compare ALL elements for inconsistent patterns
 - Look for text variations, inconsistent styles, spacing
 - Flag ALL instances of inconsistency
+${dsContext ? `- CROSS-REFERENCE WITH DS: flag inconsistencies where the same DS component is used with different props/overrides across the screen (e.g. one card uses shadow, another doesn't). Also flag where a pattern is replicated in a custom frame instead of using the DS component consistently.` : ""}
+` : ""}
+
+${allowedCategories.includes("ux") ? `
+SPECIAL INSTRUCTIONS FOR UX REVIEW:
+- Review user flows, affordances, feedback states, empty states, error handling
+- Check CTAs, hierarchy, navigation clarity, and task completion paths
+${dsContext ? `- When a UX pattern could be solved by a DS component (e.g. a bottom sheet, a toast, a modal) but a custom solution is used instead, flag it. Reference the specific DS component name.` : ""}
+` : ""}
+
+${allowedCategories.includes("ui") ? `
+SPECIAL INSTRUCTIONS FOR UI REVIEW:
+- Review visual hierarchy, spacing, alignment, typography, and color usage
+${dsContext ? `
+- DS COLOR AUDIT: For every fill/color in the design data, check if it matches a DS color token. If a color appears as an rgba/hex value that does NOT match a DS token, flag it.
+- DS TYPOGRAPHY AUDIT: For every text node, check if its font/size/weight matches a DS text style. Flag deviations.
+- DS SPACING AUDIT: Check padding/margin values against DS spacing conventions. Flag non-standard values.
+` : ""}
 ` : ""}
 
 ${allowedCategories.includes("ux_writing") ? `
@@ -346,19 +371,28 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 
       const dsPromptSection = dsContext ? `
 ═══ DESIGN SYSTEM CONTEXT ═══
-This product uses a Design System. When giving feedback, reference it explicitly.
+This screen is built using a connected Design System. You have access to the full DS inventory. Your feedback MUST actively use this context.
 
-Available DS components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 80).join(', ')}
-Available color tokens: ${(dsContext.colorNames || []).slice(0, 40).join(', ')}
-Available text styles: ${(dsContext.textStyleNames || []).slice(0, 20).join(', ')}
+DS INVENTORY:
+- Components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 100).join(', ')}
+- Icon components: ${(dsContext.iconNames || []).slice(0, 60).join(', ')}
+- Color tokens: ${(dsContext.colorNames || []).slice(0, 50).join(', ')}
+- Text styles: ${(dsContext.textStyleNames || []).slice(0, 30).join(', ')}
+- Effect styles: ${(dsContext.effectStyleNames || []).slice(0, 10).join(', ')}
+${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join(', ')}` : ""}
 
-USE THIS TO:
-1. Flag when a UI element appears to be a custom/one-off component that should instead use a DS component. E.g. "This button appears to be a custom frame — use the DS 'Button/Primary' component instead."
-2. Flag when spacing, color, or typography appears to deviate from DS tokens. E.g. "This text uses #333333 directly — use the DS color token 'Neutral/800' instead."
-3. Positively note correct DS usage when relevant so the designer knows what's right.
-4. If a component name in the design matches a DS component name, treat it as correct usage — do not flag it.
-Use category "design_system" for all DS-related feedback items.
+DS FEEDBACK RULES — apply to ALL categories, not just "design_system":
+1. COMPONENT SUBSTITUTION: When a node appears to be a custom-built version of a DS component (matching shape, role, or pattern), flag it in "design_system" category. Name the exact DS component to use.
+   Example: A rounded rectangle with text labelled "Pay Now" → "Use DS component 'Button/Primary' instead of this custom frame."
+2. TOKEN DEVIATION (UI): When a color fill (rgba value in design data) doesn't match any DS color token name, flag it in "ui" category. Suggest the closest DS token.
+3. TEXT STYLE DEVIATION (UI): When a font/size doesn't map to a DS text style, flag it in "ui". Suggest the correct DS text style.
+4. CONSISTENCY VIA DS (Consistency): When the same UI pattern appears multiple times but one uses a DS component and another uses a custom frame — flag the inconsistency.
+5. DS CORRECT USAGE: When a node's name matches a DS component name exactly, it's correct usage — do NOT flag it as an issue.
+6. Be specific: always cite the DS component/token name in your suggestion.
+
+Use category "design_system" ONLY for structural component substitution issues. Use "ui" for token/style deviations.
 ` : '';
+
 
       const analysisPrompt = isCustom
         ? `${baseContext}\n\n${dsPromptSection}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
