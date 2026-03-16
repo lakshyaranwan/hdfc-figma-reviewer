@@ -1304,6 +1304,37 @@
       💬 Feedback
     </button>
   </div>
+
+  <!-- ── Persistent Annotation Bar ── -->
+  <div class="annot-bar" id="annotBar">
+    <div class="annot-bar-title">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="10" rx="2" stroke="#6b7280" stroke-width="1.5"/><line x1="3.5" y1="4" x2="8.5" y2="4" stroke="#6b7280" stroke-width="1.2"/><line x1="3.5" y1="6.5" x2="6.5" y2="6.5" stroke="#6b7280" stroke-width="1.2"/></svg>
+      <span>Annotate selected element</span>
+    </div>
+    <div class="annot-fields">
+      <div class="annot-field">
+        <label><span class="annot-dot dot-interaction"></span>Interaction</label>
+        <input type="text" id="annotInteraction" placeholder="e.g. Whole field is…">
+      </div>
+      <div class="annot-field">
+        <label><span class="annot-dot dot-role"></span>Role / State</label>
+        <input type="text" id="annotRole" placeholder="e.g. Input Field">
+      </div>
+      <div class="annot-field">
+        <label><span class="annot-dot dot-label"></span>Label</label>
+        <input type="text" id="annotLabel" placeholder="e.g. Enter Name…">
+      </div>
+    </div>
+    <div class="annot-bar-footer">
+      <div class="annot-target" id="annotTarget">No element selected</div>
+      <div style="display:flex;gap:6px;">
+        <button class="annot-clear-btn" onclick="clearAnnotFields()" title="Clear fields">✕ Clear</button>
+        <button class="annot-generate-btn" id="annotGenerateBtn" onclick="generateAnnotation()" disabled>
+          ✦ Generate
+        </button>
+      </div>
+    </div>
+  </div>
   
   <!-- Feedback Modal -->
   <div class="modal-overlay" id="feedbackModal">
