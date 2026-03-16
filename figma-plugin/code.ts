@@ -863,9 +863,16 @@ async function runTextContrastAudit(nodes: readonly SceneNode[]): Promise<Access
     const gradientParent = getGradientBackgroundParent(textNode);
     if (gradientParent) {
       try {
-        // Export the GRADIENT PARENT (not the text node) so we get the actual background pixels.
-        // Then tell the UI which sub-region (text bbox relative to parent) to sample.
-        const bytes = await gradientParent.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
+        // Export the GRADIENT PARENT with the text node temporarily hidden,
+        // so sampled pixels reflect only the background — not the text rendered on top.
+        const wasVisible = textNode.visible;
+        textNode.visible = false;
+        let bytes: Uint8Array;
+        try {
+          bytes = await gradientParent.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
+        } finally {
+          textNode.visible = wasVisible; // always restore
+        }
         const fgHex = rgbToHex(fgColor.r, fgColor.g, fgColor.b);
         const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
 
