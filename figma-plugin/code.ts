@@ -1153,6 +1153,21 @@ async function loadDSFromCurrentFile(): Promise<void> {
   figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
 })();
 
+// Broadcast selection change to UI so annotation bar can update
+figma.on('selectionchange', () => {
+  const sel = figma.currentPage.selection;
+  if (sel.length > 0) {
+    const node = sel[0];
+    figma.ui.postMessage({
+      type: 'selection-node-changed',
+      nodeId:   node.id,
+      nodeName: node.name,
+    });
+  } else {
+    figma.ui.postMessage({ type: 'selection-node-changed', nodeId: null, nodeName: null });
+  }
+});
+
 // Handle messages from UI
 figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'get-selection') {
@@ -1420,6 +1435,161 @@ figma.ui.onmessage = async (msg: any) => {
       type: 'a11y-ai-annotate-done',
       message: `${annotated} ${label} written to Figma`,
     });
+  }
+
+  // ============================================================
+  // ANNOTATION: Draw visual annotation cards on the canvas
+  // ============================================================
+  if (msg.type === 'create-annotation') {
+    const { nodeId, nodeName, interaction, role, label } = msg;
+
+    try {
+      const targetNode = figma.getNodeById(nodeId) as SceneNode | null;
+      if (!targetNode) {
+        figma.ui.postMessage({ type: 'annotation-done', success: false, error: 'Node not found.' });
+        return;
+      }
+
+      await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+      await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+
+      // ── Constants ──────────────────────────────────────────
+      const CARD_W       = 220;
+      const CARD_PAD     = 14;
+      const CARD_GAP     = 10;
+      const CARD_RADIUS  = 10;
+      const BG_COLOR     = { r: 0.125, g: 0.141, b: 0.173 }; // #1f2437
+      const TEXT_WHITE   = { r: 0.96,  g: 0.965, b: 0.975 };
+      const TEXT_MUTED   = { r: 0.55,  g: 0.56,  b: 0.60  };
+
+      const PILL_CONFIGS: Record<string, { bg: {r:number,g:number,b:number}, text: {r:number,g:number,b:number}, label: string }> = {
+        interaction: { bg: { r: 0.459, g: 0.176, b: 0.71  }, text: { r: 0.98, g: 0.95, b: 1.0  }, label: 'Interaction'  },
+        role:        { bg: { r: 0.671, g: 0.290, b: 0.106 }, text: { r: 1.0,  g: 0.96, b: 0.93 }, label: 'Role/State'   },
+        label:       { bg: { r: 0.247, g: 0.263, b: 0.863 }, text: { r: 0.92, g: 0.93, b: 1.0  }, label: 'Label'        },
+      };
+
+      // Helper: make a pill text node
+      async function makePill(type: keyof typeof PILL_CONFIGS): Promise<FrameNode> {
+        const cfg   = PILL_CONFIGS[type];
+        const pill  = figma.createFrame();
+        pill.name   = `Pill/${cfg.label}`;
+        pill.cornerRadius = 20;
+        pill.fills  = [{ type: 'SOLID', color: cfg.bg }];
+        pill.layoutMode = 'HORIZONTAL';
+        pill.primaryAxisSizingMode  = 'AUTO';
+        pill.counterAxisSizingMode  = 'AUTO';
+        pill.paddingLeft = pill.paddingRight  = 10;
+        pill.paddingTop  = pill.paddingBottom = 4;
+
+        const t = figma.createText();
+        t.fontName = { family: 'Inter', style: 'Bold' };
+        t.fontSize = 10;
+        t.characters = cfg.label;
+        t.fills = [{ type: 'SOLID', color: cfg.text }];
+        pill.appendChild(t);
+        return pill;
+      }
+
+      // Helper: make body text
+      function makeBodyText(content: string): TextNode {
+        const t = figma.createText();
+        t.fontName = { family: 'Inter', style: 'Regular' };
+        t.fontSize = 14;
+        t.lineHeight = { value: 140, unit: 'PERCENT' };
+        t.characters = content;
+        t.fills = [{ type: 'SOLID', color: TEXT_WHITE }];
+        t.textAutoResize = 'WIDTH_AND_HEIGHT';
+        return t;
+      }
+
+      // Build one annotation card per filled field
+      const entries: Array<{ type: keyof typeof PILL_CONFIGS; value: string }> = [];
+      if (interaction) entries.push({ type: 'interaction', value: interaction });
+      if (role)        entries.push({ type: 'role',        value: role });
+      if (label)       entries.push({ type: 'label',       value: label });
+
+      // Position cards to the right of the target node
+      const absX = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
+        ? targetNode.absoluteBoundingBox.x
+        : (targetNode as any).x || 0;
+      const absY = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
+        ? targetNode.absoluteBoundingBox.y
+        : (targetNode as any).y || 0;
+      const nodeH = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
+        ? targetNode.absoluteBoundingBox.height
+        : (targetNode as any).height || 100;
+      const nodeW = ('absoluteBoundingBox' in targetNode && targetNode.absoluteBoundingBox)
+        ? targetNode.absoluteBoundingBox.width
+        : (targetNode as any).width || 100;
+
+      const startX = absX + nodeW + 40;
+      let   curY   = absY;
+
+      // Determine parent to append cards into
+      const parent = targetNode.parent as (FrameNode | PageNode | GroupNode);
+
+      const createdCards: FrameNode[] = [];
+
+      for (const entry of entries) {
+        // Card frame
+        const card = figma.createFrame();
+        card.name  = `A11y Annotation · ${PILL_CONFIGS[entry.type].label}`;
+        card.fills = [{ type: 'SOLID', color: BG_COLOR }];
+        card.cornerRadius = CARD_RADIUS;
+        card.layoutMode   = 'VERTICAL';
+        card.primaryAxisSizingMode  = 'AUTO';
+        card.counterAxisSizingMode  = 'FIXED';
+        card.resize(CARD_W, 80); // will auto-grow height
+        card.paddingLeft = card.paddingRight  = CARD_PAD;
+        card.paddingTop  = card.paddingBottom = CARD_PAD;
+        card.itemSpacing = 8;
+        card.x = startX;
+        card.y = curY;
+
+        // Pill
+        const pill = await makePill(entry.type);
+        card.appendChild(pill);
+
+        // Body text — wrap to card width
+        const body = makeBodyText(entry.value);
+        card.appendChild(body);
+        // Let auto-layout set width, then constrain text
+        body.layoutSizingHorizontal = 'FILL';
+
+        parent.appendChild(card);
+        createdCards.push(card);
+
+        // Stack vertically
+        curY += (card.height || 80) + CARD_GAP;
+      }
+
+      // Draw a thin connector line from node edge to first card
+      if (createdCards.length > 0) {
+        const line = figma.createLine();
+        line.name  = 'Annotation connector';
+        line.strokes = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.45 } }];
+        line.strokeWeight = 1;
+        // We can't easily draw diagonals in Figma via plugin, so just a short horizontal
+        // Place it at the midpoint of the node's right edge
+        const midY = absY + nodeH / 2;
+        line.x     = absX + nodeW;
+        line.y     = midY;
+        line.resize(40, 0);
+        parent.appendChild(line);
+      }
+
+      // Zoom to show the annotations
+      if (createdCards.length > 0) {
+        figma.viewport.scrollAndZoomIntoView([targetNode, ...createdCards]);
+      }
+
+      figma.ui.postMessage({ type: 'annotation-done', success: true });
+      figma.notify(`✅ ${entries.length} annotation card${entries.length > 1 ? 's' : ''} placed`);
+
+    } catch (e) {
+      figma.ui.postMessage({ type: 'annotation-done', success: false, error: String(e) });
+      figma.notify('❌ Failed to create annotation: ' + String(e));
+    }
   }
 
   if (msg.type === 'notify') {
