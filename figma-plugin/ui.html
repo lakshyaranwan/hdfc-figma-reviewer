@@ -2465,8 +2465,10 @@
       const chipsEl = document.getElementById('a11yStatusChips');
       if (chipsEl) chipsEl.style.display = 'flex';
 
-      // Run contrast checks (local, via plugin code) — instant
+      // Reset issues list for fresh run (clears stale gradient results from previous run)
       if (checkText || checkIcon) {
+        a11yIssues = [];
+        _gradientChecksInFlight = 0;
         parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
       }
 
