@@ -387,12 +387,16 @@ ${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join('
 
 DS FEEDBACK RULES — apply to ALL categories, not just "design_system":
 1. COMPONENT SUBSTITUTION: When a node appears to be a custom-built version of a DS component (matching shape, role, or pattern), flag it in "design_system" category. Name the exact DS component to use.
-   Example: A rounded rectangle with text labelled "Pay Now" → "Use DS component 'Button/Primary' instead of this custom frame."
-2. TOKEN DEVIATION (UI): When a color fill (rgba value in design data) doesn't match any DS color token name, flag it in "ui" category. Suggest the closest DS token.
-3. TEXT STYLE DEVIATION (UI): When a font/size doesn't map to a DS text style, flag it in "ui". Suggest the correct DS text style.
+   Example suggestion: "Use DS component 'Button/Primary' instead of this custom frame — matches the shape and role exactly."
+2. TOKEN DEVIATION (UI): When a color fill (rgba value in design data) doesn't match any DS color token name, flag it in "ui" category.
+   CRITICAL: Always name the CLOSEST DS color token in your suggestion. Pick from this list: [${(dsContext.colorNames || []).slice(0, 60).join(', ')}].
+   Example suggestion: "Replace rgba(28,63,202,1) with DS token 'Primary/Blue-700' — the nearest brand color token."
+3. TEXT STYLE DEVIATION (UI): When a font/size doesn't map to a DS text style, flag it in "ui".
+   CRITICAL: Always name the CLOSEST DS text style in your suggestion. Pick from this list: [${(dsContext.textStyleNames || []).slice(0, 30).join(', ')}].
+   Example suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' — matches this size and weight."
 4. CONSISTENCY VIA DS (Consistency): When the same UI pattern appears multiple times but one uses a DS component and another uses a custom frame — flag the inconsistency.
 5. DS CORRECT USAGE: When a node's name matches a DS component name exactly, it's correct usage — do NOT flag it as an issue.
-6. Be specific: always cite the DS component/token name in your suggestion.
+6. ALWAYS be specific: cite exact DS token/style/component names in every suggestion — never say "use a DS token" without naming it.
 
 Use category "design_system" ONLY for structural component substitution issues. Use "ui" for token/style deviations.
 ` : '';
