@@ -16,12 +16,10 @@ interface FeedbackItem {
   suggestion?: string;
 }
 
-// Estimate token count from string length
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-// Flatten deeply nested design data into a flat array of simplified nodes
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
@@ -30,7 +28,6 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
 
-    // Use visible text content as path label for readability — not the layer name
     const displayLabel = node.characters?.trim() || node.name || node.type || "unknown";
     const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
@@ -41,23 +38,25 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
       path: currentPath,
     };
 
-    // Include text content
     if (node.characters) simplified.text = node.characters;
 
-    // Include key style properties only (not full nested style objects)
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => {
-        const hex = f.color ? `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}` : undefined;
+        const hex = f.color
+          ? `#${Math.round(f.color.r * 255).toString(16).padStart(2, "0")}${Math.round(f.color.g * 255).toString(16).padStart(2, "0")}${Math.round(f.color.b * 255).toString(16).padStart(2, "0")}`
+          : undefined;
         return {
           type: f.type,
-          color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
+          color: f.color
+            ? `rgba(${Math.round(f.color.r * 255)},${Math.round(f.color.g * 255)},${Math.round(f.color.b * 255)},${f.color.a ?? 1})`
+            : undefined,
           hex,
         };
       });
     }
+
     if (node.fontSize) simplified.fontSize = node.fontSize;
     if (node.fontName) simplified.fontName = node.fontName;
-    // Pass through bound DS style IDs — used to detect already-linked styles
     if (node.textStyleId) simplified.textStyleId = node.textStyleId;
     if (node.textStyleName) simplified.textStyleName = node.textStyleName;
     if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
@@ -68,14 +67,17 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.layoutMode) simplified.layoutMode = node.layoutMode;
     if (node.itemSpacing) simplified.itemSpacing = node.itemSpacing;
     if (node.paddingLeft || node.paddingTop || node.paddingRight || node.paddingBottom) {
-      simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
+      simplified.padding = {
+        l: node.paddingLeft,
+        t: node.paddingTop,
+        r: node.paddingRight,
+        b: node.paddingBottom,
+      };
     }
 
-    // Include position (enables spatial reasoning in feedback)
     if (node.x !== undefined) simplified.x = Math.round(node.x);
     if (node.y !== undefined) simplified.y = Math.round(node.y);
 
-    // Include size
     if (node.absoluteBoundingBox) {
       simplified.size = { w: node.absoluteBoundingBox.width, h: node.absoluteBoundingBox.height };
     } else if (node.width !== undefined) {
@@ -84,7 +86,6 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     flat.push(simplified);
 
-    // Recurse into children
     const children = node.children || node.nodes;
     if (Array.isArray(children)) {
       for (const child of children) {
@@ -100,7 +101,6 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   return flat;
 }
 
-// Chunk flat nodes by estimated token size
 function chunkByTokens(nodes: any[], maxTokensPerChunk: number): any[][] {
   const chunks: any[][] = [];
   let currentChunk: any[] = [];
@@ -125,14 +125,13 @@ function chunkByTokens(nodes: any[], maxTokensPerChunk: number): any[][] {
   return chunks.length > 0 ? chunks : [[]];
 }
 
-// DB helpers for chunk tracking
 async function storeChunks(supabaseUrl: string, serviceRoleKey: string, jobId: string, chunks: any[][]) {
   for (let i = 0; i < chunks.length; i++) {
     await fetch(`${supabaseUrl}/rest/v1/analysis_chunks`, {
       method: "POST",
       headers: {
-        "apikey": serviceRoleKey,
-        "Authorization": `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -145,24 +144,34 @@ async function storeChunks(supabaseUrl: string, serviceRoleKey: string, jobId: s
   }
 }
 
-async function updateChunkStatus(supabaseUrl: string, serviceRoleKey: string, jobId: string, chunkIndex: number, status: string, result?: any) {
-  await fetch(`${supabaseUrl}/rest/v1/analysis_chunks?job_id=eq.${jobId}&chunk_index=eq.${chunkIndex}`, {
-    method: "PATCH",
-    headers: {
-      "apikey": serviceRoleKey,
-      "Authorization": `Bearer ${serviceRoleKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ status, ...(result ? { result } : {}) }),
-  });
+async function updateChunkStatus(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  jobId: string,
+  chunkIndex: number,
+  status: string,
+  result?: any
+) {
+  await fetch(
+    `${supabaseUrl}/rest/v1/analysis_chunks?job_id=eq.${jobId}&chunk_index=eq.${chunkIndex}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status, ...(result ? { result } : {}) }),
+    }
+  );
 }
 
 async function cleanupChunks(supabaseUrl: string, serviceRoleKey: string, jobId: string) {
   await fetch(`${supabaseUrl}/rest/v1/analysis_chunks?job_id=eq.${jobId}`, {
     method: "DELETE",
     headers: {
-      "apikey": serviceRoleKey,
-      "Authorization": `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
     },
   });
 }
@@ -174,8 +183,8 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    
-    // Handle lightweight usage-tracking-only calls from the UI (contrast checks etc.)
+
+    // Lightweight usage-tracking-only calls
     if (body._trackOnly) {
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
       const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -184,10 +193,10 @@ serve(async (req) => {
           await fetch(`${SUPABASE_URL}/rest/v1/plugin_usage`, {
             method: "POST",
             headers: {
-              "apikey": SUPABASE_SERVICE_ROLE_KEY,
-              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
               "Content-Type": "application/json",
-              "Prefer": "return=minimal",
+              Prefer: "return=minimal",
             },
             body: JSON.stringify({
               user_name: body.fileName || "unknown",
@@ -196,13 +205,18 @@ serve(async (req) => {
               category_count: 1,
             }),
           });
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
       }
-      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-    
-    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome, dsContext } = body;
-    
+
+    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome, dsContext } =
+      body;
+
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
     console.log("Page:", pageName);
@@ -214,236 +228,212 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
-    }
 
-    if (!designData || designData.length === 0) {
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!designData || designData.length === 0)
       throw new Error("No design data provided. Please select a frame in Figma.");
-    }
 
-    // Step 1: Flatten deeply nested design data into simplified flat nodes
+    // Flatten + chunk
     const flatNodes = flattenDesignData(designData);
     console.log("Flattened to", flatNodes.length, "nodes");
     console.log("Estimated total tokens:", estimateTokens(JSON.stringify(flatNodes)));
 
-    // Step 2: Chunk by actual token size (not node count)
-    const TOKEN_LIMIT = 80000; // ~80k tokens per chunk to stay well within 1M context
+    const TOKEN_LIMIT = 80000;
     const chunks = chunkByTokens(flatNodes, TOKEN_LIMIT);
     const isChunked = chunks.length > 1;
     const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     console.log(`Split into ${chunks.length} chunk(s)`);
 
-    // Store chunks in DB for tracking
     if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         await storeChunks(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunks);
-        console.log(`Stored ${chunks.length} chunk records (job: ${jobId})`);
       } catch (e) {
         console.error("Error storing chunk records:", e);
       }
     }
 
     // Category setup
-    const categoryLabels: Record<string, string> = {
-      consistency: "Consistency across flows regarding UI",
-      ux: "UX Review",
-      ui: "UI Review",
-      ux_writing: "Typos & Inconsistent UX Writing",
-      high_level: "High Level Review About and the Why? Questioning the basics.",
-    };
-
     let allowedCategories = categories || ["ux", "ui", "consistency"];
     if (isCustom) {
       allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
     }
-    // Add design_system category when DS context is available
     if (dsContext && !allowedCategories.includes("design_system")) {
       allowedCategories.push("design_system");
     }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = dsContext
-      ? `You are an expert UX/UI designer and design systems specialist, acting as a senior design manager and reviewer.
-You have deep knowledge of the attached Design System — you know every component, token, and pattern.
-Your job: give thorough, specific feedback that actively references the DS. Every piece of feedback should either flag a DS deviation, confirm a correct usage, or provide DS-guided recommendations.
-CRITICAL: You MUST respond with ONLY a valid JSON array, no other text.
-Do not include markdown code blocks, explanations, or any text outside the JSON array.
-Start your response with [ and end with ].`
-      : `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
-You provide thorough, quality feedback - focus on real issues that matter.
-CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
-Do not include markdown code blocks, explanations, or any text outside the JSON array.
+    // ─── SYSTEM PROMPT: always the same sharp reviewer persona ───
+    const systemPrompt = `You are an expert UX/UI designer acting as a senior design manager reviewing a colleague's work.
+You have an exceptionally sharp eye for detail: typos, inconsistent colors, misaligned elements, broken hierarchies, unclear labels, missing states, spacing issues.
+You are direct, precise, and never skip real problems. You give specific, actionable feedback that names the exact element.
+You NEVER report issues that do not exist in the data. Only flag real, observable problems backed by evidence in the design data.
+CRITICAL: Respond with ONLY a valid JSON array. No markdown, no explanation, no text outside the array.
 Start your response with [ and end with ].`;
 
-    // Process each chunk
     let allFeedback: FeedbackItem[] = [];
 
     for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
       const chunk = chunks[chunkIdx];
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
-      console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
+      console.log(
+        `Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`
+      );
 
-      const itemsPerCategory = isChunked
-        ? Math.max(3, Math.floor(10 / chunks.length))
-        : 10;
-
+      const itemsPerCategory = isChunked ? Math.max(3, Math.floor(10 / chunks.length)) : 10;
       const designContext = JSON.stringify(chunk, null, 2);
 
-      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
+      // ─── BASE REVIEW PROMPT (always active, DS-independent) ───
+      const baseReviewPrompt = `You are reviewing Figma design data as a senior UX/UI design manager.
 
-Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
+DESIGN DATA${chunkLabel}:
 ${designContext}
 
-File: ${fileName}
-Page: ${pageName}
+File: ${fileName} | Page: ${pageName}
 
-CRITICAL NODE ID INSTRUCTIONS:
-- You MUST use the EXACT node IDs from the design data above
-- Choose the MOST SPECIFIC node ID for each piece of feedback
-- Include the nodeId field for every feedback item`;
+━━━ REVIEW MANDATE ━━━
+Thoroughly review ALL elements. Produce ~${itemsPerCategory} issues per active category (total 30–60 for a full review).
+Do NOT reduce output because a DS is attached — the core review must be complete regardless.
 
-      const formatInstructions = `
-For each issue found, provide:
-- A clear, actionable title (NO technical IDs or brackets)
-- Detailed description with specific actionable suggestions
-- Severity (low, medium, high)
-- The EXACT node ID from the design data
-- Component/frame name (user-friendly name only)
-- A concrete suggestion field with the fix
+━━━ WHAT TO ALWAYS CHECK ━━━
+1. TEXT — read every "text" field. Find typos, grammar errors, inconsistent casing, vague labels, ALL instances.
+2. COLOUR — read every fills[].hex. Flag off-brand, low-contrast, or inconsistent colours.
+3. HIERARCHY — compare fontSize values across headings and body text. Flag when sizes are too similar.
+4. LABELS — if a button, field, or input has no readable label text node nearby, flag it.
+5. ALIGNMENT — compare x/y/size values between sibling elements. Flag misalignment.
+6. SPACING — compare padding values across similar components. Flag inconsistency.
+7. CONSISTENCY — if two cards/buttons/chips serving the same purpose have different styles, flag both.
+8. STATES — flag missing hover, disabled, loading, error, or empty states where logically expected.
+9. VISUAL CLUTTER — flag elements competing for attention when they shouldn't.
 
-CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
+━━━ FALSE POSITIVE PREVENTION (CRITICAL) ━━━
+- ONLY report issues directly observable in the data above.
+- If a label exists in the data (even nested), do NOT say it is missing. Read carefully.
+- If colours are consistent, do NOT say they are inconsistent.
+- Read text fields carefully before claiming a typo — confirm the error in the actual "text" value.
+- NEVER invent or guess issues. Every issue must reference specific node IDs, values, or text from the data.
 
-FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
-- Focus on REAL, meaningful issues
-- Do NOT skip any category
+━━━ NODE ID RULES ━━━
+Use the EXACT "id" value from each node for nodeId. Pick the most specific (deepest) relevant node.
 
-Format as JSON array:
+${ignoreChrome
+  ? `━━━ IGNORE CHROME ━━━
+Skip: status bars, top nav bars, bottom nav bars, tab bars, headers, footers. Only review unique page content.
+`
+  : ""}
+
+━━━ ACTIVE CATEGORIES (ONLY use these values) ━━━
+${categoryOptions}
+
+${
+  allowedCategories.includes("consistency")
+    ? `CONSISTENCY: Compare every repeated pattern — cards, buttons, chips, list items. Flag any that deviate from the dominant style.${dsContext ? " Also flag where the same DS component is used with inconsistent props across the screen." : ""}`
+    : ""
+}
+
+${
+  allowedCategories.includes("ux")
+    ? `UX REVIEW: Evaluate user flows, task completion, CTA clarity, empty/error states, navigation logic, affordances, feedback loops.${dsContext ? " Flag where a DS component (bottom sheet, modal, toast) exists but a custom solution is used instead." : ""}`
+    : ""
+}
+
+${
+  allowedCategories.includes("ui")
+    ? `UI REVIEW: Visual hierarchy, alignment, spacing, typography scale, colour application.
+- Read EVERY fills[].hex. Flag colours that look wrong, off-brand, or inconsistent.
+- Check fontSizes for hierarchy problems (body and heading same size = flag it).
+${
+  dsContext
+    ? `- FALSE POSITIVE GUARD: nodes with "textStyleId" set are using DS text styles — do NOT flag those for typography deviation. Nodes with "fillStyleId" set are using DS colour tokens — do NOT flag for colour deviation.
+- For nodes WITHOUT textStyleId/fillStyleId: check against DS token maps in the DS section below.`
+    : ""
+}`
+    : ""
+}
+
+${
+  allowedCategories.includes("ux_writing")
+    ? `UX WRITING: Read every "text" field meticulously. Flag:
+- Typos and spelling errors (check the actual text value, not the node name)
+- Inconsistent capitalisation (e.g. "Submit" in one button vs "submit" in another)
+- Unclear, vague, contradictory, or truncated labels
+- Placeholder/lorem ipsum text left in production frames
+Be exhaustive. Every text issue counts.`
+    : ""
+}
+
+${
+  allowedCategories.includes("high_level")
+    ? `HIGH LEVEL: Question fundamentals — does this screen solve the right problem? Is the IA logical? Are there redundant steps or missing flows?`
+    : ""
+}
+
+━━━ OUTPUT FORMAT ━━━
 [{
   "category": ${categoryOptions},
-  "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description (clean, no IDs)",
-  "suggestion": "Specific actionable fix",
+  "title": "Short specific title naming the element (no node IDs)",
+  "description": "What the problem is and why it matters — reference the actual text/hex/size value",
+  "suggestion": "Exact fix with specific values, token names, or component names",
   "severity": "low" | "medium" | "high",
-  "location": "User-friendly component name",
-  "nodeId": "exact_node_id"
+  "location": "Human-readable element name (no IDs)",
+  "nodeId": "exact_id_from_data"
 }]
 
-CRITICAL: 
-- NEVER include technical IDs in title or description
-- Always include nodeId with exact ID from design data
-- Location must be user-friendly names only
+RULES:
+- NEVER put node IDs in title/description/location
+- ALWAYS include nodeId with exact ID from design data
+- NEVER fabricate issues not supported by the data`;
 
-${ignoreChrome ? `
-IGNORE CHROME ELEMENTS:
-- Do NOT provide any feedback on: status bars, app bars, headers, top navigation bars, bottom navigation bars, footers, navigation drawers, tab bars at the bottom/top of the screen, or any other structural chrome/shell elements.
-- Only focus on the actual content area of the screen — the unique, page-specific content that the designer controls.
-- If an issue exists exclusively in a header, footer, or nav bar, skip it entirely.
-` : ""}
+      // ─── DS ADDITIVE LAYER (injected AFTER base review, additive not replacing) ───
+      const dsAuditSection = dsContext
+        ? `
 
-${allowedCategories.includes("consistency") ? `
-SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
-- Compare ALL elements for inconsistent patterns
-- Look for text variations, inconsistent styles, spacing
-- Flag ALL instances of inconsistency
-${dsContext ? `- CROSS-REFERENCE WITH DS: flag inconsistencies where the same DS component is used with different props/overrides across the screen (e.g. one card uses shadow, another doesn't). Also flag where a pattern is replicated in a custom frame instead of using the DS component consistently.` : ""}
-` : ""}
-
-${allowedCategories.includes("ux") ? `
-SPECIAL INSTRUCTIONS FOR UX REVIEW:
-- Review user flows, affordances, feedback states, empty states, error handling
-- Check CTAs, hierarchy, navigation clarity, and task completion paths
-${dsContext ? `- When a UX pattern could be solved by a DS component (e.g. a bottom sheet, a toast, a modal) but a custom solution is used instead, flag it. Reference the specific DS component name.` : ""}
-` : ""}
-
-      ${allowedCategories.includes("ui") ? `
-SPECIAL INSTRUCTIONS FOR UI REVIEW:
-- Review visual hierarchy, spacing, alignment, typography, and color usage
-
-CRITICAL — AVOID FALSE POSITIVES ON STYLES ALREADY USING DS TOKENS:
-- Each node in the design data may have a "textStyleId" / "textStyleName" field and/or a "fillStyleId" / "fillStyleName" field.
-- If a node has "textStyleId" set (non-null), that text node is ALREADY using a bound DS text style. Do NOT flag it for typography deviation.
-- If a node has "fillStyleId" set (non-null), that node is ALREADY using a bound DS color token. Do NOT flag it for color deviation.
-- Only flag nodes that have fills/typography values BUT no bound style ID.
-
-${dsContext ? `
-- DS COLOR AUDIT: For every fill/color on nodes that do NOT have a fillStyleId, convert the hex field to compare against the DS color token map below.
-  DS COLOR TOKEN MAP (TokenName=HexValue): [${
-    (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-      ? dsContext.colorTokenMap.slice(0, 80).map((t: any) => `${t.name}=${t.hex}`).join(', ')
-      : (dsContext.colorNames || []).slice(0, 60).join(', ')
-  }]
-  If the hex fill is NOT in this map, flag it as a "ui" issue.
-  CRITICAL: In the "suggestion" field, name the CLOSEST color token by hex distance AND include its hex value.
-  Format — suggestion: "Replace #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest match by color."
-
-- DS TYPOGRAPHY AUDIT: For every text node that does NOT have a textStyleId, check font family+size+weight against DS text styles.
-  DS TEXT STYLE MAP (StyleName=Family SizePx Weight): [${
-    (dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
-      ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}=${t.family} ${t.size}px ${t.weight}`).join(', ')
-      : (dsContext.textStyleNames || []).slice(0, 30).join(', ')
-  }]
-  Flag deviations as "ui" issues. In the suggestion, name the closest matching text style AND its font/size/weight values.
-  Format — suggestion: "Replace Inter 100px Bold with DS text style 'Heading/Display' (Inter 96px ExtraBold) — closest match."
-
-- DS SPACING AUDIT: Check padding/margin values against DS spacing conventions. Flag non-standard values and suggest the nearest DS spacing increment.
-` : `
-- COLOR TOKEN SUGGESTIONS (no DS connected): For any fill color on a node that appears to be a raw custom hex (not a semantic value), note the hex value and suggest the designer assigns it a token. Use the hex field (e.g. "fills[0].hex") directly from the design data.
-  Example: "Text color #1C3FCA is applied directly — consider defining it as a named color token for consistency."
-`}
-` : ""}
-
-${allowedCategories.includes("ux_writing") ? `
-SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
-- Scan ALL text content thoroughly
-- Check EVERY button label, heading, paragraph, placeholder
-- Look for typos, spelling errors, grammatical mistakes
-- Be comprehensive - catch ALL text issues
-` : ""}`;
-
-      const dsPromptSection = dsContext ? `
-═══ DESIGN SYSTEM CONTEXT ═══
-This screen is built using a connected Design System. You have access to the full DS inventory. Your feedback MUST actively use this context.
+━━━ DESIGN SYSTEM AUDIT (ADDITIVE — run AFTER core review above) ━━━
+A Design System is connected. After producing the full core review above, ALSO perform these DS-specific checks.
+These are ADDITIONAL items on top of the core feedback. Do NOT reduce core UX/UI/writing feedback because of this section.
 
 DS INVENTORY:
-- Components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 100).join(', ')}
-- Icon components: ${(dsContext.iconNames || []).slice(0, 60).join(', ')}
-- Color tokens (${(dsContext.colorTokenMap || dsContext.colorNames || []).length} total): ${
-  (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-    ? dsContext.colorTokenMap.slice(0, 60).map((t: any) => `${t.name}=${t.hex}`).join(', ')
-    : (dsContext.colorNames || []).slice(0, 60).join(', ')
-}
-- Text styles: ${(dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
-  ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}(${t.family} ${t.size}px ${t.weight})`).join(', ')
-  : (dsContext.textStyleNames || []).slice(0, 30).join(', ')}
-- Effect styles: ${(dsContext.effectStyleNames || []).slice(0, 10).join(', ')}
-${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join(', ')}` : ""}
+Components (${(dsContext.componentNames || []).length}): ${(dsContext.componentNames || []).slice(0, 80).join(", ")}
+Colour tokens: ${
+            dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0
+              ? dsContext.colorTokenMap
+                  .slice(0, 60)
+                  .map((t: any) => `${t.name}=${t.hex}`)
+                  .join(", ")
+              : (dsContext.colorNames || []).slice(0, 60).join(", ")
+          }
+Text styles: ${
+            dsContext.textStyleMap && dsContext.textStyleMap.length > 0
+              ? dsContext.textStyleMap
+                  .slice(0, 25)
+                  .map((t: any) => `${t.name}(${t.family} ${t.size}px ${t.weight})`)
+                  .join(", ")
+              : (dsContext.textStyleNames || []).slice(0, 25).join(", ")
+          }
+${dsContext.libraryNames?.length ? `Libraries: ${dsContext.libraryNames.join(", ")}` : ""}
 
-DS FEEDBACK RULES — apply to ALL categories, not just "design_system":
-1. COMPONENT SUBSTITUTION: When a node appears to be a custom-built version of a DS component (matching shape, role, or pattern), flag it in "design_system" category. Name the exact DS component to use.
-   Example suggestion: "Use DS component 'Button/Primary' instead of this custom frame — matches the shape and role exactly."
-2. TOKEN DEVIATION (UI): ONLY flag color deviations on nodes that do NOT have a "fillStyleId" field. If a node has fillStyleId set, it is already using a DS color token — skip it.
-   For nodes without fillStyleId: use the "hex" field in fills[] directly. Compare that hex to the DS COLOR TOKEN MAP and find the closest token.
-   Example suggestion: "Replace fill #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest brand color."
-3. TEXT STYLE DEVIATION (UI): ONLY flag typography deviations on nodes that do NOT have a "textStyleId" field. If a node has textStyleId set, it is already using a DS text style — this is CORRECT usage, do NOT flag it.
-   For nodes without textStyleId: check font family+size+weight against DS text styles.
-   CRITICAL: If the node has textStyleId, it is 100% correct and must NOT be flagged — even if the font values seem unusual.
-   Example suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' (Inter 16px Regular) — exact match."
-4. CONSISTENCY VIA DS (Consistency): When the same UI pattern appears multiple times but one uses a DS component and another uses a custom frame — flag the inconsistency.
-5. DS CORRECT USAGE: When a node has a textStyleId OR fillStyleId, it is using the DS correctly. Do NOT flag these as deviations.
-6. ALWAYS be specific: cite exact DS token/style/component names AND their hex/size/weight values in every suggestion.
+DS AUDIT RULES:
+1. COLOUR TOKENS — for nodes WITHOUT "fillStyleId": compare fills[].hex to the colour token map above.
+   Find the closest token by colour distance. Flag as category "ui".
+   Suggestion: "Replace #1C3FCA with DS colour token 'Primary/Blue-700' [#1C40CA] — nearest match."
+   SKIP nodes that have "fillStyleId" set — they are already correct, do not flag them.
 
-Use category "design_system" ONLY for structural component substitution issues. Use "ui" for token/style deviations.
-` : '';
+2. TEXT STYLES — for nodes WITHOUT "textStyleId": compare fontName+fontSize against DS text style map.
+   Flag as "ui". Suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' — exact match."
+   SKIP nodes that have "textStyleId" set — they are correct, do not flag them.
 
+3. COMPONENT SUBSTITUTION — when a node looks like a custom-built version of a DS component (same shape/role/pattern), flag as "design_system".
+   Suggestion: "Use DS component 'Button/Primary' instead of this custom frame — same shape and role."
+
+4. DS CONSISTENCY — when the same element appears multiple times but one uses a DS component and another uses a custom frame, flag as "consistency".
+
+CRITICAL: DS audit findings are additive. The core review items must still be present in full.`
+        : "";
 
       const analysisPrompt = isCustom
-        ? `${baseContext}\n\n${dsPromptSection}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
-        : `${baseContext}\n\n${dsPromptSection}\n\n${prompt}\n${formatInstructions}`;
+        ? `${baseReviewPrompt}\n${dsAuditSection}\n\nAdditional focus requested by reviewer: ${prompt}`
+        : `${baseReviewPrompt}\n${dsAuditSection}\n\n${prompt ? `Specific focus: ${prompt}` : ""}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
@@ -455,13 +445,14 @@ Use category "design_system" ONLY for structural component substitution issues. 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
           max_tokens: 16000,
           temperature: 0,
+          seed: 42,
         }),
       });
 
@@ -470,28 +461,29 @@ Use category "design_system" ONLY for structural component substitution issues. 
         console.error(`AI API error on chunk ${chunkIdx + 1}:`, errorText);
 
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed"); } catch (e) { /* ignore */ }
+          try {
+            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed");
+          } catch (e) {
+            /* ignore */
+          }
         }
 
         if (aiResponse.status === 400 && isChunked) {
           console.warn(`Chunk ${chunkIdx + 1} hit token limit, skipping...`);
           continue;
         }
-        
         if (aiResponse.status === 429) {
           return new Response(
             JSON.stringify({ error: "AI rate limit exceeded. Please try again in a moment." }),
             { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        
         if (aiResponse.status === 402) {
           return new Response(
             JSON.stringify({ error: "AI usage limit reached. Please check your Lovable workspace." }),
             { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        
         throw new Error(`AI analysis failed: ${aiResponse.status}`);
       }
 
@@ -510,7 +502,7 @@ Use category "design_system" ONLY for structural component substitution issues. 
         else if (cleanContent.startsWith("```")) cleanContent = cleanContent.slice(3);
         if (cleanContent.endsWith("```")) cleanContent = cleanContent.slice(0, -3);
         cleanContent = cleanContent.trim();
-        
+
         const chunkFeedback: FeedbackItem[] = JSON.parse(cleanContent);
         if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
 
@@ -518,31 +510,46 @@ Use category "design_system" ONLY for structural component substitution issues. 
         console.log(`Chunk ${chunkIdx + 1}: got ${chunkFeedback.length} feedback items`);
 
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "completed", { count: chunkFeedback.length }); } catch (e) { /* ignore */ }
+          try {
+            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "completed", {
+              count: chunkFeedback.length,
+            });
+          } catch (e) {
+            /* ignore */
+          }
         }
       } catch (parseError) {
         console.error(`Failed to parse chunk ${chunkIdx + 1}:`, parseError);
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "parse_error"); } catch (e) { /* ignore */ }
+          try {
+            await updateChunkStatus(
+              SUPABASE_URL,
+              SUPABASE_SERVICE_ROLE_KEY,
+              jobId,
+              chunkIdx,
+              "parse_error"
+            );
+          } catch (e) {
+            /* ignore */
+          }
         }
         if (!isChunked) throw new Error("Failed to parse AI analysis results");
         continue;
       }
     }
 
-    // Clean up chunk records
+    // Cleanup
     if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         await cleanupChunks(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId);
-        console.log(`Cleaned up chunk records for job: ${jobId}`);
       } catch (e) {
         console.error("Error cleaning up chunks:", e);
       }
     }
 
     const categoryCount: Record<string, number> = {};
-    allFeedback.forEach(item => {
-      const cat = item.category || 'general';
+    allFeedback.forEach((item) => {
+      const cat = item.category || "general";
       categoryCount[cat] = (categoryCount[cat] || 0) + 1;
     });
 
@@ -560,10 +567,10 @@ Use category "design_system" ONLY for structural component substitution issues. 
         await fetch(`${SUPABASE_URL}/rest/v1/plugin_usage`, {
           method: "POST",
           headers: {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
             "Content-Type": "application/json",
-            "Prefer": "return=minimal",
+            Prefer: "return=minimal",
           },
           body: JSON.stringify({
             user_name: fileName || "unknown",
@@ -579,23 +586,21 @@ Use category "design_system" ONLY for structural component substitution issues. 
 
     const summary = {
       total: feedback.length,
-      high: feedback.filter(f => f.severity === "high").length,
-      medium: feedback.filter(f => f.severity === "medium").length,
-      low: feedback.filter(f => f.severity === "low").length,
+      high: feedback.filter((f) => f.severity === "high").length,
+      medium: feedback.filter((f) => f.severity === "medium").length,
+      low: feedback.filter((f) => f.severity === "low").length,
       byCategory: categoryCount,
     };
 
-    return new Response(
-      JSON.stringify({ success: true, feedback, summary }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
+    return new Response(JSON.stringify({ success: true, feedback, summary }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: unknown) {
     console.error("Error in analyze-plugin:", error);
     const errorMessage = error instanceof Error ? error.message : "Analysis failed";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
