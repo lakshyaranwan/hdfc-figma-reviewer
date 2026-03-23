@@ -498,13 +498,66 @@ CRITICAL: DS audit findings are additive. The core review items must still be pr
 
       try {
         let cleanContent = content.trim();
+        // Strip markdown code fences
         if (cleanContent.startsWith("```json")) cleanContent = cleanContent.slice(7);
         else if (cleanContent.startsWith("```")) cleanContent = cleanContent.slice(3);
         if (cleanContent.endsWith("```")) cleanContent = cleanContent.slice(0, -3);
         cleanContent = cleanContent.trim();
 
-        const chunkFeedback: FeedbackItem[] = JSON.parse(cleanContent);
-        if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
+        // Attempt 1: direct parse
+        let chunkFeedback: FeedbackItem[] | null = null;
+        try {
+          const parsed = JSON.parse(cleanContent);
+          if (Array.isArray(parsed)) chunkFeedback = parsed;
+        } catch (_) {
+          // fall through to repair
+        }
+
+        // Attempt 2: repair truncated JSON — find last complete object ending with }
+        if (!chunkFeedback) {
+          console.warn(`Chunk ${chunkIdx + 1}: direct parse failed, attempting JSON repair...`);
+          // Find the last "}" that ends a complete top-level object in the array
+          const lastBrace = cleanContent.lastIndexOf("}");
+          if (lastBrace !== -1) {
+            const repaired = cleanContent.slice(0, lastBrace + 1) + "]";
+            // Find the opening bracket
+            const openBracket = repaired.indexOf("[");
+            const repairedSliced = openBracket !== -1 ? repaired.slice(openBracket) : repaired;
+            try {
+              const parsed = JSON.parse(repairedSliced);
+              if (Array.isArray(parsed)) {
+                chunkFeedback = parsed;
+                console.log(`Chunk ${chunkIdx + 1}: repaired JSON, recovered ${parsed.length} items`);
+              }
+            } catch (_) {
+              // repair also failed
+            }
+          }
+        }
+
+        // Attempt 3: extract all complete JSON objects from the string using regex
+        if (!chunkFeedback) {
+          console.warn(`Chunk ${chunkIdx + 1}: repair failed, attempting object extraction...`);
+          const extracted: FeedbackItem[] = [];
+          // Match top-level objects (simple heuristic: split by "},\n  {" pattern)
+          const objectPattern = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+          let match;
+          while ((match = objectPattern.exec(cleanContent)) !== null) {
+            try {
+              const obj = JSON.parse(match[0]);
+              if (obj && obj.category && obj.title) extracted.push(obj);
+            } catch (_) { /* skip malformed */ }
+          }
+          if (extracted.length > 0) {
+            chunkFeedback = extracted;
+            console.log(`Chunk ${chunkIdx + 1}: extracted ${extracted.length} objects`);
+          }
+        }
+
+        if (!chunkFeedback || chunkFeedback.length === 0) {
+          console.error(`Chunk ${chunkIdx + 1}: all parse attempts failed. Raw content (first 500 chars):`, cleanContent.slice(0, 500));
+          throw new Error("Failed to parse AI analysis results after all recovery attempts");
+        }
 
         allFeedback.push(...chunkFeedback);
         console.log(`Chunk ${chunkIdx + 1}: got ${chunkFeedback.length} feedback items`);
@@ -533,7 +586,7 @@ CRITICAL: DS audit findings are additive. The core review items must still be pr
             /* ignore */
           }
         }
-        if (!isChunked) throw new Error("Failed to parse AI analysis results");
+        if (!isChunked) throw parseError;
         continue;
       }
     }
