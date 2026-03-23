@@ -406,9 +406,7 @@ DS AUDIT RULES (additive items only):
 4. DS CONSISTENCY — same element appears multiple times, one using DS component and another custom: flag as "consistency".`
         : "";
 
-      const analysisPrompt = isCustom
-        ? `${baseReviewPrompt}${dsAuditSection}\n\nAdditional focus requested by reviewer: ${prompt}`
-        : `${baseReviewPrompt}${dsAuditSection}${prompt ? `\n\nSpecific focus: ${prompt}` : ""}`;
+      const analysisPrompt = `${baseReviewPrompt}${dsAuditSection}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
