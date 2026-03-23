@@ -264,12 +264,11 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    // ─── SYSTEM PROMPT ───
-    const systemPrompt = `You are an expert UX/UI designer acting as a senior design manager reviewing a colleague's work.
-You have an exceptionally sharp eye for detail: typos, inconsistent colors, misaligned elements, broken hierarchies, unclear labels, missing states, spacing issues.
-You are direct, precise, and never skip real problems. You give specific, actionable feedback that names the exact element.
-You NEVER report issues that do not exist in the data. Only flag real, observable problems backed by evidence in the design data.
-CRITICAL: Respond with ONLY a valid JSON array. No markdown, no explanation, no text outside the array.
+    // ─── SYSTEM PROMPT (restored from original high-quality version) ───
+    const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
+You provide thorough, quality feedback - focus on real issues that matter.
+CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
+Do not include markdown code blocks, explanations, or any text outside the JSON array.
 Start your response with [ and end with ].`;
 
     let allFeedback: FeedbackItem[] = [];
@@ -284,69 +283,82 @@ Start your response with [ and end with ].`;
       const itemsPerCategory = isChunked ? Math.max(3, Math.floor(10 / chunks.length)) : 10;
       const designContext = JSON.stringify(chunk, null, 2);
 
-      // ─── BASE REVIEW PROMPT — completely DS-blind, same quality as original ───
-      const baseReviewPrompt = `You are reviewing Figma design data as a senior UX/UI design manager.
+      // ─── BASE REVIEW PROMPT — restored original high-quality structure ───
+      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
 
-DESIGN DATA${chunkLabel}:
+Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
 ${designContext}
 
-File: ${fileName} | Page: ${pageName}
+File: ${fileName}
+Page: ${pageName}
 
-━━━ REVIEW MANDATE ━━━
-Thoroughly review ALL elements. Produce ~${itemsPerCategory} issues per active category.
-This is a pure design review — focus only on what you observe in the data above.
+CRITICAL NODE ID INSTRUCTIONS:
+- You MUST use the EXACT node IDs from the design data above
+- Choose the MOST SPECIFIC node ID for each piece of feedback
+- Include the nodeId field for every feedback item`;
 
-━━━ WHAT TO ALWAYS CHECK ━━━
-1. TEXT — read every single "text" field character by character. Find typos, grammar errors, inconsistent casing, vague labels.
-2. COLOUR — read every fills[].hex. Flag low-contrast text, off-brand colours, colours used inconsistently across similar elements.
-3. HIERARCHY — compare fontSize values across all text nodes. Flag when heading and body sizes are too similar or hierarchy is unclear.
-4. LABELS — scan every interactive element (buttons, inputs, tabs, icons). If a button or field has no visible label in the data, flag it.
-5. ALIGNMENT — compare x/y/size values between sibling elements at the same level. Flag misalignment > 2px.
-6. SPACING — compare padding/gap values across similar components. Flag inconsistency.
-7. CONSISTENCY — if two cards, buttons, or chips serving the same role have different styles (font, colour, radius, padding), flag both.
-8. STATES — flag missing hover, disabled, loading, error, and empty states where logically expected.
-9. VISUAL CLUTTER — flag elements competing for primary attention when they shouldn't.
-10. TRUNCATION — flag any text that appears cut off or uses ellipsis unexpectedly.
+      const formatInstructions = `
+For each issue found, provide:
+- A clear, actionable title (NO technical IDs or brackets)
+- Detailed description with specific actionable suggestions
+- Severity (low, medium, high)
+- The EXACT node ID from the design data
+- Component/frame name (user-friendly name only)
+- A concrete suggestion field with the fix
 
-━━━ FALSE POSITIVE PREVENTION (CRITICAL) ━━━
-- ONLY report issues directly observable in the data provided.
-- Before flagging a missing label: search every child node in that subtree — if the text exists anywhere, do NOT flag it.
-- Before flagging a typo: confirm the exact misspelling in the actual "text" value, not the node name.
-- Before flagging colour inconsistency: verify at least two elements have genuinely different fills.
-- NEVER invent, guess, or extrapolate issues. Every issue must cite specific node IDs, hex values, font sizes, or text strings from the data.
+CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
 
-━━━ NODE ID RULES ━━━
-Use the EXACT "id" value from each node for nodeId. Always pick the most specific (deepest) relevant node.
+FEEDBACK GUIDELINES:
+- Provide around ${itemsPerCategory} issues per category
+- Focus on REAL, meaningful issues — typos, colour problems, hierarchy issues, inconsistencies
+- Do NOT skip any category
+- Read EVERY text field character by character for typos and casing issues
+- Check EVERY fills[].hex value for colour inconsistencies and contrast issues
+- Compare fontSize values across all text nodes for hierarchy problems
 
-${ignoreChrome
-  ? `━━━ IGNORE CHROME ━━━
-Skip: status bars, top nav bars, bottom nav bars, tab bars, persistent headers, footers. Review only unique page content.
-`
-  : ""}
-━━━ ACTIVE CATEGORIES ━━━
-Only use these exact category values: ${categoryOptions}
-
-${allowedCategories.includes("ux") ? `UX: Evaluate user flows, task completion clarity, CTA prominence, missing empty/error/loading states, navigation logic, affordances.` : ""}
-${allowedCategories.includes("ui") ? `UI: Visual hierarchy, alignment, spacing consistency, typography scale, colour application and contrast.` : ""}
-${allowedCategories.includes("consistency") ? `CONSISTENCY: Compare every repeated pattern — cards, buttons, chips, list items, icons. Flag any deviation from the dominant style.` : ""}
-${allowedCategories.includes("ux_writing") ? `UX WRITING: Read every "text" field meticulously. Flag typos, wrong capitalisation, vague/contradictory labels, placeholder text left in. Be exhaustive.` : ""}
-${allowedCategories.includes("high_level") ? `HIGH LEVEL: Question fundamentals — right problem, logical IA, redundant steps, missing flows.` : ""}
-
-━━━ OUTPUT FORMAT ━━━
+Format as JSON array:
 [{
-  "category": <one of the active categories above>,
-  "title": "Short specific title naming the element — no node IDs",
-  "description": "What the problem is and why it matters — cite the actual text/hex/size value from the data",
-  "suggestion": "Exact actionable fix with specific values",
+  "category": ${categoryOptions},
+  "title": "Issue title (clean, no IDs)",
+  "description": "Detailed description with the actual text/hex/size value from the data (clean, no IDs)",
+  "suggestion": "Specific actionable fix",
   "severity": "low" | "medium" | "high",
-  "location": "Human-readable element path — no IDs",
-  "nodeId": "exact_id_from_data"
+  "location": "User-friendly component name",
+  "nodeId": "exact_node_id"
 }]
 
-RULES:
-- NEVER put node IDs in title/description/location
-- ALWAYS include nodeId with the exact id from the design data
-- NEVER fabricate issues not directly supported by the data above`;
+CRITICAL: 
+- NEVER include technical IDs in title or description
+- Always include nodeId with exact ID from design data
+- Location must be user-friendly names only
+- NEVER fabricate issues — only flag what is directly observable in the data
+- Before flagging a missing label: check every child node in that subtree first
+
+${ignoreChrome ? `
+IGNORE CHROME ELEMENTS:
+- Do NOT provide any feedback on: status bars, app bars, headers, top navigation bars, bottom navigation bars, footers, navigation drawers, tab bars at the bottom/top of the screen, or any other structural chrome/shell elements.
+- Only focus on the actual content area of the screen — the unique, page-specific content that the designer controls.
+- If an issue exists exclusively in a header, footer, or nav bar, skip it entirely.
+` : ""}
+
+${allowedCategories.includes("consistency") ? `
+SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
+- Compare ALL elements for inconsistent patterns
+- Look for text variations, inconsistent styles, spacing
+- Flag ALL instances of inconsistency
+` : ""}
+
+${allowedCategories.includes("ux_writing") ? `
+SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
+- Scan ALL text content thoroughly
+- Check EVERY button label, heading, paragraph, placeholder
+- Look for typos, spelling errors, grammatical mistakes
+- Be comprehensive - catch ALL text issues
+` : ""}`;
+
+      const baseReviewPrompt = isCustom
+        ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
+        : `${baseContext}\n\n${prompt}\n${formatInstructions}`;
 
       // ─── DS ADDITIVE LAYER — completely separate, never modifies the core review ───
       const dsAuditSection = dsContext
@@ -394,9 +406,7 @@ DS AUDIT RULES (additive items only):
 4. DS CONSISTENCY — same element appears multiple times, one using DS component and another custom: flag as "consistency".`
         : "";
 
-      const analysisPrompt = isCustom
-        ? `${baseReviewPrompt}${dsAuditSection}\n\nAdditional focus requested by reviewer: ${prompt}`
-        : `${baseReviewPrompt}${dsAuditSection}${prompt ? `\n\nSpecific focus: ${prompt}` : ""}`;
+      const analysisPrompt = `${baseReviewPrompt}${dsAuditSection}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
