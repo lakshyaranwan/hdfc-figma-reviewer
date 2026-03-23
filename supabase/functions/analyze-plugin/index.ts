@@ -264,7 +264,7 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    // ─── SYSTEM PROMPT: always the same sharp reviewer persona ───
+    // ─── SYSTEM PROMPT ───
     const systemPrompt = `You are an expert UX/UI designer acting as a senior design manager reviewing a colleague's work.
 You have an exceptionally sharp eye for detail: typos, inconsistent colors, misaligned elements, broken hierarchies, unclear labels, missing states, spacing issues.
 You are direct, precise, and never skip real problems. You give specific, actionable feedback that names the exact element.
@@ -284,7 +284,7 @@ Start your response with [ and end with ].`;
       const itemsPerCategory = isChunked ? Math.max(3, Math.floor(10 / chunks.length)) : 10;
       const designContext = JSON.stringify(chunk, null, 2);
 
-      // ─── BASE REVIEW PROMPT (always active, DS-independent) ───
+      // ─── BASE REVIEW PROMPT — completely DS-blind, same quality as original ───
       const baseReviewPrompt = `You are reviewing Figma design data as a senior UX/UI design manager.
 
 DESIGN DATA${chunkLabel}:
@@ -293,108 +293,74 @@ ${designContext}
 File: ${fileName} | Page: ${pageName}
 
 ━━━ REVIEW MANDATE ━━━
-Thoroughly review ALL elements. Produce ~${itemsPerCategory} issues per active category (total 30–60 for a full review).
-Do NOT reduce output because a DS is attached — the core review must be complete regardless.
+Thoroughly review ALL elements. Produce ~${itemsPerCategory} issues per active category.
+This is a pure design review — focus only on what you observe in the data above.
 
 ━━━ WHAT TO ALWAYS CHECK ━━━
-1. TEXT — read every "text" field. Find typos, grammar errors, inconsistent casing, vague labels, ALL instances.
-2. COLOUR — read every fills[].hex. Flag off-brand, low-contrast, or inconsistent colours.
-3. HIERARCHY — compare fontSize values across headings and body text. Flag when sizes are too similar.
-4. LABELS — if a button, field, or input has no readable label text node nearby, flag it.
-5. ALIGNMENT — compare x/y/size values between sibling elements. Flag misalignment.
-6. SPACING — compare padding values across similar components. Flag inconsistency.
-7. CONSISTENCY — if two cards/buttons/chips serving the same purpose have different styles, flag both.
-8. STATES — flag missing hover, disabled, loading, error, or empty states where logically expected.
-9. VISUAL CLUTTER — flag elements competing for attention when they shouldn't.
+1. TEXT — read every single "text" field character by character. Find typos, grammar errors, inconsistent casing, vague labels.
+2. COLOUR — read every fills[].hex. Flag low-contrast text, off-brand colours, colours used inconsistently across similar elements.
+3. HIERARCHY — compare fontSize values across all text nodes. Flag when heading and body sizes are too similar or hierarchy is unclear.
+4. LABELS — scan every interactive element (buttons, inputs, tabs, icons). If a button or field has no visible label in the data, flag it.
+5. ALIGNMENT — compare x/y/size values between sibling elements at the same level. Flag misalignment > 2px.
+6. SPACING — compare padding/gap values across similar components. Flag inconsistency.
+7. CONSISTENCY — if two cards, buttons, or chips serving the same role have different styles (font, colour, radius, padding), flag both.
+8. STATES — flag missing hover, disabled, loading, error, and empty states where logically expected.
+9. VISUAL CLUTTER — flag elements competing for primary attention when they shouldn't.
+10. TRUNCATION — flag any text that appears cut off or uses ellipsis unexpectedly.
 
 ━━━ FALSE POSITIVE PREVENTION (CRITICAL) ━━━
-- ONLY report issues directly observable in the data above.
-- If a label exists in the data (even nested), do NOT say it is missing. Read carefully.
-- If colours are consistent, do NOT say they are inconsistent.
-- Read text fields carefully before claiming a typo — confirm the error in the actual "text" value.
-- NEVER invent or guess issues. Every issue must reference specific node IDs, values, or text from the data.
+- ONLY report issues directly observable in the data provided.
+- Before flagging a missing label: search every child node in that subtree — if the text exists anywhere, do NOT flag it.
+- Before flagging a typo: confirm the exact misspelling in the actual "text" value, not the node name.
+- Before flagging colour inconsistency: verify at least two elements have genuinely different fills.
+- NEVER invent, guess, or extrapolate issues. Every issue must cite specific node IDs, hex values, font sizes, or text strings from the data.
 
 ━━━ NODE ID RULES ━━━
-Use the EXACT "id" value from each node for nodeId. Pick the most specific (deepest) relevant node.
+Use the EXACT "id" value from each node for nodeId. Always pick the most specific (deepest) relevant node.
 
 ${ignoreChrome
   ? `━━━ IGNORE CHROME ━━━
-Skip: status bars, top nav bars, bottom nav bars, tab bars, headers, footers. Only review unique page content.
+Skip: status bars, top nav bars, bottom nav bars, tab bars, persistent headers, footers. Review only unique page content.
 `
   : ""}
+━━━ ACTIVE CATEGORIES ━━━
+Only use these exact category values: ${categoryOptions}
 
-━━━ ACTIVE CATEGORIES (ONLY use these values) ━━━
-${categoryOptions}
-
-${
-  allowedCategories.includes("consistency")
-    ? `CONSISTENCY: Compare every repeated pattern — cards, buttons, chips, list items. Flag any that deviate from the dominant style.${dsContext ? " Also flag where the same DS component is used with inconsistent props across the screen." : ""}`
-    : ""
-}
-
-${
-  allowedCategories.includes("ux")
-    ? `UX REVIEW: Evaluate user flows, task completion, CTA clarity, empty/error states, navigation logic, affordances, feedback loops.${dsContext ? " Flag where a DS component (bottom sheet, modal, toast) exists but a custom solution is used instead." : ""}`
-    : ""
-}
-
-${
-  allowedCategories.includes("ui")
-    ? `UI REVIEW: Visual hierarchy, alignment, spacing, typography scale, colour application.
-- Read EVERY fills[].hex. Flag colours that look wrong, off-brand, or inconsistent.
-- Check fontSizes for hierarchy problems (body and heading same size = flag it).
-${
-  dsContext
-    ? `- FALSE POSITIVE GUARD: nodes with "textStyleId" set are using DS text styles — do NOT flag those for typography deviation. Nodes with "fillStyleId" set are using DS colour tokens — do NOT flag for colour deviation.
-- For nodes WITHOUT textStyleId/fillStyleId: check against DS token maps in the DS section below.`
-    : ""
-}`
-    : ""
-}
-
-${
-  allowedCategories.includes("ux_writing")
-    ? `UX WRITING: Read every "text" field meticulously. Flag:
-- Typos and spelling errors (check the actual text value, not the node name)
-- Inconsistent capitalisation (e.g. "Submit" in one button vs "submit" in another)
-- Unclear, vague, contradictory, or truncated labels
-- Placeholder/lorem ipsum text left in production frames
-Be exhaustive. Every text issue counts.`
-    : ""
-}
-
-${
-  allowedCategories.includes("high_level")
-    ? `HIGH LEVEL: Question fundamentals — does this screen solve the right problem? Is the IA logical? Are there redundant steps or missing flows?`
-    : ""
-}
+${allowedCategories.includes("ux") ? `UX: Evaluate user flows, task completion clarity, CTA prominence, missing empty/error/loading states, navigation logic, affordances.` : ""}
+${allowedCategories.includes("ui") ? `UI: Visual hierarchy, alignment, spacing consistency, typography scale, colour application and contrast.` : ""}
+${allowedCategories.includes("consistency") ? `CONSISTENCY: Compare every repeated pattern — cards, buttons, chips, list items, icons. Flag any deviation from the dominant style.` : ""}
+${allowedCategories.includes("ux_writing") ? `UX WRITING: Read every "text" field meticulously. Flag typos, wrong capitalisation, vague/contradictory labels, placeholder text left in. Be exhaustive.` : ""}
+${allowedCategories.includes("high_level") ? `HIGH LEVEL: Question fundamentals — right problem, logical IA, redundant steps, missing flows.` : ""}
 
 ━━━ OUTPUT FORMAT ━━━
 [{
-  "category": ${categoryOptions},
-  "title": "Short specific title naming the element (no node IDs)",
-  "description": "What the problem is and why it matters — reference the actual text/hex/size value",
-  "suggestion": "Exact fix with specific values, token names, or component names",
+  "category": <one of the active categories above>,
+  "title": "Short specific title naming the element — no node IDs",
+  "description": "What the problem is and why it matters — cite the actual text/hex/size value from the data",
+  "suggestion": "Exact actionable fix with specific values",
   "severity": "low" | "medium" | "high",
-  "location": "Human-readable element name (no IDs)",
+  "location": "Human-readable element path — no IDs",
   "nodeId": "exact_id_from_data"
 }]
 
 RULES:
 - NEVER put node IDs in title/description/location
-- ALWAYS include nodeId with exact ID from design data
-- NEVER fabricate issues not supported by the data`;
+- ALWAYS include nodeId with the exact id from the design data
+- NEVER fabricate issues not directly supported by the data above`;
 
-      // ─── DS ADDITIVE LAYER (injected AFTER base review, additive not replacing) ───
+      // ─── DS ADDITIVE LAYER — completely separate, never modifies the core review ───
       const dsAuditSection = dsContext
         ? `
 
-━━━ DESIGN SYSTEM AUDIT (ADDITIVE — run AFTER core review above) ━━━
-A Design System is connected. After producing the full core review above, ALSO perform these DS-specific checks.
-These are ADDITIONAL items on top of the core feedback. Do NOT reduce core UX/UI/writing feedback because of this section.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN SYSTEM AUDIT — ADDITIVE PASS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORTANT: First complete the full core design review above. Then append these additional DS-specific items.
+Do NOT reduce, replace, or skip any core review items because of this section.
+These are purely additive findings on top of the full review.
 
 DS INVENTORY:
-Components (${(dsContext.componentNames || []).length}): ${(dsContext.componentNames || []).slice(0, 80).join(", ")}
+Components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 80).join(", ")}
 Colour tokens: ${
             dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0
               ? dsContext.colorTokenMap
@@ -413,27 +379,24 @@ Text styles: ${
           }
 ${dsContext.libraryNames?.length ? `Libraries: ${dsContext.libraryNames.join(", ")}` : ""}
 
-DS AUDIT RULES:
-1. COLOUR TOKENS — for nodes WITHOUT "fillStyleId": compare fills[].hex to the colour token map above.
-   Find the closest token by colour distance. Flag as category "ui".
-   Suggestion: "Replace #1C3FCA with DS colour token 'Primary/Blue-700' [#1C40CA] — nearest match."
-   SKIP nodes that have "fillStyleId" set — they are already correct, do not flag them.
+DS AUDIT RULES (additive items only):
+1. COLOUR TOKENS — nodes WITHOUT "fillStyleId": compare fills[].hex to colour token map. Find nearest token by colour distance.
+   Format: { category: "ui", title: "Raw hex not using DS token", description: "Node uses #XXXXXX instead of DS token.", suggestion: "Replace #XXXXXX with DS colour token 'TokenName' [#YYYYYY] — nearest match.", ... }
+   SKIP any node that has "fillStyleId" already set — it is already compliant.
 
-2. TEXT STYLES — for nodes WITHOUT "textStyleId": compare fontName+fontSize against DS text style map.
-   Flag as "ui". Suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' — exact match."
-   SKIP nodes that have "textStyleId" set — they are correct, do not flag them.
+2. TEXT STYLES — nodes WITHOUT "textStyleId": compare fontName+fontSize against DS text style map.
+   Format: { category: "ui", suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular'.", ... }
+   SKIP any node that has "textStyleId" already set — it is correct.
 
-3. COMPONENT SUBSTITUTION — when a node looks like a custom-built version of a DS component (same shape/role/pattern), flag as "design_system".
-   Suggestion: "Use DS component 'Button/Primary' instead of this custom frame — same shape and role."
+3. COMPONENT SUBSTITUTION — node looks like a custom-built version of a DS component: flag as "design_system".
+   Suggestion: "Use DS component 'Button/Primary' instead of this custom frame."
 
-4. DS CONSISTENCY — when the same element appears multiple times but one uses a DS component and another uses a custom frame, flag as "consistency".
-
-CRITICAL: DS audit findings are additive. The core review items must still be present in full.`
+4. DS CONSISTENCY — same element appears multiple times, one using DS component and another custom: flag as "consistency".`
         : "";
 
       const analysisPrompt = isCustom
-        ? `${baseReviewPrompt}\n${dsAuditSection}\n\nAdditional focus requested by reviewer: ${prompt}`
-        : `${baseReviewPrompt}\n${dsAuditSection}\n\n${prompt ? `Specific focus: ${prompt}` : ""}`;
+        ? `${baseReviewPrompt}${dsAuditSection}\n\nAdditional focus requested by reviewer: ${prompt}`
+        : `${baseReviewPrompt}${dsAuditSection}${prompt ? `\n\nSpecific focus: ${prompt}` : ""}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
