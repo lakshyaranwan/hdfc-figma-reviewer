@@ -317,7 +317,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 16000,
+          max_tokens: 32000,
           temperature: 0,
         }),
       });
