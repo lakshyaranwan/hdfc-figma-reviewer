@@ -514,13 +514,12 @@ Use category "design_system" ONLY for structural component substitution issues. 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: selectedModel,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
           max_tokens: 16000,
-          temperature: 0,
         }),
       });
 
