@@ -253,13 +253,10 @@ serve(async (req) => {
       }
     }
 
-    // Category setup
+    // Category setup — DS-independent, no design_system category
     let allowedCategories = categories || ["ux", "ui", "consistency"];
     if (isCustom) {
       allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
-    }
-    if (dsContext && !allowedCategories.includes("design_system")) {
-      allowedCategories.push("design_system");
     }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
