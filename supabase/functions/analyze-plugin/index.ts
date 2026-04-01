@@ -1031,19 +1031,7 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
           chunkFeedback = JSON.parse(cleanContent);
         } catch (_initialParseError) {
           console.warn(`Chunk ${chunkIdx + 1}: JSON truncated, attempting repair...`);
-          // Try closing the JSON array gracefully
-          let repaired = cleanContent;
-          // Remove trailing incomplete object/string
-          repaired = repaired.replace(/,\s*\{[^}]*$/, '');   // remove last incomplete object
-          repaired = repaired.replace(/,\s*"[^"]*$/, '');     // remove trailing incomplete string
-          if (!repaired.endsWith(']')) {
-            // Close any open object then close array
-            const openBraces = (repaired.match(/\{/g) || []).length;
-            const closeBraces = (repaired.match(/\}/g) || []).length;
-            for (let i = 0; i < openBraces - closeBraces; i++) repaired += '}';
-            repaired += ']';
-          }
-          chunkFeedback = JSON.parse(repaired);
+          chunkFeedback = repairTruncatedJSON(cleanContent);
           console.log(`Chunk ${chunkIdx + 1}: repair succeeded with ${chunkFeedback.length} items`);
         }
         if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
