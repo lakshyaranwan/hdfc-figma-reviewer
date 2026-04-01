@@ -884,13 +884,20 @@ LOW = Polish. Only a designer would notice. Spacing, alignment, border radius.
 ABSOLUTE NEVER-FLAG LIST:
 - Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
 - NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
-- NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word. "Bill & Recharges" is a COMPLETE phrase, NOT truncated. You CANNOT see rendered layout — only text content.
+- NEVER flag "missing summary" or "lacks summary/details" when the CONTAINMENT MAP shows a container with multiple text elements inside it. A section heading with 5+ text children IS a summary — it is NOT empty.
+- NEVER flag "missing content below heading" — check the CONTAINMENT MAP. If the heading's parent container has child text nodes, the content EXISTS.
+- NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word.
 - NEVER flag "incomplete sentence" for marketing slogans, taglines, or promotional text.
 - NEVER invent problems that aren't evidenced in the data. If you're unsure, skip it.
-- NEVER flag "missing CTA" or "no call to action" if the screen contains ANY button text like "Confirm", "Submit", "Proceed", "Continue", "Done", "Pay", "Send", "Transfer", "Edit", "Cancel", etc. Check the SPATIAL LAYOUT — the button may be at the bottom of the screen.
-- NEVER flag "ambiguous instruction" or "missing options" for a label/heading when there are interactive elements (radio buttons, checkboxes, dropdowns, toggles, input fields) in the same or adjacent spatial section. Check the SPATIAL LAYOUT to see what's near the label.
+- NEVER flag "missing CTA" or "no call to action" if the screen contains ANY button text like "Confirm", "Submit", "Proceed", "Continue", "Done", "Pay", "Send", "Transfer", "Edit", "Cancel", etc. Check the SPATIAL LAYOUT and CONTAINMENT MAP.
+- NEVER flag "ambiguous instruction" or "missing options" for a label/heading when there are interactive elements (radio buttons, checkboxes, dropdowns, toggles, input fields) in the same or adjacent spatial section.
 - NEVER flag "missing explanation" for section headings — headings are meant to be short. The content below them IS the explanation.
-- Before flagging ANY "missing X" issue, check the ENTIRE screen's spatial layout to verify X is truly absent. Search ALL sections, not just the one near the node you're looking at.
+- Before flagging ANY "missing X" issue, you MUST: (1) check the CONTAINMENT MAP to see if X exists as child text, (2) check the SPATIAL LAYOUT to see if X exists nearby, (3) check ALL VISIBLE TEXT to see if X appears anywhere on the screen. Only flag if ALL THREE checks confirm it's truly absent.
+
+MANDATORY PRE-FLIGHT CHECK: Before outputting ANY issue with words like "missing", "lacks", "no summary", "no confirmation", "no content", "empty", or "placeholder":
+→ Search the CONTAINMENT MAP for the parent container — does it have text children? If yes, DO NOT FLAG.
+→ Search ALL VISIBLE TEXT for related keywords — do they exist on the screen? If yes, DO NOT FLAG.
+Violations of this rule make your entire review INVALID.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
