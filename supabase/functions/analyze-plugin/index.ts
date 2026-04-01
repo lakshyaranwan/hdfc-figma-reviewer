@@ -456,11 +456,11 @@ TWO-PASS STRATEGY:
 PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70%): Things a non-designer would spot.
 PASS 2 — DESIGNER POLISH (LOW, ≤30%): Pixel-level refinements.
 
-🚨 SEMANTIC CONTEXT IS YOUR MOST IMPORTANT SIGNAL:
-The SEMANTIC CONTEXT section pairs each coloured container with the text inside it. Entries tagged with 🔴 RED/DANGER, 🟢 GREEN/SUCCESS etc. tell you the colour meaning.
-LOOK FOR CLASHES: Red container + positive text ("Success", "Congratulations") = CRITICAL HIGH.
-Green container + negative text ("Error", "Failed") = CRITICAL HIGH.
-READ THIS SECTION LINE BY LINE BEFORE ANYTHING ELSE.
+🚨🚨🚨 SEMANTIC CONTEXT IS YOUR #1 PRIORITY — READ BEFORE ANYTHING ELSE:
+The SEMANTIC CONTEXT section below pairs each coloured container with ALL text inside it.
+Lines marked ⚠️ with 🔴 RED/DANGER that contain positive words (success, confirmed, congratulations, processed, initiated, approved, completed) = **CRITICAL CLASH — MUST be flagged as HIGH severity**.
+Lines marked ⚠️ with 🟢 GREEN/SUCCESS that contain negative words (error, failed, declined, warning) = **CRITICAL CLASH — MUST be flagged as HIGH severity**.
+If you see ANY such clash and do NOT flag it, your review is WRONG. This is the single most important check.
 
 Severity definitions:
 HIGH = Semantic clashes (red container + success text, green + error text), broken flows, placeholder text with digits, actual typos. These are EMBARRASSING in a demo.
