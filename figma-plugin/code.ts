@@ -66,8 +66,8 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
   if ('width' in node) baseData.width = Math.round(node.width);
   if ('height' in node) baseData.height = Math.round(node.height);
 
-  // Only include visual details for shallow nodes (top 4 levels)
-  if (depth < 4) {
+  // Visual details — include at ALL depths for thorough analysis
+  {
     if ('fills' in node && node.fills !== figma.mixed) {
       baseData.fills = (node.fills as readonly Paint[]).map(fill => ({
         type: fill.type,
