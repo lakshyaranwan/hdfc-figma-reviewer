@@ -334,7 +334,7 @@ serve(async (req) => {
 
     const systemPrompt = "You are an expert UX/UI designer providing professional design feedback." + (dsContext ? " You are also a design systems specialist with deep knowledge of the attached Design System — you know every component, token, and pattern. Every piece of feedback should either flag a DS deviation, confirm correct usage, or provide DS-guided recommendations." : "") + " CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].";
 
-    // Process each chunk
+    console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
     let allFeedback: FeedbackItem[] = [];
 
     for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
@@ -342,24 +342,27 @@ serve(async (req) => {
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
-      const itemsPerCategory = isChunked
-        ? Math.max(3, Math.floor(10 / chunks.length))
-        : 10;
+      // Match analyze-figma: scale items per category by chunk count
+      const itemsPerCategory = isChunked 
+        ? Math.max(3, Math.floor(8 / chunks.length))
+        : Math.floor(80 / allowedCategories.length);
 
       const designContext = JSON.stringify(chunk, null, 2);
 
-      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
+      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs. Analyze the following design data and provide detailed feedback.
 
-Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
+Design Structure${chunkLabel} (node hierarchy with IDs - USE THESE EXACT IDs):
 ${designContext}
 
 File: ${fileName}
 Page: ${pageName}
 
 CRITICAL NODE ID INSTRUCTIONS:
-- You MUST use the EXACT node IDs from the design data above
+- You MUST use the EXACT node IDs from the list above
 - Choose the MOST SPECIFIC node ID for each piece of feedback
-- Include the nodeId field for every feedback item`;
+- For a button issue, use the button's node ID, NOT its parent frame
+- For a text issue, use the text layer's node ID, NOT the containing group
+- The more specific the node, the better the comment placement will be`;
 
       const formatInstructions = `
 For each issue found, provide:
