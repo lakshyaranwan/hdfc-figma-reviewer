@@ -139,6 +139,68 @@ function classifyBoilerplate(flatNodes: any[]): any[] {
   return flatNodes;
 }
 
+// Build a spatial layout summary per screen
+// Groups nearby elements into visual "bands" so the AI understands what's next to what
+// This solves the core problem: AI sees flat list, can't tell that radio buttons are below a label
+function buildSpatialLayoutSummary(flatNodes: any[]): string {
+  const frameNodes: Record<string, any[]> = {};
+  for (const node of flatNodes) {
+    if (!node.text && !node.fills?.length) continue; // only meaningful nodes
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!frameNodes[topFrame]) frameNodes[topFrame] = [];
+    frameNodes[topFrame].push(node);
+  }
+
+  const summaries: string[] = [];
+
+  for (const [frame, nodes] of Object.entries(frameNodes)) {
+    // Sort by y position
+    const sorted = [...nodes].sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
+    
+    // Group into vertical bands (elements within 40px of each other are in the same visual group)
+    const bands: any[][] = [];
+    let currentBand: any[] = [];
+    let lastY = -999;
+    
+    for (const node of sorted) {
+      const y = node.y ?? 0;
+      if (currentBand.length > 0 && y - lastY > 40) {
+        bands.push(currentBand);
+        currentBand = [];
+      }
+      currentBand.push(node);
+      lastY = y;
+    }
+    if (currentBand.length > 0) bands.push(currentBand);
+
+    // Build human-readable description of each band
+    const bandDescriptions = bands.map((band, idx) => {
+      const items: string[] = [];
+      for (const node of band) {
+        if (node.text) {
+          const fontSize = node.fontSize ? ` (${node.fontSize}px)` : '';
+          items.push(`TEXT: "${node.text}"${fontSize} [id:${node.id}]`);
+        } else if (node.fills?.length && node.type !== 'TEXT') {
+          const hex = node.fills[0]?.hex;
+          const colorLabel = hex ? classifyColor(hex) : '';
+          const size = node.size ? ` ${node.size.w}x${node.size.h}` : '';
+          if (hex && colorLabel) {
+            items.push(`CONTAINER: fill ${hex} ${colorLabel}${size} [id:${node.id}]`);
+          }
+        }
+      }
+      if (items.length === 0) return null;
+      return `  Section ${idx + 1} (y≈${Math.round(band[0].y ?? 0)}):\n    ${items.join('\n    ')}`;
+    }).filter(Boolean);
+
+    if (bandDescriptions.length > 0) {
+      summaries.push(`[${frame}] — ${bandDescriptions.length} visual sections:\n${bandDescriptions.join('\n')}`);
+    }
+  }
+
+  return summaries.join('\n\n');
+}
+
 // Extract all visible text grouped by top-level frame
 // IMPORTANT: Only show the actual displayed text (characters), NOT layer names.
 function extractTextContent(flatNodes: any[]): string {
@@ -709,6 +771,10 @@ ABSOLUTE NEVER-FLAG LIST:
 - NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word. "Bill & Recharges" is a COMPLETE phrase, NOT truncated. You CANNOT see rendered layout — only text content.
 - NEVER flag "incomplete sentence" for marketing slogans, taglines, or promotional text.
 - NEVER invent problems that aren't evidenced in the data. If you're unsure, skip it.
+- NEVER flag "missing CTA" or "no call to action" if the screen contains ANY button text like "Confirm", "Submit", "Proceed", "Continue", "Done", "Pay", "Send", "Transfer", "Edit", "Cancel", etc. Check the SPATIAL LAYOUT — the button may be at the bottom of the screen.
+- NEVER flag "ambiguous instruction" or "missing options" for a label/heading when there are interactive elements (radio buttons, checkboxes, dropdowns, toggles, input fields) in the same or adjacent spatial section. Check the SPATIAL LAYOUT to see what's near the label.
+- NEVER flag "missing explanation" for section headings — headings are meant to be short. The content below them IS the explanation.
+- Before flagging ANY "missing X" issue, check the ENTIRE screen's spatial layout to verify X is truly absent. Search ALL sections, not just the one near the node you're looking at.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
@@ -737,6 +803,7 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const semanticContext = extractSemanticContext(chunk);
       const pageSemantics = computePageSemantics(chunk);
       const crossScreenFacts = buildCrossScreenFacts(chunk);
+      const spatialLayout = buildSpatialLayoutSummary(chunk);
 
       // Debug: log semantic analysis results
       const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
@@ -777,6 +844,12 @@ IMPORTANT: Layer names, frame names, section names, and component names have bee
 
 Node hierarchy (use these exact IDs in nodeId field):
 ${designContext}
+
+═══ SPATIAL LAYOUT (what's next to what on each screen) ═══
+This shows elements grouped by their vertical position on screen. Elements in the same "Section" are visually adjacent.
+Use this to understand context: if a label says "Transfer" and radio buttons "Now" / "Later" are in the same section or the next section, that means the radio buttons ARE the transfer options — do NOT flag as "missing instructions".
+If a screen has a "Confirm" or "Submit" button anywhere, the entire screen HAS a CTA — do NOT flag "missing CTA".
+${spatialLayout}
 
 ═══ ALL VISIBLE TEXT (sorted top-to-bottom per screen) ═══
 These are the ACTUAL words displayed on screen. Read them carefully for typos, placeholders, truncation.
