@@ -1490,6 +1490,7 @@ figma.ui.onmessage = async (msg: any) => {
     const selectionData = getSelectionData();
     if (selectionData.nodes) cacheNodeNames(selectionData.nodes);
     _analysisRootIds = figma.currentPage.selection.map(n => n.id);
+    figma.notify(`📊 Extracting ${selectionData.extractedNodeCount} nodes from ${selectionData.selectionCount} selected frame(s)…`);
     figma.ui.postMessage({
       type: 'analyze-data',
       data: selectionData,
