@@ -920,6 +920,8 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const pageSemantics = computePageSemantics(chunk);
       const crossScreenFacts = buildCrossScreenFacts(chunk);
       const spatialLayout = buildSpatialLayoutSummary(chunk);
+      const containmentSummary = buildContainmentSummary(chunk);
+      console.log(`Containment summary lines: ${containmentSummary.split('\n').length}`);
 
       // Debug: log semantic analysis results
       const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
