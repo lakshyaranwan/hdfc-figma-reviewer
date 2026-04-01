@@ -101,16 +101,21 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 }
 
 // Extract all visible text grouped by top-level frame
+// IMPORTANT: Only show the actual displayed text (characters), NOT layer names.
 function extractTextContent(flatNodes: any[]): string {
-  const grouped: Record<string, string[]> = {};
+  const grouped: Record<string, { text: string; id: string; y: number }[]> = {};
   for (const node of flatNodes) {
     if (!node.text) continue;
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = [];
-    grouped[topFrame].push(`"${node.text}" (id:${node.id}, name:${node.name || '-'})`);
+    grouped[topFrame].push({ text: node.text, id: node.id, y: node.y ?? 0 });
   }
+  // Sort by y-position within each frame so AI reads top-to-bottom
   return Object.entries(grouped)
-    .map(([frame, texts]) => `[${frame}]\n${texts.join('\n')}`)
+    .map(([frame, items]) => {
+      items.sort((a, b) => a.y - b.y);
+      return `[${frame}]\n${items.map(i => `"${i.text}" (id:${i.id})`).join('\n')}`;
+    })
     .join('\n\n');
 }
 
