@@ -22,29 +22,52 @@ function estimateTokens(text: string): number {
 }
 
 // Flatten deeply nested design data into a flat array of simplified nodes
-function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
+function flattenDesignData(nodes: any[]): any[] {
   const flat: any[] = [];
 
-  function traverse(node: any, path: string, depth: number) {
-    if (!node || depth > maxDepth) return;
+  function collectAllText(node: any): { text: string; y: number; x: number }[] {
+    const results: { text: string; y: number; x: number }[] = [];
+    if (node.characters) results.push({ text: node.characters.trim(), y: node.y ?? 0, x: node.x ?? 0 });
+    const children = node.children || node.nodes;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        if (child.visible === false) continue;
+        if (child.opacity !== undefined && child.opacity === 0) continue;
+        results.push(...collectAllText(child));
+      }
+    }
+    return results;
+  }
+
+  function traverse(node: any, path: string) {
+    if (!node) return;
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
 
-    // Use visible text content as path label for readability — not the layer name
-    const displayLabel = node.characters?.trim() || node.name || node.type || "unknown";
+    // Use visible text content as path label — NEVER the layer name
+    const displayLabel = node.characters?.trim() || node.type || "element";
     const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
     const simplified: any = {
       id: node.id,
-      name: node.name,
+      layerName: node.name,  // Figma layer name — INTERNAL ONLY, never use for feedback
       type: node.type,
       path: currentPath,
     };
 
-    // Include text content
+    // Include visible text content
     if (node.characters) simplified.text = node.characters;
 
-    // Include key style properties only (not full nested style objects)
+    // Aggregate all visible text from subtree for non-text nodes
+    if (!node.characters) {
+      const childTexts = collectAllText(node);
+      childTexts.sort((a, b) => a.y - b.y || a.x - b.x);
+      if (childTexts.length > 0) {
+        simplified.allText = childTexts.map(t => t.text).join(' · ');
+      }
+    }
+
+    // Include key style properties
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => ({
         type: f.type,
@@ -62,7 +85,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
       simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
     }
 
-    // Include position (enables spatial reasoning in feedback)
+    // Include position
     if (node.x !== undefined) simplified.x = Math.round(node.x);
     if (node.y !== undefined) simplified.y = Math.round(node.y);
 
@@ -75,17 +98,17 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     flat.push(simplified);
 
-    // Recurse into children
+    // Recurse into children — NO depth limit
     const children = node.children || node.nodes;
     if (Array.isArray(children)) {
       for (const child of children) {
-        traverse(child, currentPath, depth + 1);
+        traverse(child, currentPath);
       }
     }
   }
 
   for (const node of nodes) {
-    traverse(node, "", 0);
+    traverse(node, "");
   }
 
   return flat;
