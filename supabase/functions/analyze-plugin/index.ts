@@ -850,8 +850,10 @@ UI ISSUES → category "ui":
 
 ═══ OUTPUT FORMAT ═══
 CRITICAL CATEGORY RESTRICTION: Only use these category values: ${categoryOptions}
-Aim for ${itemsPerCategory} items per category, distributed across ALL requested categories.
-At least 70% of items MUST be HIGH or MEDIUM severity.
+You MUST produce AT LEAST ${minPerCategory} items for EACH category. Target ${itemsPerCategory} per category.
+If you return fewer than ${minPerCategory} for any category, your review is INCOMPLETE — look harder.
+Every category MUST have at least one HIGH or MEDIUM severity issue.
+At least 70% of ALL items MUST be HIGH or MEDIUM severity.
 
 Use the MOST SPECIFIC node ID for each issue (the text layer, not the parent frame).
 NEVER include technical IDs like [123:456] in title or description fields.
