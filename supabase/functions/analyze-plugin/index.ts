@@ -94,8 +94,8 @@ CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categori
 Only use these exact category values: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- Provide around 10 issues per category (can be 8-12 depending on what you find)
-- Total feedback should be 50-100 issues across all categories
+- Provide around 5-8 issues per category
+- Total feedback should be 20-40 issues across all categories
 - Focus on REAL, meaningful issues - do NOT invent problems
 - Be consistent - prioritize the most impactful issues first
 - Do NOT skip any category - analyze each one properly
@@ -193,17 +193,19 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
     // Parse the JSON response
     let feedback: FeedbackItem[];
     try {
-      // Clean up the response
+      // Clean up the response - handle markdown fences and extract JSON array
       let cleanContent = content.trim();
-      if (cleanContent.startsWith("```json")) {
-        cleanContent = cleanContent.slice(7);
-      } else if (cleanContent.startsWith("```")) {
-        cleanContent = cleanContent.slice(3);
-      }
-      if (cleanContent.endsWith("```")) {
-        cleanContent = cleanContent.slice(0, -3);
-      }
+      
+      // Remove markdown code fences
+      cleanContent = cleanContent.replace(/^```(?:json)?\s*\n?/i, '');
+      cleanContent = cleanContent.replace(/\n?```\s*$/i, '');
       cleanContent = cleanContent.trim();
+      
+      // Try to extract JSON array if there's surrounding text
+      const arrayMatch = cleanContent.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        cleanContent = arrayMatch[0];
+      }
       
       feedback = JSON.parse(cleanContent);
       
@@ -211,7 +213,8 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
         throw new Error("Response is not an array");
       }
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
+      console.error("Failed to parse AI response (first 500 chars):", content.substring(0, 500));
+      console.error("Parse error:", parseError);
       throw new Error("Failed to parse AI analysis results");
     }
 
