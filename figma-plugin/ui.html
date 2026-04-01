@@ -1451,6 +1451,26 @@
       if (msg.type === 'a11y-ai-annotate-done') {
         showToast(msg.message || 'Annotations written to Figma!', 'success');
       }
+
+      // Gradient contrast: UI receives pending gradient checks, triggers exports
+      if (msg.type === 'trigger-gradient-export') {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'request-gradient-export',
+            textNodeId: msg.textNodeId,
+            gradientParentId: msg.gradientParentId,
+            fgColor: msg.fgColor,
+            nodeName: msg.nodeName,
+            text: msg.text,
+            fontSize: msg.fontSize,
+          }
+        }, '*');
+      }
+
+      // Gradient contrast: receive exported image, sample pixels on canvas
+      if (msg.type === 'gradient-sample-result') {
+        handleGradientSampleResult(msg);
+      }
     };
     
     function showToast(message, type = '') {
