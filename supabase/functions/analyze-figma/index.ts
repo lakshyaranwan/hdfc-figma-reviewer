@@ -15,26 +15,22 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
       const response = await fetch(url, options);
       lastResponse = response;
       
-      // Don't retry on authentication errors (403, 401) - these won't succeed
       if (response.status === 403 || response.status === 401) {
         return response;
       }
       
-      // If rate limited, wait and retry with exponential backoff
       if (response.status === 429) {
         if (attempt < maxRetries - 1) {
-          const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // Cap at 10 seconds
+          const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000);
           console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries}). Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           continue;
         } else {
-          // Last attempt failed with 429, return the response so it can be handled
           console.log(`Rate limit persists after ${maxRetries} attempts`);
           return response;
         }
       }
       
-      // Success or other error
       return response;
     } catch (error) {
       lastError = error;
@@ -46,7 +42,6 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
     }
   }
   
-  // If we have a last response (even if it's an error), return it
   if (lastResponse) {
     return lastResponse;
   }
@@ -62,6 +57,80 @@ interface FeedbackItem {
   severity: "low" | "medium" | "high";
   location?: string;
   nodeId?: string;
+}
+
+// Helper to estimate token count from a string
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+// Helper to chunk nodes into smaller groups
+function chunkNodes(canvasData: { name: string; nodes: any[] }, maxTokens: number): Array<{ name: string; nodes: any[] }> {
+  const fullJson = JSON.stringify(canvasData, null, 2);
+  const totalTokens = estimateTokens(fullJson);
+  
+  if (totalTokens <= maxTokens) {
+    return [canvasData];
+  }
+  
+  // Calculate how many chunks we need
+  const ratio = totalTokens / maxTokens;
+  const numChunks = Math.ceil(ratio);
+  const chunkSize = Math.ceil(canvasData.nodes.length / numChunks);
+  
+  const chunks: Array<{ name: string; nodes: any[] }> = [];
+  for (let i = 0; i < canvasData.nodes.length; i += chunkSize) {
+    chunks.push({
+      name: canvasData.name,
+      nodes: canvasData.nodes.slice(i, i + chunkSize),
+    });
+  }
+  
+  return chunks;
+}
+
+// Helper to store chunk records in DB
+async function storeChunks(supabaseUrl: string, serviceRoleKey: string, jobId: string, chunks: any[]) {
+  for (let i = 0; i < chunks.length; i++) {
+    await fetch(`${supabaseUrl}/rest/v1/analysis_chunks`, {
+      method: "POST",
+      headers: {
+        "apikey": serviceRoleKey,
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        job_id: jobId,
+        chunk_index: i,
+        chunk_data: { nodeCount: chunks[i].nodes.length },
+        status: "pending",
+      }),
+    });
+  }
+}
+
+// Helper to update a chunk's status in DB
+async function updateChunkStatus(supabaseUrl: string, serviceRoleKey: string, jobId: string, chunkIndex: number, status: string, result?: any) {
+  await fetch(`${supabaseUrl}/rest/v1/analysis_chunks?job_id=eq.${jobId}&chunk_index=eq.${chunkIndex}`, {
+    method: "PATCH",
+    headers: {
+      "apikey": serviceRoleKey,
+      "Authorization": `Bearer ${serviceRoleKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status, ...(result ? { result } : {}) }),
+  });
+}
+
+// Helper to delete all chunk records for a job
+async function cleanupChunks(supabaseUrl: string, serviceRoleKey: string, jobId: string) {
+  await fetch(`${supabaseUrl}/rest/v1/analysis_chunks?job_id=eq.${jobId}`, {
+    method: "DELETE",
+    headers: {
+      "apikey": serviceRoleKey,
+      "Authorization": `Bearer ${serviceRoleKey}`,
+    },
+  });
 }
 
 serve(async (req) => {
@@ -107,11 +176,9 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error("Error fetching model setting:", error);
-        // Continue with default model
       }
     }
 
-    // Use the API key from the request body
     const FIGMA_TOKEN = figmaApiKey || Deno.env.get("FIGMA_ACCESS_TOKEN");
 
     if (!FIGMA_TOKEN) {
@@ -120,22 +187,16 @@ serve(async (req) => {
 
     // Step 1: Fetch Figma file data (specific node or entire file)
     console.log("Fetching Figma file data...");
-    console.log("File key:", fileKey);
-    console.log("Node ID:", nodeId || "entire file");
-
     let figmaUrl = `https://api.figma.com/v1/files/${fileKey}`;
     let figmaData;
     let targetData;
 
     if (nodeId) {
-      // Fetch specific node
       console.log("Fetching specific node:", nodeId);
       figmaUrl = `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(nodeId)}`;
 
       const figmaResponse = await fetchWithRetry(figmaUrl, {
-        headers: {
-          "X-Figma-Token": FIGMA_TOKEN,
-        },
+        headers: { "X-Figma-Token": FIGMA_TOKEN },
       });
 
       if (!figmaResponse.ok) {
@@ -144,25 +205,15 @@ serve(async (req) => {
         
         if (figmaResponse.status === 403 || figmaResponse.status === 401) {
           return new Response(
-            JSON.stringify({ 
-              error: "Invalid or expired Figma API key. Please update your API key in Settings." 
-            }),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
+            JSON.stringify({ error: "Invalid or expired Figma API key. Please update your API key in Settings." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         
         if (figmaResponse.status === 429) {
           return new Response(
-            JSON.stringify({ 
-              error: "Figma API rate limit exceeded after retries. Please wait 5-10 minutes before trying again." 
-            }),
-            { 
-              status: 429, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
+            JSON.stringify({ error: "Figma API rate limit exceeded after retries. Please wait 5-10 minutes before trying again." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         
@@ -170,23 +221,16 @@ serve(async (req) => {
       }
 
       figmaData = await figmaResponse.json();
-
-      // Extract the specific node data
       const nodeData = figmaData.nodes?.[nodeId];
       if (!nodeData || !nodeData.document) {
-        console.error("Node data:", figmaData);
         throw new Error(`Node ${nodeId} not found in file`);
       }
-
       targetData = nodeData.document;
       console.log("Analyzing specific node:", targetData.name);
     } else {
-      // Fetch entire file
       console.log("Fetching entire file");
       const figmaResponse = await fetchWithRetry(figmaUrl, {
-        headers: {
-          "X-Figma-Token": FIGMA_TOKEN,
-        },
+        headers: { "X-Figma-Token": FIGMA_TOKEN },
       });
 
       if (!figmaResponse.ok) {
@@ -195,25 +239,15 @@ serve(async (req) => {
         
         if (figmaResponse.status === 403 || figmaResponse.status === 401) {
           return new Response(
-            JSON.stringify({ 
-              error: "Invalid or expired Figma API key. Please update your API key in Settings." 
-            }),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
+            JSON.stringify({ error: "Invalid or expired Figma API key. Please update your API key in Settings." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         
         if (figmaResponse.status === 429) {
           return new Response(
-            JSON.stringify({ 
-              error: "Figma API rate limit exceeded after retries. Please wait 5-10 minutes before trying again." 
-            }),
-            { 
-              status: 429, 
-              headers: { ...corsHeaders, "Content-Type": "application/json" } 
-            }
+            JSON.stringify({ error: "Figma API rate limit exceeded after retries. Please wait 5-10 minutes before trying again." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         
@@ -228,24 +262,27 @@ serve(async (req) => {
     const canvasData = extractCanvasData(targetData);
     console.log("Canvas data extracted, node count:", canvasData.nodes.length);
 
-    // Step 3: Analyze with Gemini AI
-    console.log("Sending to AI for analysis...");
+    // Step 2: Chunk data if too large for AI token limits
+    const TOKEN_LIMIT = 12000;
+    const chunks = chunkNodes(canvasData, TOKEN_LIMIT);
+    const isChunked = chunks.length > 1;
+    const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs. Analyze the following design data and provide detailed feedback.
+    if (isChunked) {
+      console.log(`Data exceeds token limit. Split into ${chunks.length} chunks.`);
+    }
 
-Design Structure (complete node hierarchy with IDs - USE THESE EXACT IDs):
-${JSON.stringify(canvasData, null, 2)}
+    // Store chunks in DB for tracking (only when chunking)
+    if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        await storeChunks(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunks);
+        console.log(`Stored ${chunks.length} chunk records (job: ${jobId})`);
+      } catch (e) {
+        console.error("Error storing chunk records:", e);
+      }
+    }
 
-CRITICAL NODE ID INSTRUCTIONS:
-- You MUST use the EXACT node IDs from the list above
-- Choose the MOST SPECIFIC node ID for each piece of feedback
-- For a button issue, use the button's node ID, NOT its parent frame
-- For a text issue, use the text layer's node ID, NOT the containing group
-- The more specific the node, the better the comment placement will be
-
-Example: If you're giving feedback about a "Login Button", find the exact node ID for that button in the structure above (e.g., "123:456"), not the page frame (e.g., "9:1").`;
-
-    // Map category labels to category IDs (case-insensitive)
+    // Step 3: Build category and format instructions (shared across chunks)
     const categoryMapping: Record<string, string> = {
       "consistency across flows regarding ui": "consistency",
       "ux review": "ux",
@@ -256,11 +293,9 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
       "high level review about and the why? questioning the basics.": "high_level",
     };
 
-    // Extract selected categories from customPrompt
     let allowedCategories = ["ux", "ui", "consistency", "improvement"];
     if (customPrompt && customPrompt.includes("Provide me feedback on the following areas:")) {
       const areasText = customPrompt.split("Provide me feedback on the following areas:")[1];
-      // Split only up to the first period (to avoid parsing the suggestions instruction)
       const categoriesOnly = areasText.split(/\. For each issue|\.$/)[0];
       const selectedAreas = categoriesOnly
         .toLowerCase()
@@ -269,268 +304,291 @@ Example: If you're giving feedback about a "Login Button", find the exact node I
       allowedCategories = selectedAreas
         .map((area: string) => categoryMapping[area] || area)
         .filter((cat: string) => cat);
-      console.log("Selected areas from prompt:", selectedAreas);
       console.log("Filtered to categories:", allowedCategories);
     }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const formatInstructions = `
-For each issue found, provide:
-- A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
-- Detailed description of the issue${includeSuggestions ? " AND specific actionable suggestions on how to fix it" : ""} (NO technical IDs in the description)
-- Severity (low, medium, high)
-- The EXACT node ID from the structure above for the specific element this feedback applies to
-- Component/frame name (user-friendly name only, NO technical IDs like "9:123" - use descriptive names like "Login Button" or "Header Navigation")
-
-CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
-Do NOT provide feedback for any other categories. Only use these exact category values: ${categoryOptions}
-
-CRITICAL BALANCE REQUIREMENT: You MUST provide feedback EVENLY distributed across ALL requested categories.
-- Provide 8-12 feedback items for EACH category requested
-- Do NOT skip any category
-- Do NOT heavily favor one category over others
-- If analyzing ${allowedCategories.length} categories, aim for approximately ${Math.floor(80 / allowedCategories.length)} items per category
-
-Format your response as a JSON array of feedback items with this structure:
-[{
-  "category": ${categoryOptions},
-  "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description${includeSuggestions ? " with specific suggestions" : ""} (clean, no IDs)",
-  "severity": "low" | "medium" | "high",
-  "location": "User-friendly component name (e.g., 'Login Button', 'Navigation Bar')",
-  "nodeId": "exact_node_id_from_structure"
-}]
-
-CRITICAL: 
-- NEVER include technical IDs like [123:456] or (9:123) in title or description
-- Always include the nodeId field with the exact ID from the design structure for technical purposes
-- For the location field, use ONLY user-friendly, descriptive names - NO technical node IDs
-- Keep all user-facing text clean and readable
-- ONLY provide feedback for the requested categories: ${allowedCategories.join(", ")}
-${includeSuggestions ? "- For EACH issue, include specific, actionable suggestions on how to fix it in the description" : ""}
-- Example good title: "Improve button contrast for accessibility"
-- Example bad title: "Improve button [123:456] contrast for accessibility"
-
-${allowedCategories.includes("consistency") ? `
-SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
-- Compare ALL screens/pages/flows for inconsistent patterns
-- Look for text variations across similar elements (e.g., "Send Money" vs "Send Money2", "Sign In" vs "Login")
-- Check for inconsistent heading styles, button labels, spacing, and component usage
-- Identify any naming inconsistencies that appear to be mistakes or typos
-- Compare similar UI patterns across different screens for visual consistency
-- Flag ALL instances where the same element has different names, styles, or behaviors across screens
-` : ""}
-
-${allowedCategories.includes("ux_writing") ? `
-SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
-- Scan ALL text content in the design thoroughly
-- Check EVERY button label, heading, paragraph, placeholder text, and microcopy
-- Look for typos, spelling errors, grammatical mistakes, and inconsistent capitalization
-- Identify inconsistent terminology (e.g., "Sign In" vs "Login" vs "Log In")
-- Flag ALL instances of poor UX writing, no matter how minor
-- Be comprehensive - don't skip any text elements
-` : ""}
-
-Provide comprehensive feedback with NO HARD LIMIT on total items. Focus on thoroughness and balance across categories:
-${allowedCategories.map(cat => `- ${cat}: Provide 8-12 detailed, actionable insights`).join('\n')}
-${allowedCategories.includes("ux_writing") ? "- For UX writing reviews, be THOROUGH and catch ALL text issues including minor typos." : ""}
-${allowedCategories.includes("consistency") ? "- For consistency reviews, compare across ALL screens and flows to catch variations and inconsistencies." : ""}
-Ensure EVERY requested category has substantial feedback. Do not skip or under-represent any category.`;
-
-    const analysisPrompt = customPrompt
-      ? `${baseContext}\n\nUser's specific request: ${customPrompt}\n${formatInstructions}`
-      : `${baseContext}\n\nProvide feedback in the following categories:
-1. UX Issues - Navigation flows, user interactions, usability problems
-2. UI Issues - Visual design, typography, spacing, color usage
-3. Consistency Issues - Design pattern violations, inconsistent components
-4. Improvement Suggestions - Ways to enhance the design\n${formatInstructions}`;
-
-    console.log("Using AI model:", selectedModel);
-    
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: selectedModel,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert UX/UI designer providing professional design feedback. CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].",
-          },
-          { role: "user", content: analysisPrompt },
-        ],
-        max_tokens: 16000,
-      }),
-    });
-
-    // Store usage information
+    // Store usage info helper
     const storeUsageInfo = async (status: string, headers: Headers, error?: any) => {
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
-      
       try {
         const usage: any = {
           model: selectedModel,
           lastUsed: new Date().toISOString(),
-          status: status,
+          status,
         };
-
-        // Extract rate limit info from headers
         const remaining = headers.get("x-ratelimit-remaining-tokens");
         const limit = headers.get("x-ratelimit-limit-tokens");
         const resetTime = headers.get("x-ratelimit-reset-tokens");
-
         if (remaining) usage.remaining = parseInt(remaining);
         if (limit) usage.limit = parseInt(limit);
         if (resetTime) usage.resetTime = resetTime;
-
         if (error) {
-          // Try to extract rate limit info from error message
           const match = error.match(/Limit (\d+), Used (\d+)/);
           if (match) {
             usage.limit = parseInt(match[1]);
             usage.remaining = parseInt(match[1]) - parseInt(match[2]);
           }
         }
-
-        await fetch(
-          `${SUPABASE_URL}/rest/v1/app_settings`,
-          {
-            method: "POST",
-            headers: {
-              "apikey": SUPABASE_SERVICE_ROLE_KEY,
-              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-              "Content-Type": "application/json",
-              "Prefer": "resolution=merge-duplicates",
-            },
-            body: JSON.stringify({
-              key: `model_usage_${selectedModel}`,
-              value: JSON.stringify(usage),
-            }),
-          }
-        );
+        await fetch(`${SUPABASE_URL}/rest/v1/app_settings`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates",
+          },
+          body: JSON.stringify({
+            key: `model_usage_${selectedModel}`,
+            value: JSON.stringify(usage),
+          }),
+        });
       } catch (e) {
         console.error("Error storing usage info:", e);
       }
     };
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", errorText);
-      await storeUsageInfo(
-        aiResponse.status === 429 ? "rate_limited" : "error",
-        aiResponse.headers,
-        errorText
-      );
-      throw new Error(`AI analysis failed: ${aiResponse.status}`);
+    // Step 4: Process each chunk with AI
+    console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
+    let allFeedback: FeedbackItem[] = [];
+
+    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      const chunk = chunks[chunkIdx];
+      const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
+      console.log(`Processing${chunkLabel}: ${chunk.nodes.length} nodes...`);
+
+      // Adjust expected items per category based on chunk count
+      const itemsPerCategory = isChunked 
+        ? Math.max(3, Math.floor(8 / chunks.length))
+        : Math.floor(80 / allowedCategories.length);
+
+      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs. Analyze the following design data and provide detailed feedback.
+
+Design Structure${chunkLabel} (node hierarchy with IDs - USE THESE EXACT IDs):
+${JSON.stringify(chunk, null, 2)}
+
+CRITICAL NODE ID INSTRUCTIONS:
+- You MUST use the EXACT node IDs from the list above
+- Choose the MOST SPECIFIC node ID for each piece of feedback
+- For a button issue, use the button's node ID, NOT its parent frame
+- For a text issue, use the text layer's node ID, NOT the containing group
+- The more specific the node, the better the comment placement will be`;
+
+      const formatInstructions = `
+For each issue found, provide:
+- A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
+- Detailed description of the issue${includeSuggestions ? " AND specific actionable suggestions on how to fix it" : ""} (NO technical IDs in the description)
+- Severity (low, medium, high)
+- The EXACT node ID from the structure above for the specific element this feedback applies to
+- Component/frame name (user-friendly name only, NO technical IDs)
+
+CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
+Only use these exact category values: ${categoryOptions}
+
+CRITICAL BALANCE REQUIREMENT: Provide feedback distributed across ALL requested categories.
+- Provide ${itemsPerCategory} feedback items for EACH category requested
+- Do NOT skip any category
+
+Format your response as a JSON array:
+[{
+  "category": ${categoryOptions},
+  "title": "Issue title (clean, no IDs)",
+  "description": "Detailed description${includeSuggestions ? " with specific suggestions" : ""} (clean, no IDs)",
+  "severity": "low" | "medium" | "high",
+  "location": "User-friendly component name",
+  "nodeId": "exact_node_id_from_structure"
+}]
+
+CRITICAL: 
+- NEVER include technical IDs like [123:456] in title or description
+- Always include the nodeId field with the exact ID from the design structure
+- For the location field, use ONLY user-friendly, descriptive names
+${includeSuggestions ? "- For EACH issue, include specific, actionable suggestions" : ""}
+
+${allowedCategories.includes("consistency") ? `
+SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
+- Compare ALL screens/pages/flows for inconsistent patterns
+- Look for text variations across similar elements
+- Check for inconsistent heading styles, button labels, spacing
+- Flag ALL instances of inconsistency
+` : ""}
+
+${allowedCategories.includes("ux_writing") ? `
+SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
+- Scan ALL text content thoroughly
+- Check EVERY button label, heading, paragraph, placeholder
+- Look for typos, spelling errors, grammatical mistakes
+- Identify inconsistent terminology
+- Be comprehensive - catch ALL text issues
+` : ""}`;
+
+      const analysisPrompt = customPrompt
+        ? `${baseContext}\n\nUser's specific request: ${customPrompt}\n${formatInstructions}`
+        : `${baseContext}\n\nProvide feedback in these categories:\n1. UX Issues - Navigation flows, user interactions, usability problems\n2. UI Issues - Visual design, typography, spacing, color usage\n3. Consistency Issues - Design pattern violations, inconsistent components\n4. Improvement Suggestions - Ways to enhance the design\n${formatInstructions}`;
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert UX/UI designer providing professional design feedback. CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].",
+            },
+            { role: "user", content: analysisPrompt },
+          ],
+          max_tokens: 16000,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`AI API error on chunk ${chunkIdx + 1}:`, errorText);
+        await storeUsageInfo(
+          aiResponse.status === 429 ? "rate_limited" : "error",
+          aiResponse.headers,
+          errorText
+        );
+
+        // Update chunk status to failed
+        if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+          try {
+            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed");
+          } catch (e) { /* ignore */ }
+        }
+
+        // If it's a 400 (token limit), skip this chunk and continue with others
+        if (aiResponse.status === 400 && isChunked) {
+          console.warn(`Chunk ${chunkIdx + 1} hit token limit, skipping...`);
+          continue;
+        }
+
+        throw new Error(`AI analysis failed: ${aiResponse.status}`);
+      }
+
+      await storeUsageInfo("available", aiResponse.headers);
+      const aiData = await aiResponse.json();
+
+      // Parse chunk feedback
+      try {
+        const content = aiData.choices[0].message.content;
+        if (!content || content.trim() === "") {
+          console.error(`Empty AI response for chunk ${chunkIdx + 1}`);
+          if (isChunked) continue;
+          throw new Error("AI response was empty.");
+        }
+
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\[[\s\S]*\]/);
+        const jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+        
+        const chunkFeedback: FeedbackItem[] = JSON.parse(jsonContent);
+        if (!Array.isArray(chunkFeedback)) {
+          throw new Error("AI response is not an array");
+        }
+
+        allFeedback.push(...chunkFeedback);
+        console.log(`Chunk ${chunkIdx + 1}: got ${chunkFeedback.length} feedback items`);
+
+        // Update chunk status to completed
+        if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+          try {
+            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "completed", { count: chunkFeedback.length });
+          } catch (e) { /* ignore */ }
+        }
+      } catch (parseError) {
+        console.error(`Failed to parse chunk ${chunkIdx + 1}:`, parseError);
+        if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+          try {
+            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "parse_error");
+          } catch (e) { /* ignore */ }
+        }
+        if (!isChunked) {
+          throw new Error(`Failed to parse AI feedback: ${parseError instanceof Error ? parseError.message : "Unknown parsing error"}`);
+        }
+        // If chunked, skip this chunk and continue
+        continue;
+      }
     }
 
-    // Store successful usage
-    await storeUsageInfo("available", aiResponse.headers);
-
-    const aiData = await aiResponse.json();
-    console.log("AI analysis complete");
-
-    // Parse AI response
-    let feedback: FeedbackItem[];
-    try {
-      const content = aiData.choices[0].message.content;
-      
-      // Check if content is empty or response was cut off
-      if (!content || content.trim() === "") {
-        console.error("Empty AI response. Finish reason:", aiData.choices[0].finish_reason);
-        console.error("Token usage:", aiData.usage);
-        throw new Error("AI response was empty. This may indicate the response was cut off due to token limits. Try using a different model or simplifying your prompt.");
+    // Step 5: Clean up chunk records from DB
+    if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        await cleanupChunks(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId);
+        console.log(`Cleaned up chunk records for job: ${jobId}`);
+      } catch (e) {
+        console.error("Error cleaning up chunks:", e);
       }
-      
-      console.log("Raw AI response (first 500 chars):", content.substring(0, 500));
-      
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\[[\s\S]*\]/);
-      const jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
-      
-      console.log("Extracted JSON (first 500 chars):", jsonContent.substring(0, 500));
-      
-      feedback = JSON.parse(jsonContent);
-
-      // Validate feedback structure
-      if (!Array.isArray(feedback)) {
-        console.error("Feedback is not an array:", feedback);
-        throw new Error("AI response is not an array of feedback items");
-      }
-
-      // Add unique IDs to feedback items
-      feedback = feedback.map((item, index) => ({
-        ...item,
-        id: `feedback-${index}-${Date.now()}`,
-      }));
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
-      console.error("Full AI response:", JSON.stringify(aiData, null, 2));
-      throw new Error(`Failed to parse AI feedback: ${parseError instanceof Error ? parseError.message : "Unknown parsing error"}`);
     }
 
-    console.log("Generated feedback items:", feedback.length);
+    // Re-index feedback IDs
+    const feedback = allFeedback.map((item, index) => ({
+      ...item,
+      id: `feedback-${index}-${Date.now()}`,
+    }));
+
+    console.log("Total feedback items:", feedback.length);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        feedback,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      JSON.stringify({ success: true, feedback }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Error in analyze-figma function:", error);
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
 
 function extractCanvasData(document: any) {
-  const nodes: Array<{
-    id: string;
-    name: string;
-    type: string;
-    path: string;
-    text?: string; // Add text content for TEXT nodes
-  }> = [];
+  const nodes: any[] = [];
 
   function traverse(node: any, path: string = "") {
     if (!node) return;
+    if (node.visible === false) return;
 
-    // Skip hidden layers
-    if (node.visible === false) {
-      return;
-    }
+    // Use visible text as path label (not just the layer name)
+    const displayLabel = (node.type === "TEXT" && node.characters)
+      ? node.characters.trim().slice(0, 40)
+      : (node.name || node.type || "?");
+    const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
-    const currentPath = path ? `${path} > ${node.name}` : node.name;
-
-    // Include ALL nodes with IDs, especially interactive and leaf elements
     if (node.type && node.id) {
       const nodeData: any = {
         id: node.id,
-        name: node.name,
+        name: node.name,   // layer name — treat as hint only
         type: node.type,
         path: currentPath,
       };
 
-      // For TEXT nodes, include the actual text content
+      // TEXT: include visible content
       if (node.type === "TEXT" && node.characters) {
-        nodeData.text = node.characters;
+        nodeData.textContent = node.characters;
       }
+      if (node.fontSize) nodeData.fontSize = node.fontSize;
+
+      // Position and size (enables spatial reasoning)
+      if (node.absoluteBoundingBox) {
+        nodeData.x = Math.round(node.absoluteBoundingBox.x);
+        nodeData.y = Math.round(node.absoluteBoundingBox.y);
+        nodeData.w = Math.round(node.absoluteBoundingBox.width);
+        nodeData.h = Math.round(node.absoluteBoundingBox.height);
+      }
+
+      // Visual interactivity signals
+      if (node.cornerRadius) nodeData.cornerRadius = node.cornerRadius;
+      if (Array.isArray(node.fills) && node.fills.length > 0) {
+        nodeData.fillTypes = node.fills
+          .filter((f: any) => f.visible !== false)
+          .map((f: any) => f.type);
+      }
+      if (node.layoutMode && node.layoutMode !== "NONE") nodeData.layoutMode = node.layoutMode;
 
       nodes.push(nodeData);
     }
@@ -542,15 +600,9 @@ function extractCanvasData(document: any) {
 
   traverse(document);
 
-  // Prioritize TEXT nodes for better typo detection
-  const textNodes = nodes.filter(n => n.type === "TEXT" && n.text);
-  const otherNodes = nodes.filter(n => n.type !== "TEXT" || !n.text);
-  
-  // Return up to 300 nodes total, with TEXT nodes first for better analysis
-  const prioritizedNodes = [...textNodes, ...otherNodes].slice(0, 300);
-
+  // Use token-based chunking upstream — return all nodes (no artificial slice)
   return {
     name: document.name,
-    nodes: prioritizedNodes,
+    nodes,
   };
 }
