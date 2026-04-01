@@ -100,6 +100,36 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   return flat;
 }
 
+// Extract all visible text grouped by top-level frame
+function extractTextContent(flatNodes: any[]): string {
+  const grouped: Record<string, string[]> = {};
+  for (const node of flatNodes) {
+    if (!node.text) continue;
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!grouped[topFrame]) grouped[topFrame] = [];
+    grouped[topFrame].push(node.text);
+  }
+  return Object.entries(grouped)
+    .map(([frame, texts]) => `[${frame}]\n${texts.join('\n')}`)
+    .join('\n\n');
+}
+
+// Extract all fill colours grouped by top-level frame
+function extractColorContext(flatNodes: any[]): string {
+  const grouped: Record<string, Set<string>> = {};
+  for (const node of flatNodes) {
+    if (!node.fills || !Array.isArray(node.fills)) continue;
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!grouped[topFrame]) grouped[topFrame] = new Set();
+    for (const fill of node.fills) {
+      if (fill.hex) grouped[topFrame].add(`${fill.hex} (${node.type}${node.name ? ': ' + node.name : ''})`);
+    }
+  }
+  return Object.entries(grouped)
+    .map(([frame, colors]) => `[${frame}]\n${[...colors].join('\n')}`)
+    .join('\n\n');
+}
+
 // Chunk flat nodes by estimated token size
 function chunkByTokens(nodes: any[], maxTokensPerChunk: number): any[][] {
   const chunks: any[][] = [];
@@ -332,7 +362,11 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = "You are an expert UX/UI designer providing professional design feedback." + (dsContext ? " You are also a design systems specialist with deep knowledge of the attached Design System — you know every component, token, and pattern. Every piece of feedback should either flag a DS deviation, confirm correct usage, or provide DS-guided recommendations." : "") + " CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].";
+    const systemPrompt = `You are a senior product designer doing design QA.
+Every issue you raise must be proven by a specific node ID, text string, or colour value from the data.
+Never raise theoretical issues you cannot point to.
+Severity: HIGH = broken, embarrassing or misleading to a user right now. MEDIUM = confusing or inconsistent. LOW = polish.
+Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
     console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
     let allFeedback: FeedbackItem[] = [];
@@ -348,161 +382,91 @@ serve(async (req) => {
         : Math.floor(80 / allowedCategories.length);
 
       const designContext = JSON.stringify(chunk, null, 2);
-
-      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs. Analyze the following design data and provide detailed feedback.
-
-Design Structure${chunkLabel} (node hierarchy with IDs - USE THESE EXACT IDs):
-${designContext}
-
-File: ${fileName}
-Page: ${pageName}
-
-CRITICAL NODE ID INSTRUCTIONS:
-- You MUST use the EXACT node IDs from the list above
-- Choose the MOST SPECIFIC node ID for each piece of feedback
-- For a button issue, use the button's node ID, NOT its parent frame
-- For a text issue, use the text layer's node ID, NOT the containing group
-- The more specific the node, the better the comment placement will be`;
-
-      const formatInstructions = `
-For each issue found, provide:
-- A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
-- Detailed description of the issue AND specific actionable suggestions on how to fix it (NO technical IDs in the description)
-- Severity (low, medium, high)
-- The EXACT node ID from the structure above for the specific element this feedback applies to
-- Component/frame name (user-friendly name only, NO technical IDs)
-- A concrete suggestion field with the fix
-
-CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
-Only use these exact category values: ${categoryOptions}
-
-CRITICAL BALANCE REQUIREMENT: Provide feedback distributed across ALL requested categories.
-- Provide ${itemsPerCategory} feedback items for EACH category requested
-- Do NOT skip any category
-
-Format your response as a JSON array:
-[{
-  "category": ${categoryOptions},
-  "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description with specific suggestions (clean, no IDs)",
-  "suggestion": "Specific actionable fix",
-  "severity": "low" | "medium" | "high",
-  "location": "User-friendly component name",
-  "nodeId": "exact_node_id_from_structure"
-}]
-
-CRITICAL: 
-- NEVER include technical IDs like [123:456] in title or description
-- Always include the nodeId field with the exact ID from the design structure
-- For the location field, use ONLY user-friendly, descriptive names
-- For EACH issue, include specific, actionable suggestions
-
-${ignoreChrome ? `
-IGNORE CHROME ELEMENTS:
-- Do NOT provide any feedback on: status bars, app bars, headers, top navigation bars, bottom navigation bars, footers, navigation drawers, tab bars at the bottom/top of the screen, or any other structural chrome/shell elements.
-- Only focus on the actual content area of the screen — the unique, page-specific content that the designer controls.
-- If an issue exists exclusively in a header, footer, or nav bar, skip it entirely.
-` : ""}
-
-${allowedCategories.includes("consistency") ? `
-SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
-- Compare ALL elements for inconsistent patterns
-- Look for text variations, inconsistent styles, spacing
-- Flag ALL instances of inconsistency
-${dsContext ? `- CROSS-REFERENCE WITH DS: flag inconsistencies where the same DS component is used with different props/overrides across the screen (e.g. one card uses shadow, another doesn't). Also flag where a pattern is replicated in a custom frame instead of using the DS component consistently.` : ""}
-` : ""}
-
-${allowedCategories.includes("ux") ? `
-SPECIAL INSTRUCTIONS FOR UX REVIEW:
-- Review user flows, affordances, feedback states, empty states, error handling
-- Check CTAs, hierarchy, navigation clarity, and task completion paths
-${dsContext ? `- When a UX pattern could be solved by a DS component (e.g. a bottom sheet, a toast, a modal) but a custom solution is used instead, flag it. Reference the specific DS component name.` : ""}
-` : ""}
-
-      ${allowedCategories.includes("ui") ? `
-SPECIAL INSTRUCTIONS FOR UI REVIEW:
-- Review visual hierarchy, spacing, alignment, typography, and color usage
-
-CRITICAL — AVOID FALSE POSITIVES ON STYLES ALREADY USING DS TOKENS:
-- Each node in the design data may have a "textStyleId" / "textStyleName" field and/or a "fillStyleId" / "fillStyleName" field.
-- If a node has "textStyleId" set (non-null), that text node is ALREADY using a bound DS text style. Do NOT flag it for typography deviation.
-- If a node has "fillStyleId" set (non-null), that node is ALREADY using a bound DS color token. Do NOT flag it for color deviation.
-- Only flag nodes that have fills/typography values BUT no bound style ID.
-
-${dsContext ? `
-- DS COLOR AUDIT: For every fill/color on nodes that do NOT have a fillStyleId, convert the hex field to compare against the DS color token map below.
-  DS COLOR TOKEN MAP (TokenName=HexValue): [${
-    (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-      ? dsContext.colorTokenMap.slice(0, 80).map((t: any) => `${t.name}=${t.hex}`).join(', ')
-      : (dsContext.colorNames || []).slice(0, 60).join(', ')
-  }]
-  If the hex fill is NOT in this map, flag it as a "ui" issue.
-  CRITICAL: In the "suggestion" field, name the CLOSEST color token by hex distance AND include its hex value.
-  Format — suggestion: "Replace #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest match by color."
-
-- DS TYPOGRAPHY AUDIT: For every text node that does NOT have a textStyleId, check font family+size+weight against DS text styles.
-  DS TEXT STYLE MAP (StyleName=Family SizePx Weight): [${
-    (dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
-      ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}=${t.family} ${t.size}px ${t.weight}`).join(', ')
-      : (dsContext.textStyleNames || []).slice(0, 30).join(', ')
-  }]
-  Flag deviations as "ui" issues. In the suggestion, name the closest matching text style AND its font/size/weight values.
-  Format — suggestion: "Replace Inter 100px Bold with DS text style 'Heading/Display' (Inter 96px ExtraBold) — closest match."
-
-- DS SPACING AUDIT: Check padding/margin values against DS spacing conventions. Flag non-standard values and suggest the nearest DS spacing increment.
-` : `
-- COLOR TOKEN SUGGESTIONS (no DS connected): For any fill color on a node that appears to be a raw custom hex (not a semantic value), note the hex value and suggest the designer assigns it a token. Use the hex field (e.g. "fills[0].hex") directly from the design data.
-  Example: "Text color #1C3FCA is applied directly — consider defining it as a named color token for consistency."
-`}
-` : ""}
-
-${allowedCategories.includes("ux_writing") ? `
-SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
-- Scan ALL text content thoroughly
-- Check EVERY button label, heading, paragraph, placeholder
-- Look for typos, spelling errors, grammatical mistakes
-- Be comprehensive - catch ALL text issues
-` : ""}`;
+      const textContent = extractTextContent(chunk);
+      const colorContent = extractColorContext(chunk);
 
       const dsPromptSection = dsContext ? `
 ═══ DESIGN SYSTEM CONTEXT ═══
-This screen is built using a connected Design System. You have access to the full DS inventory. Your feedback MUST actively use this context.
-
 DS INVENTORY:
-- Components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 100).join(', ')}
-- Icon components: ${(dsContext.iconNames || []).slice(0, 60).join(', ')}
-- Color tokens (${(dsContext.colorTokenMap || dsContext.colorNames || []).length} total): ${
+- Components (${(dsContext.componentNames || []).length}): ${(dsContext.componentNames || []).slice(0, 100).join(', ')}
+- Color tokens (${(dsContext.colorTokenMap || dsContext.colorNames || []).length}): ${
   (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-    ? dsContext.colorTokenMap.slice(0, 60).map((t: any) => `${t.name}=${t.hex}`).join(', ')
+    ? dsContext.colorTokenMap.slice(0, 80).map((t: any) => `${t.name}=${t.hex}`).join(', ')
     : (dsContext.colorNames || []).slice(0, 60).join(', ')
 }
 - Text styles: ${(dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
   ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}(${t.family} ${t.size}px ${t.weight})`).join(', ')
   : (dsContext.textStyleNames || []).slice(0, 30).join(', ')}
-- Effect styles: ${(dsContext.effectStyleNames || []).slice(0, 10).join(', ')}
 ${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join(', ')}` : ""}
 
-DS FEEDBACK RULES — apply to ALL categories, not just "design_system":
-1. COMPONENT SUBSTITUTION: When a node appears to be a custom-built version of a DS component (matching shape, role, or pattern), flag it in "design_system" category. Name the exact DS component to use.
-   Example suggestion: "Use DS component 'Button/Primary' instead of this custom frame — matches the shape and role exactly."
-2. TOKEN DEVIATION (UI): ONLY flag color deviations on nodes that do NOT have a "fillStyleId" field. If a node has fillStyleId set, it is already using a DS color token — skip it.
-   For nodes without fillStyleId: use the "hex" field in fills[] directly. Compare that hex to the DS COLOR TOKEN MAP and find the closest token.
-   Example suggestion: "Replace fill #1C3FCA with DS color token 'Primary/Blue-700' [#1C40CA] — nearest brand color."
-3. TEXT STYLE DEVIATION (UI): ONLY flag typography deviations on nodes that do NOT have a "textStyleId" field. If a node has textStyleId set, it is already using a DS text style — this is CORRECT usage, do NOT flag it.
-   For nodes without textStyleId: check font family+size+weight against DS text styles.
-   CRITICAL: If the node has textStyleId, it is 100% correct and must NOT be flagged — even if the font values seem unusual.
-   Example suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular' (Inter 16px Regular) — exact match."
-4. CONSISTENCY VIA DS (Consistency): When the same UI pattern appears multiple times but one uses a DS component and another uses a custom frame — flag the inconsistency.
-5. DS CORRECT USAGE: When a node has a textStyleId OR fillStyleId, it is using the DS correctly. Do NOT flag these as deviations.
-6. ALWAYS be specific: cite exact DS token/style/component names AND their hex/size/weight values in every suggestion.
-
-Use category "design_system" ONLY for structural component substitution issues. Use "ui" for token/style deviations.
+DS RULES:
+- Nodes with fillStyleId set are ALREADY using a DS color token — do NOT flag them.
+- Nodes with textStyleId set are ALREADY using a DS text style — do NOT flag them.
+- Only flag nodes WITHOUT these bound style IDs.
+- For unbound fills, compare hex to DS COLOR TOKEN MAP and suggest the closest token.
+- For unbound text, compare font/size/weight to DS text styles and suggest the closest style.
 ` : '';
 
+      const analysisPrompt = `
+═══ DESIGN DATA${chunkLabel} ═══
+File: ${fileName} | Page: ${pageName}
 
-      const analysisPrompt = isCustom
-        ? `${baseContext}\n\n${dsPromptSection}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
-        : `${baseContext}\n\n${dsPromptSection}\n\n${prompt}\n${formatInstructions}`;
+Node hierarchy (use these exact IDs in nodeId field):
+${designContext}
+
+═══ ALL VISIBLE TEXT ═══
+${textContent}
+
+═══ ALL FILL COLOURS ═══
+${colorContent}
+
+${dsPromptSection}
+
+${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
+═══ REVIEW CHECKLIST ═══
+Work through each rule and flag every violation you find:
+
+TEXT RULES
+1. Any text node whose value looks like it was never updated from a dev/design default (e.g. matches patterns like trailing digits, "copy of", "untitled", "lorem ipsum", "placeholder", "label", "title", "text here", "item 1")
+2. Any spelling or grammatical error in visible text
+3. Inconsistent terminology for the same concept across screens (e.g. same action called two different things)
+4. Inconsistent capitalisation style for the same type of element across screens (e.g. some buttons title case, some all caps)
+5. Truncated or cut-off text that appears incomplete
+
+COLOUR RULES
+6. A colour used in a context where it contradicts its conventional meaning (success/confirmation using red or orange, destructive action using green, disabled state using a high-contrast colour)
+7. The same semantic role (primary CTA, error, warning, success) rendered in different colours across screens
+8. A text colour that is likely to fail contrast against its background based on the fill values
+
+COMPONENT & NAMING RULES
+9. Any frame or component whose name looks like it was never renamed from a default (trailing digits, "frame \\d+", "group \\d+", "rectangle \\d+")
+10. The same UI pattern (e.g. a card, a list item, a header) implemented differently across screens instead of using a shared component
+
+LAYOUT RULES
+11. Inconsistent spacing for the same type of element across screens
+12. Elements that are misaligned relative to their siblings based on bounding box data
+
+UX RULES
+13. A flow where a destructive or irreversible action has no confirmation step visible in the data
+14. A primary CTA whose label does not clearly describe the outcome of pressing it
+15. Any screen that appears to be a dead end (no visible navigation or exit action in the data)
+
+═══ OUTPUT FORMAT ═══
+CRITICAL CATEGORY RESTRICTION: Only use these category values: ${categoryOptions}
+Aim for ${itemsPerCategory} items per category, distributed across ALL requested categories.
+
+Use the MOST SPECIFIC node ID for each issue (the text layer, not the parent frame).
+NEVER include technical IDs like [123:456] in title or description fields.
+
+[{
+  "category": ${categoryOptions},
+  "title": "Human-readable issue title",
+  "description": "What is wrong and why it matters",
+  "suggestion": "Specific actionable fix",
+  "severity": "low" | "medium" | "high",
+  "location": "User-friendly component name",
+  "nodeId": "exact_node_id_from_structure"
+}]`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
@@ -603,6 +567,18 @@ Use category "design_system" ONLY for structural component substitution issues. 
         console.error("Error cleaning up chunks:", e);
       }
     }
+
+    // Deduplicate by title (case-insensitive) and sort high → medium → low
+    const seen = new Set<string>();
+    const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    allFeedback = allFeedback
+      .filter(item => {
+        const key = (item.title || '').toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
 
     const categoryCount: Record<string, number> = {};
     allFeedback.forEach(item => {
