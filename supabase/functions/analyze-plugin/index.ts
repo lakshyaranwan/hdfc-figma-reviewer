@@ -189,6 +189,49 @@ function extractSemanticContext(flatNodes: any[]): string {
     .join('\n\n');
 }
 
+// Pre-compute page-level semantic clashes deterministically
+// This catches contradictions the AI might miss from raw data
+function computePageSemantics(flatNodes: any[]): string {
+  const frames: Record<string, { texts: string[]; redNodes: any[]; greenNodes: any[] }> = {};
+
+  for (const node of flatNodes) {
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!frames[topFrame]) frames[topFrame] = { texts: [], redNodes: [], greenNodes: [] };
+
+    if (node.text) frames[topFrame].texts.push(node.text);
+
+    if (!node.fills || node.type === 'TEXT') continue;
+    for (const fill of node.fills) {
+      if (!fill.hex) continue;
+      const label = classifyColor(fill.hex);
+      if (label.includes('RED/DANGER')) {
+        frames[topFrame].redNodes.push({ id: node.id, hex: fill.hex, name: node.name, size: node.size });
+      } else if (label.includes('GREEN/SUCCESS')) {
+        frames[topFrame].greenNodes.push({ id: node.id, hex: fill.hex, name: node.name });
+      }
+    }
+  }
+
+  const clashes: string[] = [];
+  for (const [frame, data] of Object.entries(frames)) {
+    const allText = data.texts.join(' ').toLowerCase();
+    const hasSuccessText = /(success|completed|done|sent|confirmed|initiated|congratulations|processed|approved)/.test(allText);
+    const hasErrorText = /(error|failed|declined|rejected|denied|problem|issue)/.test(allText);
+
+    if (hasSuccessText && data.redNodes.length > 0) {
+      const redDetails = data.redNodes.map(n => `id:${n.id} fill:${n.hex} size:${n.size?.w}x${n.size?.h}`).join('; ');
+      clashes.push(`🚨 CLASH on [${frame}]: Page contains SUCCESS text ("${data.texts.filter(t => /(success|completed|done|sent|confirmed|initiated|congratulations|processed|approved)/i.test(t)).slice(0, 3).join('", "')}") BUT has RED/DANGER containers: ${redDetails}. This is a CRITICAL semantic contradiction — flag as HIGH severity.`);
+    }
+    if (hasErrorText && data.greenNodes.length > 0) {
+      const greenDetails = data.greenNodes.map(n => `id:${n.id} fill:${n.hex}`).join('; ');
+      clashes.push(`🚨 CLASH on [${frame}]: Page contains ERROR text BUT has GREEN/SUCCESS containers: ${greenDetails}. Flag as HIGH severity.`);
+    }
+  }
+
+  if (clashes.length === 0) return '';
+  return clashes.join('\n');
+}
+
 // Extract all fill colours grouped by top-level frame
 function extractColorContext(flatNodes: any[]): string {
   const grouped: Record<string, Set<string>> = {};
