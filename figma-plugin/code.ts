@@ -36,22 +36,15 @@ interface DesignNode {
   opacity?: number;
 }
 
-// Track extracted node count to cap payload size
-let _extractedNodeCount = 0;
-const MAX_EXTRACTED_NODES = 500;
-
 // Extract design data from a node recursively
 function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null {
-  if (depth > 8) return null; // Limit depth
-  if (_extractedNodeCount >= MAX_EXTRACTED_NODES) return null; // Cap total nodes
+  if (depth > 10) return null; // Limit depth to prevent huge payloads
   
   // Skip hidden layers/elements
   if (!node.visible) return null;
   
   // Skip elements with opacity set to 0
   if ('opacity' in node && node.opacity === 0) return null;
-  
-  _extractedNodeCount++;
   
   const baseData: DesignNode = {
     id: node.id,
@@ -66,43 +59,41 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
   if ('width' in node) baseData.width = Math.round(node.width);
   if ('height' in node) baseData.height = Math.round(node.height);
 
-  // Only include visual details for shallow nodes (top 4 levels)
-  if (depth < 4) {
-    if ('fills' in node && node.fills !== figma.mixed) {
-      baseData.fills = (node.fills as readonly Paint[]).map(fill => ({
-        type: fill.type,
-        visible: fill.visible,
-        opacity: fill.opacity,
-        color: 'color' in fill ? fill.color : undefined,
-      }));
-    }
-
-    if ('strokes' in node) {
-      baseData.strokes = (node.strokes as readonly Paint[]).map(stroke => ({
-        type: stroke.type,
-        visible: stroke.visible,
-        color: 'color' in stroke ? stroke.color : undefined,
-      }));
-    }
-
-    if ('effects' in node) {
-      baseData.effects = (node.effects as readonly Effect[]).map(effect => ({
-        type: effect.type,
-        visible: effect.visible,
-        radius: 'radius' in effect ? effect.radius : undefined,
-      }));
-    }
-
-    if ('cornerRadius' in node && node.cornerRadius !== figma.mixed) {
-      baseData.cornerRadius = node.cornerRadius;
-    }
-
-    if ('opacity' in node) {
-      baseData.opacity = node.opacity;
-    }
+  // Visual properties
+  if ('fills' in node && node.fills !== figma.mixed) {
+    baseData.fills = (node.fills as readonly Paint[]).map(fill => ({
+      type: fill.type,
+      visible: fill.visible,
+      opacity: fill.opacity,
+      color: 'color' in fill ? fill.color : undefined,
+    }));
   }
 
-  // Text properties (always include - they're lightweight and important)
+  if ('strokes' in node) {
+    baseData.strokes = (node.strokes as readonly Paint[]).map(stroke => ({
+      type: stroke.type,
+      visible: stroke.visible,
+      color: 'color' in stroke ? stroke.color : undefined,
+    }));
+  }
+
+  if ('effects' in node) {
+    baseData.effects = (node.effects as readonly Effect[]).map(effect => ({
+      type: effect.type,
+      visible: effect.visible,
+      radius: 'radius' in effect ? effect.radius : undefined,
+    }));
+  }
+
+  if ('cornerRadius' in node && node.cornerRadius !== figma.mixed) {
+    baseData.cornerRadius = node.cornerRadius;
+  }
+
+  if ('opacity' in node) {
+    baseData.opacity = node.opacity;
+  }
+
+  // Text properties
   if (node.type === 'TEXT') {
     const textNode = node as TextNode;
     baseData.characters = textNode.characters;
@@ -126,10 +117,9 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
   }
 
   // Children
-  if ('children' in node && _extractedNodeCount < MAX_EXTRACTED_NODES) {
+  if ('children' in node) {
     const children: DesignNode[] = [];
     for (const child of node.children) {
-      if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
       const childData = extractNodeData(child, depth + 1);
       if (childData) children.push(childData);
     }
@@ -152,12 +142,8 @@ function getSelectionData() {
     };
   }
 
-  // Reset node counter before extraction
-  _extractedNodeCount = 0;
-  
   const nodes: DesignNode[] = [];
   for (const node of selection) {
-    if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
     const nodeData = extractNodeData(node);
     if (nodeData) nodes.push(nodeData);
   }
@@ -171,53 +157,23 @@ function getSelectionData() {
   };
 }
 
-// Find a node by ID using Figma's direct lookup (O(1) instead of tree traversal)
+// Find a node by ID in the current page
 function findNodeById(nodeId: string): SceneNode | null {
-  try {
-    const node = figma.getNodeById(nodeId);
-    if (node && node.type !== 'PAGE' && node.type !== 'DOCUMENT') {
-      return node as SceneNode;
-    }
-  } catch (e) {
-    // fallback silently
-  }
-  return null;
+  return figma.currentPage.findOne(n => n.id === nodeId);
 }
 
-// Cache for node name lookups (populated during selection)
-const _nodeNameCache: Map<string, string> = new Map();
-
-// Find a node by name - uses cache first, then limited search
+// Find a node by name in the selection or current page
 function findNodeByName(name: string): SceneNode | null {
-  // Check cache first (O(1))
-  const cachedId = _nodeNameCache.get(name);
-  if (cachedId) {
-    const node = findNodeById(cachedId);
-    if (node) return node;
-  }
-  
-  // Check current selection only (avoid full page scan)
+  // First check in current selection
   for (const node of figma.currentPage.selection) {
     if (node.name === name) return node;
     if ('findOne' in node) {
       const found = (node as FrameNode).findOne(n => n.name === name);
-      if (found) {
-        _nodeNameCache.set(name, found.id);
-        return found;
-      }
+      if (found) return found;
     }
   }
-  return null;
-}
-
-// Build name cache from extracted nodes
-function cacheNodeNames(nodes: DesignNode[]) {
-  _nodeNameCache.clear();
-  function walk(node: DesignNode) {
-    if (node.name && node.id) _nodeNameCache.set(node.name, node.id);
-    if (node.children) node.children.forEach(walk);
-  }
-  nodes.forEach(walk);
+  // Then check in the whole page
+  return figma.currentPage.findOne(n => n.name === name);
 }
 
 
@@ -687,18 +643,15 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
 // Handle messages from UI
 figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'get-selection') {
-    const data = getSelectionData();
-    if (data.nodes) cacheNodeNames(data.nodes);
     figma.ui.postMessage({
       type: 'selection-data',
-      data,
+      data: getSelectionData(),
     });
   }
 
   if (msg.type === 'analyze') {
     // Send current selection data for analysis
     const selectionData = getSelectionData();
-    if (selectionData.nodes) cacheNodeNames(selectionData.nodes);
     figma.ui.postMessage({
       type: 'analyze-data',
       data: selectionData,
