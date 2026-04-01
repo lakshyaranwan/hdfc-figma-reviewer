@@ -178,10 +178,9 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
   }
 
   // Children
-  if ('children' in node && _extractedNodeCount < MAX_EXTRACTED_NODES) {
+  if ('children' in node) {
     const children: DesignNode[] = [];
     for (const child of node.children) {
-      if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
       const childData = extractNodeData(child, depth + 1);
       if (childData) children.push(childData);
     }
