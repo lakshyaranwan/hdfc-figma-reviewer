@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisForm } from "@/components/AnalysisForm";
 import { FeedbackDisplay } from "@/components/FeedbackDisplay";
-import { Settings, Key } from "lucide-react";
+import { Settings, Key, Download } from "lucide-react";
 import hdfcLogo from "@/assets/hdfc-logo.png";
 
 export type FeedbackItem = {
