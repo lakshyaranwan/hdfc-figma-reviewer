@@ -405,6 +405,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
           ],
           max_tokens: 64000,
           temperature: 0,
+          seed: 42,
         }),
       });
 
