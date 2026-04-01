@@ -290,58 +290,124 @@ function extractColorContext(flatNodes: any[]): string {
     .join('\n\n');
 }
 
-// Build cross-screen comparison facts: find terminology inconsistencies and label-value pairs
+// Build cross-screen comparison facts: find data inconsistencies across screens in a flow
+// This is GENERIC — it doesn't rely on hardcoded labels. Instead it:
+// 1. Finds all label→value pairs on each screen (label = short text, value = next text nearby)
+// 2. Normalizes labels and compares values across screens
+// 3. Also detects same data field showing different values (e.g. amount, name, account)
 function buildCrossScreenFacts(flatNodes: any[]): string {
-  // Group text by frame
-  const frameTexts: Record<string, { text: string; id: string; y: number }[]> = {};
+  // Group text nodes by top-level frame, sorted by y
+  const frameTexts: Record<string, { text: string; id: string; y: number; x: number; fontSize?: number }[]> = {};
   for (const node of flatNodes) {
     if (!node.text) continue;
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!frameTexts[topFrame]) frameTexts[topFrame] = [];
-    frameTexts[topFrame].push({ text: node.text, id: node.id, y: node.y ?? 0 });
+    frameTexts[topFrame].push({ 
+      text: node.text.trim(), 
+      id: node.id, 
+      y: node.y ?? 0, 
+      x: node.x ?? 0,
+      fontSize: node.fontSize 
+    });
   }
+
+  const frames = Object.keys(frameTexts);
+  if (frames.length <= 1) return '';
 
   const facts: string[] = [];
 
-  // Find label-value pairs across screens (e.g. "Transfer Mode" → "NEFT" on one screen, "Within HDFC" on another)
-  const labelPatterns = [
-    /transfer\s*mode/i, /payment\s*method/i, /payment\s*mode/i, /transfer\s*type/i,
-    /amount/i, /from/i, /to\s*$/i,
-  ];
+  // Strategy 1: Generic label→value pair detection
+  // A "label" is a short text (≤5 words) that looks like a field name
+  // A "value" is the text node immediately after it (by y-position, within ~80px)
+  const isLikelyLabel = (text: string): boolean => {
+    const words = text.split(/\s+/);
+    if (words.length > 5 || words.length === 0) return false;
+    if (text.length > 40) return false;
+    // Looks like a label if it ends with colon, or is short, or contains common label words
+    if (text.endsWith(':')) return true;
+    if (/^(from|to|amount|mode|type|method|name|account|bank|date|status|reference|ref|upi|ifsc|number|beneficiary|payee|transfer|payment|transaction|balance|fee|charge|total|net|gross)/i.test(text)) return true;
+    // Short capitalized or title-case phrases are likely labels
+    if (words.length <= 3 && /^[A-Z]/.test(text)) return true;
+    return false;
+  };
 
-  const frames = Object.keys(frameTexts);
-  if (frames.length > 1) {
-    // For each frame, find label→value pairs (label followed by value in y-order)
-    const frameLabelValues: Record<string, Record<string, string>> = {};
-    for (const [frame, nodes] of Object.entries(frameTexts)) {
-      const sorted = [...nodes].sort((a, b) => a.y - b.y);
-      frameLabelValues[frame] = {};
-      for (let i = 0; i < sorted.length - 1; i++) {
-        for (const pat of labelPatterns) {
-          if (pat.test(sorted[i].text)) {
-            frameLabelValues[frame][sorted[i].text.trim()] = sorted[i + 1].text.trim();
-          }
-        }
+  const frameLabelValues: Record<string, Record<string, { value: string; rawLabel: string }>> = {};
+  
+  for (const [frame, nodes] of Object.entries(frameTexts)) {
+    const sorted = [...nodes].sort((a, b) => a.y - b.y || a.x - b.x);
+    frameLabelValues[frame] = {};
+    
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const current = sorted[i];
+      if (!isLikelyLabel(current.text)) continue;
+      
+      // Find the next text node that's close by (within 80px vertically or same y but to the right)
+      for (let j = i + 1; j < Math.min(i + 4, sorted.length); j++) {
+        const next = sorted[j];
+        const yDist = Math.abs(next.y - current.y);
+        if (yDist > 80) break;
+        
+        // Skip if next is also a label
+        if (isLikelyLabel(next.text) && next.text.length < current.text.length) continue;
+        
+        // This is likely the value
+        const normalizedLabel = current.text.replace(/[:：]/g, '').trim().toLowerCase();
+        frameLabelValues[frame][normalizedLabel] = { 
+          value: next.text, 
+          rawLabel: current.text 
+        };
+        break;
       }
     }
+  }
 
-    // Compare across frames
-    const allLabels = new Set<string>();
-    for (const lvs of Object.values(frameLabelValues)) {
-      for (const label of Object.keys(lvs)) allLabels.add(label);
+  // Compare same labels across frames
+  const allLabels = new Set<string>();
+  for (const lvs of Object.values(frameLabelValues)) {
+    for (const label of Object.keys(lvs)) allLabels.add(label);
+  }
+
+  for (const label of allLabels) {
+    const occurrences: { frame: string; value: string; rawLabel: string }[] = [];
+    for (const [frame, lvs] of Object.entries(frameLabelValues)) {
+      if (lvs[label]) occurrences.push({ frame, value: lvs[label].value, rawLabel: lvs[label].rawLabel });
     }
+    if (occurrences.length > 1) {
+      const uniqueValues = [...new Set(occurrences.map(o => o.value))];
+      if (uniqueValues.length > 1) {
+        facts.push(`DATA INCONSISTENCY: "${occurrences[0].rawLabel}" has different values across screens: ${occurrences.map(o => `"${o.value}" on [${o.frame}]`).join(' vs ')}. This breaks the story — if a user chose one value, the review/confirmation screen should show the same value.`);
+      }
+    }
+  }
 
-    for (const label of allLabels) {
-      const values: { frame: string; value: string }[] = [];
-      for (const [frame, lvs] of Object.entries(frameLabelValues)) {
-        if (lvs[label]) values.push({ frame, value: lvs[label] });
+  // Strategy 2: Detect same distinctive value appearing with different labels
+  // e.g. "NEFT" appearing as value of "Transfer Mode" on one screen and "Payment Type" on another
+  // (This catches label renaming across screens)
+  const valueToLabels: Record<string, { label: string; frame: string }[]> = {};
+  for (const [frame, lvs] of Object.entries(frameLabelValues)) {
+    for (const [label, { value }] of Object.entries(lvs)) {
+      if (value.length < 2 || value.length > 30) continue; // skip very short/long values
+      if (!valueToLabels[value]) valueToLabels[value] = [];
+      valueToLabels[value].push({ label, frame });
+    }
+  }
+  for (const [value, entries] of Object.entries(valueToLabels)) {
+    if (entries.length > 1) {
+      const uniqueLabels = [...new Set(entries.map(e => e.label))];
+      if (uniqueLabels.length > 1) {
+        facts.push(`LABEL INCONSISTENCY: The value "${value}" is labelled differently across screens: ${entries.map(e => `"${e.label}" on [${e.frame}]`).join(' vs ')}. Use consistent terminology.`);
       }
-      if (values.length > 1) {
-        const uniqueValues = [...new Set(values.map(v => v.value))];
-        if (uniqueValues.length > 1) {
-          facts.push(`INCONSISTENCY: "${label}" has different values across screens: ${values.map(v => `"${v.value}" on [${v.frame}]`).join(' vs ')}`);
-        }
-      }
+    }
+  }
+
+  // Log for debugging
+  if (facts.length > 0) {
+    console.log(`Cross-screen facts found: ${facts.length}`);
+  } else {
+    // Log what we found per frame for debugging
+    for (const [frame, lvs] of Object.entries(frameLabelValues)) {
+      const pairs = Object.entries(lvs).map(([k, v]) => `${k}="${v.value}"`).join(', ');
+      if (pairs) console.log(`[${frame}] label-values: ${pairs}`);
     }
   }
 
