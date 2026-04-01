@@ -770,12 +770,17 @@ function hasImageFill(node: SceneNode): boolean {
 
 // Walk up parent chain to find background color
 // Returns null if background cannot be determined (image fills, no fills at all)
-function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } | null {
+// Also returns gradientParentId if the background is a gradient (needs export-based sampling)
+function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number; gradientParentId?: string } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
     // If a parent has an image fill, we can't determine the bg color
     if (hasImageFill(sceneNode)) return null;
+    // Check for gradient fills — flag for export-based sampling
+    if (hasGradientFill(sceneNode)) {
+      return { r: -1, g: -1, b: -1, gradientParentId: sceneNode.id };
+    }
     const color = getNodeFillColor(sceneNode);
     if (color) return color;
     current = current.parent;
