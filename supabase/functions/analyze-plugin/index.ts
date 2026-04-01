@@ -362,7 +362,11 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = "You are an expert UX/UI designer providing professional design feedback." + (dsContext ? " You are also a design systems specialist with deep knowledge of the attached Design System — you know every component, token, and pattern. Every piece of feedback should either flag a DS deviation, confirm correct usage, or provide DS-guided recommendations." : "") + " CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].";
+    const systemPrompt = `You are a senior product designer doing design QA.
+Every issue you raise must be proven by a specific node ID, text string, or colour value from the data.
+Never raise theoretical issues you cannot point to.
+Severity: HIGH = broken, embarrassing or misleading to a user right now. MEDIUM = confusing or inconsistent. LOW = polish.
+Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
     console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
     let allFeedback: FeedbackItem[] = [];
