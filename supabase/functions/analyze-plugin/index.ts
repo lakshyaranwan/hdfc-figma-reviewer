@@ -446,6 +446,18 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
         else if (cleanContent.startsWith("```")) cleanContent = cleanContent.slice(3);
         if (cleanContent.endsWith("```")) cleanContent = cleanContent.slice(0, -3);
         cleanContent = cleanContent.trim();
+
+        // JSON truncation repair — if AI hit max_tokens the array may be cut off
+        if (!cleanContent.endsWith(']')) {
+          const lastBrace = cleanContent.lastIndexOf('}');
+          const lastComma = cleanContent.lastIndexOf(',');
+          if (lastBrace > 0 && lastBrace > lastComma) {
+            cleanContent = cleanContent.slice(0, lastBrace + 1) + ']';
+          } else if (lastComma > 0) {
+            cleanContent = cleanContent.slice(0, lastComma) + ']';
+          }
+          console.warn(`Chunk ${chunkIdx + 1}: repaired truncated JSON`);
+        }
         
         const chunkFeedback: FeedbackItem[] = JSON.parse(cleanContent);
         if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
