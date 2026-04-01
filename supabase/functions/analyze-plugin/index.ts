@@ -576,7 +576,7 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 16000,
+          max_tokens: 48000,
         }),
       });
 
@@ -631,8 +631,28 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
         else if (cleanContent.startsWith("```")) cleanContent = cleanContent.slice(3);
         if (cleanContent.endsWith("```")) cleanContent = cleanContent.slice(0, -3);
         cleanContent = cleanContent.trim();
-        
-        const chunkFeedback: FeedbackItem[] = JSON.parse(cleanContent);
+
+        // Attempt JSON repair for truncated responses
+        let chunkFeedback: FeedbackItem[];
+        try {
+          chunkFeedback = JSON.parse(cleanContent);
+        } catch (_initialParseError) {
+          console.warn(`Chunk ${chunkIdx + 1}: JSON truncated, attempting repair...`);
+          // Try closing the JSON array gracefully
+          let repaired = cleanContent;
+          // Remove trailing incomplete object/string
+          repaired = repaired.replace(/,\s*\{[^}]*$/, '');   // remove last incomplete object
+          repaired = repaired.replace(/,\s*"[^"]*$/, '');     // remove trailing incomplete string
+          if (!repaired.endsWith(']')) {
+            // Close any open object then close array
+            const openBraces = (repaired.match(/\{/g) || []).length;
+            const closeBraces = (repaired.match(/\}/g) || []).length;
+            for (let i = 0; i < openBraces - closeBraces; i++) repaired += '}';
+            repaired += ']';
+          }
+          chunkFeedback = JSON.parse(repaired);
+          console.log(`Chunk ${chunkIdx + 1}: repair succeeded with ${chunkFeedback.length} items`);
+        }
         if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
 
         allFeedback.push(...chunkFeedback);
