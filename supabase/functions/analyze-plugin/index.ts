@@ -89,7 +89,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     const children = node.children || node.nodes;
     if (Array.isArray(children)) {
       for (const child of children) {
-        traverse(child, currentPath, depth + 1);
+        traverse(child, currentPath, depth + 1, node.id);
       }
     }
   }
