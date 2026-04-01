@@ -82,7 +82,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     const simplified: any = {
       id: node.id,
-      name: node.name,
+      // name intentionally omitted — layer names cause false flags
       type: node.type,
       path: currentPath,
       parentId: parentId || null,
@@ -108,11 +108,11 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     }
     if (node.fontSize) simplified.fontSize = node.fontSize;
     if (node.fontName) simplified.fontName = node.fontName;
-    // Pass through bound DS style IDs — used to detect already-linked styles
-    if (node.textStyleId) simplified.textStyleId = node.textStyleId;
-    if (node.textStyleName) simplified.textStyleName = node.textStyleName;
-    if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
-    if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
+    // DS style IDs commented out — design system analysis disabled for now
+    // if (node.textStyleId) simplified.textStyleId = node.textStyleId;
+    // if (node.textStyleName) simplified.textStyleName = node.textStyleName;
+    // if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
+    // if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
     if (node.cornerRadius) simplified.cornerRadius = node.cornerRadius;
     if (node.opacity !== undefined && node.opacity !== 1) simplified.opacity = node.opacity;
     if (node.constraints) simplified.constraints = node.constraints;
@@ -779,10 +779,10 @@ serve(async (req) => {
     if (isCustom) {
       allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
     }
-    // Add design_system category when DS context is available
-    if (dsContext && !allowedCategories.includes("design_system")) {
-      allowedCategories.push("design_system");
-    }
+    // Design system category disabled for now
+    // if (dsContext && !allowedCategories.includes("design_system")) {
+    //   allowedCategories.push("design_system");
+    // }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
@@ -867,27 +867,8 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       if (crossScreenFacts) console.log(`CROSS-SCREEN:\n${crossScreenFacts}`);
       if (pageSemantics) console.log(`CLASHES:\n${pageSemantics}`);
 
-      const dsPromptSection = dsContext ? `
-═══ DESIGN SYSTEM CONTEXT ═══
-DS INVENTORY:
-- Components (${(dsContext.componentNames || []).length}): ${(dsContext.componentNames || []).slice(0, 100).join(', ')}
-- Color tokens (${(dsContext.colorTokenMap || dsContext.colorNames || []).length}): ${
-  (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-    ? dsContext.colorTokenMap.slice(0, 80).map((t: any) => `${t.name}=${t.hex}`).join(', ')
-    : (dsContext.colorNames || []).slice(0, 60).join(', ')
-}
-- Text styles: ${(dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
-  ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}(${t.family} ${t.size}px ${t.weight})`).join(', ')
-  : (dsContext.textStyleNames || []).slice(0, 30).join(', ')}
-${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join(', ')}` : ""}
-
-DS RULES:
-- Nodes with fillStyleId set are ALREADY using a DS color token — do NOT flag them.
-- Nodes with textStyleId set are ALREADY using a DS text style — do NOT flag them.
-- Only flag nodes WITHOUT these bound style IDs.
-- For unbound fills, compare hex to DS COLOR TOKEN MAP and suggest the closest token.
-- For unbound text, compare font/size/weight to DS text styles and suggest the closest style.
-` : '';
+      // Design system prompt section disabled for now
+      const dsPromptSection = '';
 
       const analysisPrompt = `
 ═══ DESIGN DATA${chunkLabel} ═══
