@@ -1392,14 +1392,15 @@ figma.ui.onmessage = async (msg: any) => {
       const CARD_PADDING = 20;
       const GAP_BETWEEN_CARDS = 12;
 
-      // Create a wrapper group frame with auto-layout so cards are always stacked cleanly
+      // Create wrapper group with auto-layout
       const group = figma.createFrame();
       group.name = '📝 Annotation';
-      group.fills = []; // transparent wrapper
+      group.resize(CARD_WIDTH, 10);
+      group.fills = [];
       group.layoutMode = 'VERTICAL';
       group.itemSpacing = GAP_BETWEEN_CARDS;
       group.primaryAxisSizingMode = 'AUTO';
-      group.counterAxisSizingMode = 'AUTO';
+      group.counterAxisSizingMode = 'FIXED';
 
       for (const section of sections) {
         const card = figma.createFrame();
@@ -1415,7 +1416,6 @@ figma.ui.onmessage = async (msg: any) => {
         card.itemSpacing = 12;
         card.primaryAxisSizingMode = 'AUTO';
         card.counterAxisSizingMode = 'FIXED';
-        card.layoutSizingHorizontal = 'FILL';
 
         // Pill badge
         const pill = figma.createFrame();
@@ -1438,18 +1438,20 @@ figma.ui.onmessage = async (msg: any) => {
         pill.appendChild(pillLabel);
         card.appendChild(pill);
 
-        // Body text
+        // Body text — set resize mode BEFORE setting sizing, and only use FIXED width
         const bodyText = figma.createText();
         bodyText.fontName = { family: 'Inter', style: 'Regular' };
         bodyText.characters = section.bodyText;
         bodyText.fontSize = 18;
         bodyText.lineHeight = { value: 26, unit: 'PIXELS' };
         bodyText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-        bodyText.layoutSizingHorizontal = 'FILL';
+        bodyText.resize(CARD_WIDTH - CARD_PADDING * 2, bodyText.height);
         bodyText.textAutoResize = 'HEIGHT';
         card.appendChild(bodyText);
 
+        // Append card to group first, THEN set FILL sizing
         group.appendChild(card);
+        card.layoutSizingHorizontal = 'FILL';
       }
 
       figma.currentPage.appendChild(group);
