@@ -283,6 +283,7 @@ Page: ${pageName}
 CRITICAL NODE ID INSTRUCTIONS:
 - You MUST use the EXACT node IDs from the design data above
 - Choose the MOST SPECIFIC node ID for each piece of feedback
+- For a button issue, use the button's node ID, NOT its parent frame
 - Include the nodeId field for every feedback item`;
 
       const formatInstructions = `
