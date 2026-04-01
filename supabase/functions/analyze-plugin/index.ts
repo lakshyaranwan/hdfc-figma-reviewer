@@ -398,10 +398,29 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = `You are a senior product designer doing design QA.
-Every issue you raise must be proven by a specific node ID, text string, or colour value from the data.
-Never raise theoretical issues you cannot point to.
-Severity: HIGH = broken, embarrassing or misleading to a user right now. MEDIUM = confusing or inconsistent. LOW = polish.
+    const systemPrompt = `You are a senior product designer doing design QA. You review like a stakeholder would — you catch the things that would be embarrassing in a demo or confusing to a real user.
+
+Every issue you raise MUST be proven by a specific node ID, text string, or colour value from the data provided. Never raise theoretical issues you cannot point to in the data.
+
+You work in TWO PASSES:
+PASS 1 — STAKEHOLDER GLANCE (HIGH and MEDIUM severity): Things a non-designer would spot in a 5-second look at the screen. These go first and get priority. Fill at least 70% of your output with these.
+PASS 2 — DESIGNER POLISH (LOW severity): Pixel-level refinements only a designer would notice. These fill remaining slots AFTER Pass 1 is exhausted.
+
+Severity definitions:
+HIGH = Broken, embarrassing, or actively misleading. A stakeholder would call this out in a review. Examples: red banner saying "Success", placeholder text still visible, a CTA saying "Submit" for a delete action, green used for an error state.
+MEDIUM = Confusing or inconsistent. A user would hesitate or be unsure. Examples: same action called different names on different screens, inconsistent button styles for the same role, unclear CTA labels.
+LOW = Polish. Only a designer doing a pixel audit would notice. Examples: 1px spacing difference, border radius inconsistency, slight alignment offset, padding mismatch.
+
+NEVER FLAG THESE (undetectable from static Figma data):
+- Hover states, focus rings, active states, pressed states
+- Animations, transitions, micro-interactions
+- Loading states, skeleton screens, shimmer effects
+- API responses, real data vs mock data
+- Scroll behaviour, pull-to-refresh
+- Keyboard navigation or screen reader behaviour
+- Performance, load times, responsiveness
+- Touch target sizes (unless visually obvious from bounding box)
+
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
     console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
@@ -420,6 +439,7 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const designContext = JSON.stringify(chunk, null, 2);
       const textContent = extractTextContent(chunk);
       const colorContent = extractColorContext(chunk);
+      const semanticContext = extractSemanticContext(chunk);
 
       const dsPromptSection = dsContext ? `
 ═══ DESIGN SYSTEM CONTEXT ═══
@@ -450,54 +470,91 @@ File: ${fileName} | Page: ${pageName}
 Node hierarchy (use these exact IDs in nodeId field):
 ${designContext}
 
-═══ ALL VISIBLE TEXT ═══
+═══ ALL VISIBLE TEXT (with node IDs) ═══
 ${textContent}
 
-═══ ALL FILL COLOURS ═══
+═══ ALL FILL COLOURS (with node IDs) ═══
 ${colorContent}
+
+═══ SEMANTIC CONTEXT (container fill → child text pairings) ═══
+Use this to detect colour-meaning clashes. Each line shows a container's fill colour and the text inside it.
+${semanticContext}
 
 ${dsPromptSection}
 
 ${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
-═══ REVIEW CHECKLIST ═══
-Work through each rule and flag every violation you find:
 
-TEXT RULES
-1. Any text node whose value looks like it was never updated from a dev/design default (e.g. matches patterns like trailing digits, "copy of", "untitled", "lorem ipsum", "placeholder", "label", "title", "text here", "item 1")
-2. Any spelling or grammatical error in visible text
-3. Inconsistent terminology for the same concept across screens (e.g. same action called two different things)
-4. Inconsistent capitalisation style for the same type of element across screens (e.g. some buttons title case, some all caps)
-5. Truncated or cut-off text that appears incomplete
+═══ PASS 1: STAKEHOLDER GLANCE (HIGH + MEDIUM) ═══
+Scan the data for these issues FIRST. These are embarrassing, confusing, or broken. Flag every violation you find.
 
-COLOUR RULES
-6. A colour used in a context where it contradicts its conventional meaning (success/confirmation using red or orange, destructive action using green, disabled state using a high-contrast colour)
-7. The same semantic role (primary CTA, error, warning, success) rendered in different colours across screens
-8. A text colour that is likely to fail contrast against its background based on the fill values
+COLOUR-CONTEXT CLASHES
+1. Red or orange fill on a container whose child text says "success", "confirmed", "approved", "completed", "congratulations", or any positive outcome
+2. Green fill on a container whose child text says "error", "failed", "declined", "rejected", "warning", or any negative outcome
+3. High-contrast bold colour on elements named or labelled "disabled", "inactive", or "unavailable"
+4. Muted/grey colour on a primary CTA or urgent action
+5. Warning colour (amber/orange) on purely informational or neutral content
+6. The same semantic role (primary CTA, error, warning, success) rendered in different colours across different screens
 
-COMPONENT & NAMING RULES
-9. Any frame or component whose name looks like it was never renamed from a default (trailing digits, "frame \\d+", "group \\d+", "rectangle \\d+")
-10. The same UI pattern (e.g. a card, a list item, a header) implemented differently across screens instead of using a shared component
+TEXT-CONTEXT CLASHES
+7. Any text that looks like a dev/design default still in place: trailing digits ("Send Money 2", "Card 3"), "copy of", "untitled", "lorem ipsum", "placeholder", "label", "title", "text here", "item 1", "heading", "body text", "subtitle"
+8. Any spelling or grammatical error in visible text
+9. Inconsistent terminology: the same action or concept called different things across screens (e.g. "Send" vs "Transfer", "Cancel" vs "Back" for the same action)
+10. Inconsistent capitalisation style for the same type of element (e.g. some buttons Title Case, others ALL CAPS, others sentence case)
+11. Positive/celebratory text ("Congratulations", "Success", "Well done") inside error-styled or warning-styled containers
+12. Negative text ("Failed", "Error", "Declined") inside success-styled or positive-styled containers
+13. Urgent language ("Immediately", "Critical", "Urgent") in low-emphasis muted styling
+14. Question marks in button labels — CTAs should be declarative, not questioning
+15. Exclamation marks in error messages — feels aggressive to users
 
-LAYOUT RULES
-11. Inconsistent spacing for the same type of element across screens
-12. Elements that are misaligned relative to their siblings based on bounding box data
+ICON-CONTEXT CLASHES
+16. A node named or shaped like a delete/trash icon next to text saying "Save", "Confirm", or "Submit"
+17. A checkmark/success icon in an error or warning context
+18. A warning triangle icon in a success or confirmation context
+19. A lock icon on elements labelled as public, open, or shared
 
-UX RULES
-13. A flow where a destructive or irreversible action has no confirmation step visible in the data
-14. A primary CTA whose label does not clearly describe the outcome of pressing it
-15. Any screen that appears to be a dead end (no visible navigation or exit action in the data)
+STATE & STORYTELLING CLASHES
+20. An empty state screen with no guidance, onboarding text, or call to action
+21. A confirmation screen with no summary of what was confirmed
+22. A form with a submit CTA but no visible required-field indicators or validation hints
+23. Screens in a flow where the visual hierarchy (heading sizes, colours) changes dramatically and inconsistently
+24. Progress indicators that skip steps or show inconsistent state across screens
+25. A modal or overlay with no visible dismiss/close action
+
+COMPONENT & NAMING
+26. Any frame or component whose name matches default patterns: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+", "Image \\d+"
+27. The same UI pattern (card, list item, header, button) implemented with different structures across screens instead of using a shared component
+28. A component named "disabled" or "inactive" that uses full-opacity high-contrast fills
+29. A component named "primary" that is visually subordinate to its siblings
+30. A component named "error" or "destructive" using green or blue fills
+
+UX FLOW
+31. A destructive or irreversible action with no confirmation step visible in the data
+32. A primary CTA whose label does not clearly describe the outcome ("Submit", "OK", "Continue" with no context)
+33. Any screen that appears to be a dead end — no visible navigation, back button, or exit action
+34. Truncated or cut-off text that appears incomplete based on the bounding box
+
+═══ PASS 2: DESIGNER POLISH (LOW only) ═══
+Only after completing Pass 1, fill remaining slots with these. These are refinements, not blockers.
+
+35. Inconsistent spacing between the same type of element across screens
+36. Elements slightly misaligned relative to their siblings based on bounding box data
+37. Minor border radius inconsistencies across similar components
+38. Inconsistent padding values in similar containers
+39. Minor font size or weight variations in elements that should match
 
 ═══ OUTPUT FORMAT ═══
 CRITICAL CATEGORY RESTRICTION: Only use these category values: ${categoryOptions}
 Aim for ${itemsPerCategory} items per category, distributed across ALL requested categories.
+At least 70% of items MUST be HIGH or MEDIUM severity (Pass 1). LOW severity items (Pass 2) fill the remainder.
 
 Use the MOST SPECIFIC node ID for each issue (the text layer, not the parent frame).
 NEVER include technical IDs like [123:456] in title or description fields.
+Every issue MUST cite the specific text string, hex colour, or node name that proves it.
 
 [{
   "category": ${categoryOptions},
   "title": "Human-readable issue title",
-  "description": "What is wrong and why it matters",
+  "description": "What is wrong, citing the specific evidence (text/colour/name) from the data",
   "suggestion": "Specific actionable fix",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name",
