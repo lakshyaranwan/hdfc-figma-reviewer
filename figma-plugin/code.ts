@@ -1388,16 +1388,23 @@ figma.ui.onmessage = async (msg: any) => {
       await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
       await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
 
-      const CARD_WIDTH = 280;
+      const CARD_WIDTH = 300;
       const CARD_PADDING = 20;
       const GAP_BETWEEN_CARDS = 12;
-      const allCards: FrameNode[] = [];
+
+      // Create a wrapper group frame with auto-layout so cards are always stacked cleanly
+      const group = figma.createFrame();
+      group.name = '📝 Annotation';
+      group.fills = []; // transparent wrapper
+      group.layoutMode = 'VERTICAL';
+      group.itemSpacing = GAP_BETWEEN_CARDS;
+      group.primaryAxisSizingMode = 'AUTO';
+      group.counterAxisSizingMode = 'AUTO';
 
       for (const section of sections) {
-        // Each section is its own separate dark card
         const card = figma.createFrame();
         card.name = `📝 ${section.pillText}`;
-        card.resize(CARD_WIDTH, 100); // will auto-size
+        card.resize(CARD_WIDTH, 10);
         card.cornerRadius = 12;
         card.fills = [{ type: 'SOLID', color: { r: 0.22, g: 0.22, b: 0.24 } }];
         card.layoutMode = 'VERTICAL';
@@ -1408,6 +1415,7 @@ figma.ui.onmessage = async (msg: any) => {
         card.itemSpacing = 12;
         card.primaryAxisSizingMode = 'AUTO';
         card.counterAxisSizingMode = 'FIXED';
+        card.layoutSizingHorizontal = 'FILL';
 
         // Pill badge
         const pill = figma.createFrame();
@@ -1422,12 +1430,12 @@ figma.ui.onmessage = async (msg: any) => {
         pill.primaryAxisSizingMode = 'AUTO';
         pill.counterAxisSizingMode = 'AUTO';
 
-        const pillText = figma.createText();
-        pillText.fontName = { family: 'Inter', style: 'Semi Bold' };
-        pillText.characters = section.pillText;
-        pillText.fontSize = 12;
-        pillText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-        pill.appendChild(pillText);
+        const pillLabel = figma.createText();
+        pillLabel.fontName = { family: 'Inter', style: 'Semi Bold' };
+        pillLabel.characters = section.pillText;
+        pillLabel.fontSize = 12;
+        pillLabel.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+        pill.appendChild(pillLabel);
         card.appendChild(pill);
 
         // Body text
@@ -1441,24 +1449,17 @@ figma.ui.onmessage = async (msg: any) => {
         bodyText.textAutoResize = 'HEIGHT';
         card.appendChild(bodyText);
 
-        figma.currentPage.appendChild(card);
-        allCards.push(card);
+        group.appendChild(card);
       }
 
-      // Position cards stacked vertically, centered at viewport
-      let totalHeight = 0;
-      for (const c of allCards) totalHeight += c.height;
-      totalHeight += (allCards.length - 1) * GAP_BETWEEN_CARDS;
+      figma.currentPage.appendChild(group);
 
-      let currentY = vp.y - totalHeight / 2;
-      for (const c of allCards) {
-        c.x = vp.x - CARD_WIDTH / 2;
-        c.y = currentY;
-        currentY += c.height + GAP_BETWEEN_CARDS;
-      }
+      // Center the entire group at viewport center
+      group.x = Math.round(vp.x - group.width / 2);
+      group.y = Math.round(vp.y - group.height / 2);
 
-      figma.currentPage.selection = allCards;
-      figma.viewport.scrollAndZoomIntoView(allCards);
+      figma.currentPage.selection = [group];
+      figma.viewport.scrollAndZoomIntoView([group]);
       figma.notify('📝 Annotation cards placed at viewport center');
     } catch (e) {
       console.error('Annotation creation failed:', e);
