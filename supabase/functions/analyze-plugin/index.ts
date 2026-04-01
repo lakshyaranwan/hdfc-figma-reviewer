@@ -25,7 +25,7 @@ function estimateTokens(text: string): number {
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
-  function traverse(node: any, path: string, depth: number) {
+  function traverse(node: any, path: string, depth: number, parentId?: string) {
     if (!node || depth > maxDepth) return;
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
@@ -39,6 +39,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
       name: node.name,
       type: node.type,
       path: currentPath,
+      parentId: parentId || null,
     };
 
     // Include text content
@@ -88,7 +89,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     const children = node.children || node.nodes;
     if (Array.isArray(children)) {
       for (const child of children) {
-        traverse(child, currentPath, depth + 1);
+        traverse(child, currentPath, depth + 1, node.id);
       }
     }
   }
@@ -141,6 +142,28 @@ function classifyColor(hex: string): string {
 }
 
 function extractSemanticContext(flatNodes: any[]): string {
+  // Build a parent→children index using parentId for reliable lookups
+  const nodeById = new Map<string, any>();
+  const childrenOf = new Map<string, any[]>();
+  for (const node of flatNodes) {
+    nodeById.set(node.id, node);
+    if (node.parentId) {
+      if (!childrenOf.has(node.parentId)) childrenOf.set(node.parentId, []);
+      childrenOf.get(node.parentId)!.push(node);
+    }
+  }
+
+  // Recursively collect all text descendants of a node
+  function collectTextDescendants(nodeId: string): string[] {
+    const texts: string[] = [];
+    const children = childrenOf.get(nodeId) || [];
+    for (const child of children) {
+      if (child.type === 'TEXT' && child.text) texts.push(child.text);
+      texts.push(...collectTextDescendants(child.id));
+    }
+    return texts;
+  }
+
   const grouped: Record<string, string[]> = {};
 
   for (const node of flatNodes) {
@@ -149,20 +172,16 @@ function extractSemanticContext(flatNodes: any[]): string {
     const hex = node.fills[0]?.hex;
     if (!hex) continue;
 
-    // Find all text nodes that are children of this container
-    const childTexts: string[] = [];
-    for (const candidate of flatNodes) {
-      if (candidate.type !== 'TEXT' || !candidate.text) continue;
-      if (candidate.path?.startsWith(node.path + ' > ')) {
-        childTexts.push(candidate.text);
-      }
-    }
+    const childTexts = collectTextDescendants(node.id);
     if (childTexts.length === 0) continue;
 
     const colorLabel = classifyColor(hex);
+    // Only include semantically meaningful colours (not white/black/grey backgrounds)
+    if (!colorLabel) continue;
+
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = [];
-    grouped[topFrame].push(`Container (id:${node.id}) fill:${hex}${colorLabel ? ' ← ' + colorLabel : ''} → text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
+    grouped[topFrame].push(`⚠️ Container (id:${node.id}) fill:${hex} ${colorLabel} contains text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
   }
 
   return Object.entries(grouped)
@@ -306,7 +325,7 @@ serve(async (req) => {
     }
 
     // Fetch selected AI model from settings (same as analyze-figma)
-    let selectedModel = "google/gemini-2.5-flash"; // default
+    let selectedModel = "google/gemini-2.5-flash"; // default — NOT flash-lite, needs reasoning
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const settingsResponse = await fetch(
@@ -437,19 +456,23 @@ TWO-PASS STRATEGY:
 PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70%): Things a non-designer would spot.
 PASS 2 — DESIGNER POLISH (LOW, ≤30%): Pixel-level refinements.
 
-🚨 SEMANTIC CONTEXT IS YOUR MOST IMPORTANT SIGNAL:
-The SEMANTIC CONTEXT section pairs each coloured container with the text inside it. Entries tagged with 🔴 RED/DANGER, 🟢 GREEN/SUCCESS etc. tell you the colour meaning.
-LOOK FOR CLASHES: Red container + positive text ("Success", "Congratulations") = CRITICAL HIGH.
-Green container + negative text ("Error", "Failed") = CRITICAL HIGH.
-READ THIS SECTION LINE BY LINE BEFORE ANYTHING ELSE.
+🚨🚨🚨 SEMANTIC CONTEXT IS YOUR #1 PRIORITY — READ BEFORE ANYTHING ELSE:
+The SEMANTIC CONTEXT section below pairs each coloured container with ALL text inside it.
+Lines marked ⚠️ with 🔴 RED/DANGER that contain positive words (success, confirmed, congratulations, processed, initiated, approved, completed) = **CRITICAL CLASH — MUST be flagged as HIGH severity**.
+Lines marked ⚠️ with 🟢 GREEN/SUCCESS that contain negative words (error, failed, declined, warning) = **CRITICAL CLASH — MUST be flagged as HIGH severity**.
+If you see ANY such clash and do NOT flag it, your review is WRONG. This is the single most important check.
 
 Severity definitions:
-HIGH = Broken, embarrassing, or actively misleading. Examples: red banner saying "Success", placeholder text, colour-meaning clashes, typos, truncated words.
-MEDIUM = Confusing or inconsistent across screens. Examples: same action called different names, inconsistent button styles.
-LOW = Polish. Only a designer would notice. Examples: spacing, border radius, alignment.
+HIGH = Semantic clashes (red container + success text, green + error text), broken flows, placeholder text with digits, actual typos. These are EMBARRASSING in a demo.
+MEDIUM = Inconsistencies across screens, confusing labels, misleading copy.
+LOW = Polish. Only a designer would notice. Spacing, alignment, border radius.
 
-NEVER FLAG:
-Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets. NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
+ABSOLUTE NEVER-FLAG LIST:
+- Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
+- NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
+- NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word. "Bill & Recharges" is a COMPLETE phrase, NOT truncated. You CANNOT see rendered layout — only text content.
+- NEVER flag "incomplete sentence" for marketing slogans, taglines, or promotional text.
+- NEVER invent problems that aren't evidenced in the data. If you're unsure, skip it.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
