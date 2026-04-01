@@ -261,11 +261,19 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = `You are a ruthlessly honest Senior UX/UI Design Director reviewing work from a junior designer before it ships to stakeholders.
-Your job is to catch REAL problems that would cause embarrassment, user confusion, or poor experience.
-You have zero tolerance for broken layouts, typos, wrong colours, hierarchy failures, and missing interactive states.
-You do NOT waste time on subjective preferences, minor spacing tweaks, or hypothetical edge cases.
-Every issue you flag must be clearly observable in the design data provided.
+    const systemPrompt = `You are a ruthlessly honest Senior UX/UI Design Director doing a CONTEXTUAL review of a real product screen before it ships.
+
+YOUR APPROACH — CONTEXT FIRST:
+1. FIRST, read ALL the text nodes and understand what this screen IS (e.g. a success confirmation, a form, a dashboard, a payment flow). Identify the user's journey stage and emotional state.
+2. THEN, evaluate every design decision AGAINST that context. A red banner on a success screen is a critical failure. A typo in a page title is embarrassing. Inconsistent footer padding is irrelevant noise.
+3. You think like a REAL USER encountering this screen — what would confuse them, mislead them, or break their trust?
+
+YOU NEVER FLAG:
+- Minor spacing or padding inconsistencies (2-8px differences)
+- Subjective style preferences
+- Hypothetical missing states unless clearly broken
+- Low-value cosmetic nitpicks that no real user would notice
+
 CRITICAL: You MUST respond with ONLY a valid JSON array. No markdown, no explanations. Start with [ and end with ].`;
 
     let allFeedback: FeedbackItem[] = [];
@@ -280,8 +288,7 @@ CRITICAL: You MUST respond with ONLY a valid JSON array. No markdown, no explana
       const maxItems = isChunked ? Math.max(5, Math.floor(15 / chunks.length)) : 15;
       const designContext = JSON.stringify(chunk, null, 2);
 
-      // ─── BASE REVIEW PROMPT — restored original high-quality structure ───
-      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
+      const baseContext = `You are reviewing a Figma design as a senior design director. Your review must be CONTEXTUAL — understand what the screen is showing before flagging anything.
 
 Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
 ${designContext}
@@ -289,28 +296,52 @@ ${designContext}
 File: ${fileName}
 Page: ${pageName}
 
+STEP 1 — UNDERSTAND THE SCREEN:
+Before flagging ANY issue, determine:
+- What is this screen? (e.g. success page, form, dashboard, error state, onboarding)
+- What is the user trying to do here?
+- What emotional state should the user be in? (confident, reassured, alert, etc.)
+
+STEP 2 — CONTEXTUAL REVIEW (in priority order):
+
+1. SEMANTIC COLOUR MISUSE (HIGHEST PRIORITY):
+   - Red/danger colours used for success or positive messages = CRITICAL BUG
+   - Green used for errors or warnings = CRITICAL BUG
+   - Analyse the MEANING of each coloured element against its TEXT CONTENT
+   - Check fills[].hex: #FF0000, #E53E3E, #DC2626 etc. on success/confirmation = WRONG
+   - Check fills[].hex: #00FF00, #22C55E, #10B981 etc. on error messages = WRONG
+
+2. TYPOS & TEXT ERRORS:
+   - Read EVERY text node character by character
+   - Numbers or random characters in titles/headings (e.g. "Send Money2" = typo)
+   - Misspellings, wrong casing, truncated text, placeholder text left in
+
+3. BROKEN LAYOUTS:
+   - Overlapping elements, clipped text, elements outside parent bounds
+   - Zero-size containers, content overflowing its container
+
+4. INFORMATION HIERARCHY:
+   - Headings smaller than body text (compare fontSize values)
+   - Important information buried or de-emphasised
+   - Labels that don't match their content
+
+5. UX LOGIC PROBLEMS:
+   - Confusing flow (e.g. "Cancel" button more prominent than "Continue")
+   - Missing or misleading feedback
+   - Contradictory information on the same screen
+
 CRITICAL NODE ID INSTRUCTIONS:
 - You MUST use the EXACT node IDs from the design data above
 - Choose the MOST SPECIFIC node ID for each piece of feedback
 - Include the nodeId field for every feedback item`;
 
       const formatInstructions = `
-REVIEW PRIORITIES (in order):
-1. TYPOS & SPELLING — Read every text node character by character. Flag misspellings, wrong casing, grammatical errors.
-2. BROKEN LAYOUTS — Overlapping elements, clipped text, elements outside their parent bounds, zero-size containers.
-3. COLOUR PROBLEMS — Check fills[].hex values. Flag obviously wrong colours, poor contrast (light text on light bg), jarring colour combinations.
-4. HIERARCHY FAILURES — Compare fontSize values across text nodes. Headings smaller than body text, inconsistent heading sizes.
-5. MISSING INTERACTIVE STATES — Buttons without hover/pressed states, inputs without focus states, missing disabled states.
-6. UX PROBLEMS — Confusing navigation, unclear CTAs, missing feedback, poor information architecture.
-7. ALIGNMENT & SPACING — Only flag OBVIOUS misalignment (>8px off), not minor 1-2px differences.
-
 CRITICAL RULES:
 - Return AT MOST ${maxItems} issues total, ranked by severity (high first)
-- ZERO DUPLICATES — each issue must be about a DIFFERENT problem on a DIFFERENT element
-- If two elements have the same problem, combine them into ONE issue listing both
-- NEVER fabricate issues — every issue must reference specific data (exact text, hex value, fontSize) from the nodes above
-- Before flagging "missing label": check ALL child nodes in that subtree first
-- Do NOT flag subjective style preferences, minor spacing differences, or hypothetical issues
+- ZERO DUPLICATES — each issue must be about a DIFFERENT problem
+- Every issue MUST cite evidence from the data (exact text content, hex colour value, or fontSize)
+- DO NOT flag minor spacing, padding, or alignment differences — these are noise
+- DO NOT flag subjective style preferences
 - Only use these categories: ${categoryOptions}
 
 ${ignoreChrome ? `IGNORE CHROME: Skip status bars, app bars, headers, nav bars, footers, tab bars. Only review actual page content.
@@ -319,8 +350,8 @@ FORMAT — respond with ONLY this JSON array:
 [{
   "category": ${categoryOptions},
   "title": "Clear issue title (no technical IDs)",
-  "description": "What's wrong — include the actual text/hex/size value you found in the data",
-  "suggestion": "Specific fix",
+  "description": "What's wrong — include the actual text/hex/size value AND explain WHY it's wrong in context (e.g. 'Red (#FF0000) is used for a success confirmation banner — red signals danger/error to users')",
+  "suggestion": "Specific fix with rationale",
   "severity": "high" | "medium" | "low",
   "location": "Component or frame name",
   "nodeId": "exact_node_id_from_data"
