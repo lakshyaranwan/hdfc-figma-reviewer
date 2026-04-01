@@ -808,8 +808,10 @@ interface AccessibilityIssue {
 }
 
 // Run text contrast audit on selected nodes
+// Returns solid-bg issues immediately; gradient-bg issues are sent to UI for async export-based sampling
 function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
   const issues: AccessibilityIssue[] = [];
+  const gradientChecks: { textNodeId: string; gradientParentId: string; fgColor: { r: number; g: number; b: number }; nodeName: string; text: string; fontSize: number }[] = [];
 
   function walk(node: SceneNode) {
     if (!node.visible) return;
@@ -822,12 +824,27 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
 
       const bgColor = getBackgroundColor(textNode);
       if (!bgColor) return; // Can't determine background (image fill, etc.) - skip to avoid false positives
+
+      const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
+
+      // Gradient background — defer to export-based sampling
+      if (bgColor.gradientParentId) {
+        gradientChecks.push({
+          textNodeId: textNode.id,
+          gradientParentId: bgColor.gradientParentId,
+          fgColor,
+          nodeName: textNode.name,
+          text: textNode.characters.substring(0, 60),
+          fontSize: Math.round(fontSize),
+        });
+        return;
+      }
+
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
       const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
       const ratio = contrastRatio(fgLum, bgLum);
 
       // WCAG AA: 4.5:1 for ALL text (no large text exception)
-      const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
       const required = 4.5;
 
       issues.push({
@@ -853,6 +870,23 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
 
   for (const node of nodes) {
     walk(node);
+  }
+
+  // Send gradient checks to UI for async export-based sampling
+  if (gradientChecks.length > 0) {
+    figma.ui.postMessage({ type: 'gradient-checks-pending', checks: gradientChecks });
+    // Trigger exports for each gradient check
+    for (const check of gradientChecks) {
+      figma.ui.postMessage({
+        type: 'trigger-gradient-export',
+        textNodeId: check.textNodeId,
+        gradientParentId: check.gradientParentId,
+        fgColor: check.fgColor,
+        nodeName: check.nodeName,
+        text: check.text,
+        fontSize: check.fontSize,
+      });
+    }
   }
 
   return issues;
