@@ -100,6 +100,12 @@ const Index = () => {
                   No keys
                 </Badge>
               )}
+              <Button variant="outline" size="sm" asChild>
+                <a href="/hdfc-figma-plugin.zip" download>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Plugin
+                </a>
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
                 <Settings className="h-4 w-4 mr-2" />
                 Manage Keys
