@@ -76,9 +76,15 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
       simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
     }
 
-    // Include position (enables spatial reasoning in feedback)
-    if (node.x !== undefined) simplified.x = Math.round(node.x);
-    if (node.y !== undefined) simplified.y = Math.round(node.y);
+    // Include position — prefer absolute position for accurate spatial reasoning
+    // absX/absY are absolute canvas coordinates; x/y are relative to parent (misleading for spatial grouping)
+    if (node.absX !== undefined) {
+      simplified.x = Math.round(node.absX);
+      simplified.y = Math.round(node.absY);
+    } else if (node.x !== undefined) {
+      simplified.x = Math.round(node.x);
+      simplified.y = Math.round(node.y);
+    }
 
     // Include size
     if (node.absoluteBoundingBox) {
