@@ -335,11 +335,12 @@ CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categori
 Only use these exact category values: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category (can be 8-12 depending on what you find)
-${!isChunked ? '- Total feedback should be 50-100 issues across all categories' : `- This is chunk ${chunkIdx + 1} of ${chunks.length} — provide thorough feedback for the nodes in this chunk`}
+- You MUST provide AT LEAST ${itemsPerCategory} issues per category — aim for ${itemsPerCategory} to ${itemsPerCategory + 5}. Do NOT stop early.
+${!isChunked ? '- Total feedback should be 60-120 issues across all categories. Be exhaustive.' : `- This is chunk ${chunkIdx + 1} of ${chunks.length} — provide thorough feedback for the nodes in this chunk`}
 - Focus on REAL, meaningful issues - do NOT invent problems
-- Be consistent - prioritize the most impactful issues first
-- Do NOT skip any category - analyze each one properly
+- Be exhaustive - scan EVERY element, EVERY text, EVERY spacing value. Missing real issues is worse than reporting too many.
+- Be consistent and deterministic - given the same design, always flag the same issues
+- Do NOT skip any category - analyze each one thoroughly
 
 Format your response as a JSON array with this structure:
 [{
