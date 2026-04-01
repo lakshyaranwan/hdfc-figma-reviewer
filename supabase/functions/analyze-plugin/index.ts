@@ -496,18 +496,22 @@ DS RULES:
       const analysisPrompt = `
 ═══ DESIGN DATA${chunkLabel} ═══
 File: ${fileName} | Page: ${pageName}
+REMINDER: "text" field = what the USER SEES. "name" field = internal layer label (IGNORE for content analysis).
 
 Node hierarchy (use these exact IDs in nodeId field):
 ${designContext}
 
-═══ ALL VISIBLE TEXT (with node IDs) ═══
+═══ ALL VISIBLE TEXT (sorted top-to-bottom per screen) ═══
+These are the ACTUAL words displayed on screen. Read them carefully for typos, placeholders, truncation.
 ${textContent}
 
 ═══ ALL FILL COLOURS (with node IDs) ═══
 ${colorContent}
 
-═══ SEMANTIC CONTEXT (container fill → child text pairings) ═══
-Use this to detect colour-meaning clashes. Each line shows a container's fill colour and the text inside it.
+═══ 🚨 SEMANTIC CONTEXT — READ THIS FIRST (container fill → child text pairings) ═══
+Each line pairs a container's background colour with the text displayed inside it.
+Entries tagged 🔴 RED/DANGER + positive text = CRITICAL CLASH. Flag as HIGH immediately.
+Entries tagged 🟢 GREEN/SUCCESS + negative text = CRITICAL CLASH. Flag as HIGH immediately.
 ${semanticContext}
 
 ${dsPromptSection}
