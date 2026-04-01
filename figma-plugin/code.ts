@@ -1374,95 +1374,115 @@ figma.ui.onmessage = async (msg: any) => {
     try {
       const { interaction, role, label } = msg;
 
-      // Get viewport center
-      const vp = figma.viewport.center;
-
       const sections: { pillText: string; pillColor: { r: number; g: number; b: number }; bodyText: string }[] = [];
-      if (interaction) sections.push({ pillText: 'Interaction', pillColor: { r: 0.8, g: 0.33, b: 0.8 }, bodyText: interaction });
-      if (role) sections.push({ pillText: 'Role/State', pillColor: { r: 0.2, g: 0.7, b: 0.4 }, bodyText: role });
-      if (label) sections.push({ pillText: 'Label', pillColor: { r: 0.85, g: 0.35, b: 0.2 }, bodyText: label });
+      if (interaction) sections.push({ pillText: 'Interaction', pillColor: { r: 0.6, g: 0.24, b: 0.72 }, bodyText: interaction });
+      if (role) sections.push({ pillText: 'Role/State', pillColor: { r: 0.22, g: 0.65, b: 0.35 }, bodyText: role });
+      if (label) sections.push({ pillText: 'Label', pillColor: { r: 0.75, g: 0.42, b: 0.15 }, bodyText: label });
 
-      if (sections.length === 0) return;
+      if (sections.length === 0) {
+        figma.notify('⚠️ Fill in at least one field');
+        return;
+      }
 
-      // Load fonts once
       await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
       await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
 
-      const CARD_WIDTH = 300;
-      const CARD_PADDING = 20;
-      const GAP_BETWEEN_CARDS = 12;
+      const CARD_WIDTH = 280;
+      const CARD_PAD = 20;
+      const CARD_GAP = 10;
+      const PILL_PAD_H = 12;
+      const PILL_PAD_V = 4;
 
-      // Create wrapper group with auto-layout
-      const group = figma.createFrame();
-      group.name = '📝 Annotation';
-      group.resize(CARD_WIDTH, 10);
-      group.fills = [];
-      group.layoutMode = 'VERTICAL';
-      group.itemSpacing = GAP_BETWEEN_CARDS;
-      group.primaryAxisSizingMode = 'AUTO';
-      group.counterAxisSizingMode = 'FIXED';
+      // Determine placement — next to selected element or viewport center
+      const sel = figma.currentPage.selection[0];
+      let placeX: number;
+      let placeY: number;
+      if (sel && 'absoluteBoundingBox' in sel && (sel as any).absoluteBoundingBox) {
+        const bb = (sel as any).absoluteBoundingBox;
+        placeX = bb.x + bb.width + 40; // 40px to the right of selection
+        placeY = bb.y;
+      } else {
+        const vp = figma.viewport.center;
+        placeX = vp.x - CARD_WIDTH / 2;
+        placeY = vp.y - 100;
+      }
+
+      // Build each card as a standalone frame, collect them
+      const cards: FrameNode[] = [];
 
       for (const section of sections) {
+        // --- Card container ---
         const card = figma.createFrame();
         card.name = `📝 ${section.pillText}`;
-        card.resize(CARD_WIDTH, 10);
-        card.cornerRadius = 12;
+        card.resize(CARD_WIDTH, 1);
         card.fills = [{ type: 'SOLID', color: { r: 0.22, g: 0.22, b: 0.24 } }];
+        card.cornerRadius = 12;
         card.layoutMode = 'VERTICAL';
-        card.paddingLeft = CARD_PADDING;
-        card.paddingRight = CARD_PADDING;
-        card.paddingTop = CARD_PADDING;
-        card.paddingBottom = CARD_PADDING;
-        card.itemSpacing = 12;
         card.primaryAxisSizingMode = 'AUTO';
         card.counterAxisSizingMode = 'FIXED';
+        card.paddingLeft = CARD_PAD;
+        card.paddingRight = CARD_PAD;
+        card.paddingTop = CARD_PAD;
+        card.paddingBottom = CARD_PAD;
+        card.itemSpacing = 10;
 
-        // Pill badge
+        // --- Pill ---
         const pill = figma.createFrame();
         pill.name = 'Pill';
         pill.layoutMode = 'HORIZONTAL';
-        pill.paddingLeft = 12;
-        pill.paddingRight = 12;
-        pill.paddingTop = 5;
-        pill.paddingBottom = 5;
-        pill.cornerRadius = 12;
-        pill.fills = [{ type: 'SOLID', color: section.pillColor }];
         pill.primaryAxisSizingMode = 'AUTO';
         pill.counterAxisSizingMode = 'AUTO';
+        pill.paddingLeft = PILL_PAD_H;
+        pill.paddingRight = PILL_PAD_H;
+        pill.paddingTop = PILL_PAD_V;
+        pill.paddingBottom = PILL_PAD_V;
+        pill.cornerRadius = 100;
+        pill.fills = [{ type: 'SOLID', color: section.pillColor }];
 
-        const pillLabel = figma.createText();
-        pillLabel.fontName = { family: 'Inter', style: 'Semi Bold' };
-        pillLabel.characters = section.pillText;
-        pillLabel.fontSize = 12;
-        pillLabel.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-        pill.appendChild(pillLabel);
+        const pText = figma.createText();
+        pText.fontName = { family: 'Inter', style: 'Semi Bold' };
+        pText.characters = section.pillText;
+        pText.fontSize = 11;
+        pText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+        pill.appendChild(pText);
         card.appendChild(pill);
 
-        // Body text — set resize mode BEFORE setting sizing, and only use FIXED width
-        const bodyText = figma.createText();
-        bodyText.fontName = { family: 'Inter', style: 'Regular' };
-        bodyText.characters = section.bodyText;
-        bodyText.fontSize = 18;
-        bodyText.lineHeight = { value: 26, unit: 'PIXELS' };
-        bodyText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-        bodyText.resize(CARD_WIDTH - CARD_PADDING * 2, bodyText.height);
-        bodyText.textAutoResize = 'HEIGHT';
-        card.appendChild(bodyText);
+        // --- Body text ---
+        const body = figma.createText();
+        body.fontName = { family: 'Inter', style: 'Regular' };
+        body.fontSize = 16;
+        body.lineHeight = { value: 24, unit: 'PIXELS' };
+        body.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+        // Set fixed width matching card inner width, then set auto-height
+        body.resize(CARD_WIDTH - CARD_PAD * 2, 1);
+        body.textAutoResize = 'HEIGHT';
+        body.characters = section.bodyText;
+        card.appendChild(body);
 
-        // Append card to group first, THEN set FILL sizing
-        group.appendChild(card);
-        card.layoutSizingHorizontal = 'FILL';
+        figma.currentPage.appendChild(card);
+        cards.push(card);
       }
 
-      figma.currentPage.appendChild(group);
+      // Position cards stacked vertically
+      let curY = placeY;
+      for (const c of cards) {
+        c.x = placeX;
+        c.y = curY;
+        curY += c.height + CARD_GAP;
+      }
 
-      // Center the entire group at viewport center
-      group.x = Math.round(vp.x - group.width / 2);
-      group.y = Math.round(vp.y - group.height / 2);
+      // Group them
+      if (cards.length > 1) {
+        const group = figma.group(cards, figma.currentPage);
+        group.name = '📝 Annotation';
+        figma.currentPage.selection = [group];
+        figma.viewport.scrollAndZoomIntoView([group]);
+      } else {
+        figma.currentPage.selection = cards;
+        figma.viewport.scrollAndZoomIntoView(cards);
+      }
 
-      figma.currentPage.selection = [group];
-      figma.viewport.scrollAndZoomIntoView([group]);
-      figma.notify('📝 Annotation cards placed at viewport center');
+      figma.notify('✅ Annotation placed on canvas!');
     } catch (e) {
       console.error('Annotation creation failed:', e);
       figma.notify('❌ Failed to create annotation: ' + (e as Error).message);
