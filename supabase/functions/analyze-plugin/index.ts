@@ -283,39 +283,46 @@ Page: ${pageName}
 CRITICAL NODE ID INSTRUCTIONS:
 - You MUST use the EXACT node IDs from the design data above
 - Choose the MOST SPECIFIC node ID for each piece of feedback
+- For a button issue, use the button's node ID, NOT its parent frame
 - Include the nodeId field for every feedback item`;
 
       const formatInstructions = `
 For each issue found, provide:
 - A clear, actionable title (NO technical IDs or brackets)
-- Detailed description with specific actionable suggestions
+- Detailed description of the issue AND specific actionable suggestions on how to fix it
 - Severity (low, medium, high)
-- The EXACT node ID from the design data
+- The EXACT node ID from the design data for the specific element
 - Component/frame name (user-friendly name only)
 - A concrete suggestion field with the fix
 
-CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
+CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
+Only use these exact category values: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
-- Focus on REAL, meaningful issues
-- Do NOT skip any category
+- Provide around ${itemsPerCategory} issues per category (can be 8-12 depending on what you find)
+${!isChunked ? '- Total feedback should be 50-100 issues across all categories' : `- This is chunk ${chunkIdx + 1} of ${chunks.length} — provide thorough feedback for the nodes in this chunk`}
+- Focus on REAL, meaningful issues - do NOT invent problems
+- Be consistent - prioritize the most impactful issues first
+- Do NOT skip any category - analyze each one properly
 
-Format as JSON array:
+Format your response as a JSON array with this structure:
 [{
   "category": ${categoryOptions},
   "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description (clean, no IDs)",
-  "suggestion": "Specific actionable fix",
+  "description": "Detailed description with explanation (clean, no IDs)",
+  "suggestion": "Specific actionable fix with exact values when possible (e.g., 'Increase padding to 16px')",
   "severity": "low" | "medium" | "high",
-  "location": "User-friendly component name",
-  "nodeId": "exact_node_id"
+  "location": "User-friendly component name (e.g., 'Login Button')",
+  "nodeId": "exact_node_id_from_design_data"
 }]
 
 CRITICAL: 
-- NEVER include technical IDs in title or description
-- Always include nodeId with exact ID from design data
-- Location must be user-friendly names only
+- NEVER include technical IDs like [123:456] in title or description
+- Always include the nodeId field with the exact ID from the design data
+- For the location field, use ONLY user-friendly names
+- The suggestion field should contain specific, actionable fixes
+- Keep all user-facing text clean and readable
+- For EACH issue, include specific suggestions on how to fix it
 
 ${ignoreChrome ? `
 IGNORE CHROME ELEMENTS:
@@ -336,6 +343,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Scan ALL text content thoroughly
 - Check EVERY button label, heading, paragraph, placeholder
 - Look for typos, spelling errors, grammatical mistakes
+- Identify inconsistent terminology
 - Be comprehensive - catch ALL text issues
 ` : ""}`;
 
