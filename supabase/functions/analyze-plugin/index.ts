@@ -82,7 +82,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     const simplified: any = {
       id: node.id,
-      name: node.name,
+      // name intentionally omitted — layer names cause false flags
       type: node.type,
       path: currentPath,
       parentId: parentId || null,
