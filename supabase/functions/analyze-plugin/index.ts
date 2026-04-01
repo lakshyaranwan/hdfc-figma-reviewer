@@ -277,6 +277,13 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
 You provide thorough, quality feedback - focus on real issues that matter.
+
+CRITICAL DATA RULES:
+- The "layerName" field is a Figma internal layer name (e.g. "NEFT", "Frame 1437256002", "Group 5"). It is DECORATIVE METADATA — NEVER reference it in titles, descriptions, or locations.
+- The "text" field contains the actual visible text on screen for TEXT nodes.
+- The "allText" field contains all visible text aggregated from a container's subtree (e.g. "Anmol Sharma · SBI Bank · Savings A/c: 9837..."). Use THIS to understand what the element actually shows.
+- Always describe elements by their visible content (text/allText), NOT by their layer name.
+
 CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
 Do not include markdown code blocks, explanations, or any text outside the JSON array.
 Start your response with [ and end with ].`;
