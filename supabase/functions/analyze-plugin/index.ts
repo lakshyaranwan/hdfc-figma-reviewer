@@ -526,6 +526,11 @@ Use category "design_system" ONLY for structural component substitution issues. 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
         console.error(`AI API error on chunk ${chunkIdx + 1}:`, errorText);
+        await storeUsageInfo(
+          aiResponse.status === 429 ? "rate_limited" : "error",
+          aiResponse.headers,
+          errorText
+        );
 
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
           try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed"); } catch (e) { /* ignore */ }
@@ -553,6 +558,7 @@ Use category "design_system" ONLY for structural component substitution issues. 
         throw new Error(`AI analysis failed: ${aiResponse.status}`);
       }
 
+      await storeUsageInfo("available", aiResponse.headers);
       const aiData = await aiResponse.json();
       const content = aiData.choices?.[0]?.message?.content;
 
