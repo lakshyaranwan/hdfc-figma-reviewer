@@ -400,26 +400,29 @@ serve(async (req) => {
 
     const systemPrompt = `You are a senior product designer doing design QA. You review like a stakeholder would — you catch the things that would be embarrassing in a demo or confusing to a real user.
 
-Every issue you raise MUST be proven by a specific node ID, text string, or colour value from the data provided. Never raise theoretical issues you cannot point to in the data.
+CRITICAL RULES:
+1. Every issue MUST cite a specific node ID, text string, or hex colour from the data. No theoretical issues.
+2. ONE issue per node ID. NEVER report the same nodeId twice. If a node has multiple problems, combine them into one item.
+3. ONE issue per unique problem. If the same text appears in multiple places, report it ONCE and list all locations in the description.
+4. Spread your attention EVENLY across ALL screens/frames in the data. Do NOT fixate on one screen.
 
-You work in TWO PASSES:
-PASS 1 — STAKEHOLDER GLANCE (HIGH and MEDIUM severity): Things a non-designer would spot in a 5-second look at the screen. These go first and get priority. Fill at least 70% of your output with these.
-PASS 2 — DESIGNER POLISH (LOW severity): Pixel-level refinements only a designer would notice. These fill remaining slots AFTER Pass 1 is exhausted.
+WORKFLOW — CROSS-SCREEN COMPARISON:
+Before writing any issues, mentally enumerate every top-level frame (screen) in the data. Then:
+Step 1: Compare screens as a FLOW — do they tell a coherent story? Are transitions logical?
+Step 2: Compare ACROSS screens — are the same elements styled consistently? Same terminology?
+Step 3: Review EACH screen individually for internal problems.
+
+TWO-PASS STRATEGY:
+PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70% of output): Things a non-designer would spot.
+PASS 2 — DESIGNER POLISH (LOW, ≤30%): Pixel-level refinements.
 
 Severity definitions:
-HIGH = Broken, embarrassing, or actively misleading. A stakeholder would call this out in a review. Examples: red banner saying "Success", placeholder text still visible, a CTA saying "Submit" for a delete action, green used for an error state.
-MEDIUM = Confusing or inconsistent. A user would hesitate or be unsure. Examples: same action called different names on different screens, inconsistent button styles for the same role, unclear CTA labels.
-LOW = Polish. Only a designer doing a pixel audit would notice. Examples: 1px spacing difference, border radius inconsistency, slight alignment offset, padding mismatch.
+HIGH = Broken, embarrassing, or actively misleading. A stakeholder would call this out. Examples: red banner saying "Success", placeholder text, wrong colour for context, typos, truncated text like "Transfera" instead of "Transfer".
+MEDIUM = Confusing or inconsistent across screens. A user would hesitate. Examples: same action called different names, inconsistent button styles, unclear CTA labels.
+LOW = Polish. Only a designer would notice. Examples: spacing difference, border radius inconsistency, alignment offset.
 
-NEVER FLAG THESE (undetectable from static Figma data):
-- Hover states, focus rings, active states, pressed states
-- Animations, transitions, micro-interactions
-- Loading states, skeleton screens, shimmer effects
-- API responses, real data vs mock data
-- Scroll behaviour, pull-to-refresh
-- Keyboard navigation or screen reader behaviour
-- Performance, load times, responsiveness
-- Touch target sizes (unless visually obvious from bounding box)
+NEVER FLAG (undetectable from static data):
+Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
@@ -485,67 +488,45 @@ ${dsPromptSection}
 ${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
 
 ═══ PASS 1: STAKEHOLDER GLANCE (HIGH + MEDIUM) ═══
-Scan the data for these issues FIRST. These are embarrassing, confusing, or broken. Flag every violation you find.
+Scan ALL screens. For each screen, check these categories. Flag every violation with evidence.
 
-COLOUR-CONTEXT CLASHES
-1. Red or orange fill on a container whose child text says "success", "confirmed", "approved", "completed", "congratulations", or any positive outcome
-2. Green fill on a container whose child text says "error", "failed", "declined", "rejected", "warning", or any negative outcome
-3. High-contrast bold colour on elements named or labelled "disabled", "inactive", or "unavailable"
-4. Muted/grey colour on a primary CTA or urgent action
-5. Warning colour (amber/orange) on purely informational or neutral content
-6. The same semantic role (primary CTA, error, warning, success) rendered in different colours across different screens
+TYPOS & TEXT ISSUES (check EVERY text node):
+1. Spelling errors, grammatical errors, truncated words (e.g. "Transfera" instead of "Transfer", "Confrim" instead of "Confirm")
+2. Placeholder/dev text: trailing digits ("Send Money2"), "lorem ipsum", "copy of", "untitled", "label", "text here", "heading"
+3. Inconsistent terminology across screens: same action called different names (e.g. "Send" vs "Transfer")
+4. Inconsistent capitalisation: some buttons Title Case, others ALL CAPS, others sentence case
+5. Question marks in CTA labels, exclamation marks in error messages
 
-TEXT-CONTEXT CLASHES
-7. Any text that looks like a dev/design default still in place: trailing digits ("Send Money 2", "Card 3"), "copy of", "untitled", "lorem ipsum", "placeholder", "label", "title", "text here", "item 1", "heading", "body text", "subtitle"
-8. Any spelling or grammatical error in visible text
-9. Inconsistent terminology: the same action or concept called different things across screens (e.g. "Send" vs "Transfer", "Cancel" vs "Back" for the same action)
-10. Inconsistent capitalisation style for the same type of element (e.g. some buttons Title Case, others ALL CAPS, others sentence case)
-11. Positive/celebratory text ("Congratulations", "Success", "Well done") inside error-styled or warning-styled containers
-12. Negative text ("Failed", "Error", "Declined") inside success-styled or positive-styled containers
-13. Urgent language ("Immediately", "Critical", "Urgent") in low-emphasis muted styling
-14. Question marks in button labels — CTAs should be declarative, not questioning
-15. Exclamation marks in error messages — feels aggressive to users
+COLOUR-CONTEXT CLASHES (cross-reference SEMANTIC CONTEXT section):
+6. Red/orange container with positive text ("success", "confirmed", "approved", "congratulations")
+7. Green container with negative text ("error", "failed", "declined", "warning")
+8. Same semantic role (primary CTA, error, success) in DIFFERENT colours across screens
+9. Celebratory text inside error-styled containers, or error text inside success-styled containers
 
-ICON-CONTEXT CLASHES
-16. A node named or shaped like a delete/trash icon next to text saying "Save", "Confirm", or "Submit"
-17. A checkmark/success icon in an error or warning context
-18. A warning triangle icon in a success or confirmation context
-19. A lock icon on elements labelled as public, open, or shared
+COMPONENT & NAMING:
+10. Default names still present: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+"
+11. Same UI pattern (card, button, list item) built differently across screens instead of shared component
 
-STATE & STORYTELLING CLASHES
-20. An empty state screen with no guidance, onboarding text, or call to action
-21. A confirmation screen with no summary of what was confirmed
-22. A form with a submit CTA but no visible required-field indicators or validation hints
-23. Screens in a flow where the visual hierarchy (heading sizes, colours) changes dramatically and inconsistently
-24. Progress indicators that skip steps or show inconsistent state across screens
-25. A modal or overlay with no visible dismiss/close action
+UX FLOW (compare screens as a journey):
+12. Destructive/irreversible action with no confirmation step
+13. Dead-end screens: no navigation, back button, or next action
+14. Empty state with no guidance or call to action
+15. Success/confirmation screen missing summary of what was confirmed
+16. Progress indicators that skip steps or show inconsistent state
 
-COMPONENT & NAMING
-26. Any frame or component whose name matches default patterns: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+", "Image \\d+"
-27. The same UI pattern (card, list item, header, button) implemented with different structures across screens instead of using a shared component
-28. A component named "disabled" or "inactive" that uses full-opacity high-contrast fills
-29. A component named "primary" that is visually subordinate to its siblings
-30. A component named "error" or "destructive" using green or blue fills
+═══ PASS 2: DESIGNER POLISH (LOW) ═══
+17. Inconsistent spacing between same type of element across screens
+18. Alignment issues, border radius inconsistencies, padding mismatches
 
-UX FLOW
-31. A destructive or irreversible action with no confirmation step visible in the data
-32. A primary CTA whose label does not clearly describe the outcome ("Submit", "OK", "Continue" with no context)
-33. Any screen that appears to be a dead end — no visible navigation, back button, or exit action
-34. Truncated or cut-off text that appears incomplete based on the bounding box
-
-═══ PASS 2: DESIGNER POLISH (LOW only) ═══
-Only after completing Pass 1, fill remaining slots with these. These are refinements, not blockers.
-
-35. Inconsistent spacing between the same type of element across screens
-36. Elements slightly misaligned relative to their siblings based on bounding box data
-37. Minor border radius inconsistencies across similar components
-38. Inconsistent padding values in similar containers
-39. Minor font size or weight variations in elements that should match
+═══ DEDUPLICATION RULES ═══
+- If the SAME text problem appears on the SAME nodeId, report it ONCE only.
+- If the same issue type appears on DIFFERENT screens, you may report each instance but with DIFFERENT nodeIds.
+- Prefer DIVERSE issues over MANY instances of the same problem.
 
 ═══ OUTPUT FORMAT ═══
 CRITICAL CATEGORY RESTRICTION: Only use these category values: ${categoryOptions}
 Aim for ${itemsPerCategory} items per category, distributed across ALL requested categories.
-At least 70% of items MUST be HIGH or MEDIUM severity (Pass 1). LOW severity items (Pass 2) fill the remainder.
+At least 70% of items MUST be HIGH or MEDIUM severity.
 
 Use the MOST SPECIFIC node ID for each issue (the text layer, not the parent frame).
 NEVER include technical IDs like [123:456] in title or description fields.
@@ -553,12 +534,12 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
 
 [{
   "category": ${categoryOptions},
-  "title": "Human-readable issue title",
-  "description": "What is wrong, citing the specific evidence (text/colour/name) from the data",
+  "title": "Human-readable issue title (unique — no two items should have the same title)",
+  "description": "What is wrong, citing specific evidence. If same issue in multiple places, list all locations here.",
   "suggestion": "Specific actionable fix",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name",
-  "nodeId": "exact_node_id_from_structure"
+  "nodeId": "exact_node_id_from_structure (UNIQUE — never reuse a nodeId)"
 }]`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
@@ -681,17 +662,40 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
       }
     }
 
-    // Deduplicate by title (case-insensitive) and sort high → medium → low
-    const seen = new Set<string>();
+    // Deduplicate: by nodeId first, then by fuzzy title similarity, then sort
+    const seenNodeIds = new Set<string>();
+    const seenTitleKeys = new Set<string>();
     const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    allFeedback = allFeedback
-      .filter(item => {
-        const key = (item.title || '').toLowerCase().trim();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
+    
+    // Sort by severity first so we keep the highest severity version of duplicates
+    allFeedback.sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
+    
+    allFeedback = allFeedback.filter(item => {
+      // Dedup by nodeId: same node = same issue
+      if (item.nodeId) {
+        if (seenNodeIds.has(item.nodeId)) return false;
+        seenNodeIds.add(item.nodeId);
+      }
+      
+      // Dedup by normalized title: strip quotes, IDs, punctuation, lowercase
+      const normalizedTitle = (item.title || '')
+        .toLowerCase()
+        .replace(/['"""''`]/g, '')
+        .replace(/\b(send money\s*2|send money2)\b/g, 'PLACEHOLDER_TEXT') // normalize specific repeated phrases
+        .replace(/\bid:[^\s,)]+/g, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Create a "signature" from the first 6 significant words
+      const words = normalizedTitle.split(' ').filter(w => w.length > 2);
+      const titleKey = words.slice(0, 6).join(' ');
+      
+      if (titleKey && seenTitleKeys.has(titleKey)) return false;
+      if (titleKey) seenTitleKeys.add(titleKey);
+      
+      return true;
+    });
 
     const categoryCount: Record<string, number> = {};
     allFeedback.forEach(item => {
