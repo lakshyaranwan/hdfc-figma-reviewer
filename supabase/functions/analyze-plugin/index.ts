@@ -950,6 +950,10 @@ Use this to understand context: if a label says "Transfer" and radio buttons "No
 If a screen has a "Confirm" or "Submit" button anywhere, the entire screen HAS a CTA — do NOT flag "missing CTA".
 ${spatialLayout}
 
+═══ 🔑 CONTAINMENT MAP (what's INSIDE each section — READ THIS BEFORE CLAIMING ANYTHING IS MISSING) ═══
+Each line shows a container and ALL the text elements nested inside it. If a container has text inside it, that content EXISTS — do NOT claim it is missing, empty, or lacks detail.
+${containmentSummary}
+
 ═══ ALL VISIBLE TEXT (sorted top-to-bottom per screen) ═══
 These are the ACTUAL words displayed on screen. Read them carefully for typos, placeholders, truncation.
 ${textContent}
