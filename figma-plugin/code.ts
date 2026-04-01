@@ -1377,14 +1377,6 @@ figma.ui.onmessage = async (msg: any) => {
       // Get viewport center
       const vp = figma.viewport.center;
 
-      // Card dimensions
-      const CARD_WIDTH = 280;
-      const CARD_PADDING = 16;
-      const PILL_HEIGHT = 24;
-      const TEXT_LINE_HEIGHT = 22;
-      const SECTION_GAP = 16;
-
-      // Calculate sections needed
       const sections: { pillText: string; pillColor: { r: number; g: number; b: number }; bodyText: string }[] = [];
       if (interaction) sections.push({ pillText: 'Interaction', pillColor: { r: 0.8, g: 0.33, b: 0.8 }, bodyText: interaction });
       if (role) sections.push({ pillText: 'Role/State', pillColor: { r: 0.2, g: 0.7, b: 0.4 }, bodyText: role });
@@ -1392,48 +1384,39 @@ figma.ui.onmessage = async (msg: any) => {
 
       if (sections.length === 0) return;
 
-      // Estimate card height
-      const sectionHeight = PILL_HEIGHT + 8 + TEXT_LINE_HEIGHT * 2; // pill + gap + ~2 lines of body text
-      const totalHeight = CARD_PADDING * 2 + sections.length * sectionHeight + (sections.length - 1) * SECTION_GAP;
-
-      // Create main card frame
-      const card = figma.createFrame();
-      card.name = '📝 A11y Annotation';
-      card.resize(CARD_WIDTH, totalHeight);
-      card.x = vp.x - CARD_WIDTH / 2;
-      card.y = vp.y - totalHeight / 2;
-      card.cornerRadius = 12;
-      card.fills = [{ type: 'SOLID', color: { r: 0.18, g: 0.18, b: 0.2 } }];
-      card.layoutMode = 'VERTICAL';
-      card.paddingLeft = CARD_PADDING;
-      card.paddingRight = CARD_PADDING;
-      card.paddingTop = CARD_PADDING;
-      card.paddingBottom = CARD_PADDING;
-      card.itemSpacing = SECTION_GAP;
-      card.primaryAxisSizingMode = 'AUTO';
-
-      // Load font
+      // Load fonts once
       await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
       await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
 
-      for (const section of sections) {
-        // Section container
-        const sectionFrame = figma.createFrame();
-        sectionFrame.name = section.pillText;
-        sectionFrame.layoutMode = 'VERTICAL';
-        sectionFrame.itemSpacing = 8;
-        sectionFrame.fills = [];
-        sectionFrame.layoutSizingHorizontal = 'FILL';
-        sectionFrame.primaryAxisSizingMode = 'AUTO';
+      const CARD_WIDTH = 280;
+      const CARD_PADDING = 20;
+      const GAP_BETWEEN_CARDS = 12;
+      const allCards: FrameNode[] = [];
 
-        // Pill
+      for (const section of sections) {
+        // Each section is its own separate dark card
+        const card = figma.createFrame();
+        card.name = `📝 ${section.pillText}`;
+        card.resize(CARD_WIDTH, 100); // will auto-size
+        card.cornerRadius = 12;
+        card.fills = [{ type: 'SOLID', color: { r: 0.22, g: 0.22, b: 0.24 } }];
+        card.layoutMode = 'VERTICAL';
+        card.paddingLeft = CARD_PADDING;
+        card.paddingRight = CARD_PADDING;
+        card.paddingTop = CARD_PADDING;
+        card.paddingBottom = CARD_PADDING;
+        card.itemSpacing = 12;
+        card.primaryAxisSizingMode = 'AUTO';
+        card.counterAxisSizingMode = 'FIXED';
+
+        // Pill badge
         const pill = figma.createFrame();
         pill.name = 'Pill';
         pill.layoutMode = 'HORIZONTAL';
         pill.paddingLeft = 12;
         pill.paddingRight = 12;
-        pill.paddingTop = 4;
-        pill.paddingBottom = 4;
+        pill.paddingTop = 5;
+        pill.paddingBottom = 5;
         pill.cornerRadius = 12;
         pill.fills = [{ type: 'SOLID', color: section.pillColor }];
         pill.primaryAxisSizingMode = 'AUTO';
@@ -1442,30 +1425,41 @@ figma.ui.onmessage = async (msg: any) => {
         const pillText = figma.createText();
         pillText.fontName = { family: 'Inter', style: 'Semi Bold' };
         pillText.characters = section.pillText;
-        pillText.fontSize = 11;
+        pillText.fontSize = 12;
         pillText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
         pill.appendChild(pillText);
-
-        sectionFrame.appendChild(pill);
+        card.appendChild(pill);
 
         // Body text
         const bodyText = figma.createText();
         bodyText.fontName = { family: 'Inter', style: 'Regular' };
         bodyText.characters = section.bodyText;
-        bodyText.fontSize = 16;
+        bodyText.fontSize = 18;
+        bodyText.lineHeight = { value: 26, unit: 'PIXELS' };
         bodyText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
         bodyText.layoutSizingHorizontal = 'FILL';
         bodyText.textAutoResize = 'HEIGHT';
+        card.appendChild(bodyText);
 
-        sectionFrame.appendChild(bodyText);
-        card.appendChild(sectionFrame);
+        figma.currentPage.appendChild(card);
+        allCards.push(card);
       }
 
-      // Select and scroll to the annotation
-      figma.currentPage.appendChild(card);
-      figma.currentPage.selection = [card];
-      figma.viewport.scrollAndZoomIntoView([card]);
-      figma.notify('📝 Annotation placed at viewport center');
+      // Position cards stacked vertically, centered at viewport
+      let totalHeight = 0;
+      for (const c of allCards) totalHeight += c.height;
+      totalHeight += (allCards.length - 1) * GAP_BETWEEN_CARDS;
+
+      let currentY = vp.y - totalHeight / 2;
+      for (const c of allCards) {
+        c.x = vp.x - CARD_WIDTH / 2;
+        c.y = currentY;
+        currentY += c.height + GAP_BETWEEN_CARDS;
+      }
+
+      figma.currentPage.selection = allCards;
+      figma.viewport.scrollAndZoomIntoView(allCards);
+      figma.notify('📝 Annotation cards placed at viewport center');
     } catch (e) {
       console.error('Annotation creation failed:', e);
       figma.notify('❌ Failed to create annotation: ' + (e as Error).message);
