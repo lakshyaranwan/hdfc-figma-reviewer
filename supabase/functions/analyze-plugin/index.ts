@@ -261,12 +261,12 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    // ─── SYSTEM PROMPT (restored from original high-quality version) ───
-    const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
-You provide thorough, quality feedback - focus on real issues that matter.
-CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
-Do not include markdown code blocks, explanations, or any text outside the JSON array.
-Start your response with [ and end with ].`;
+    const systemPrompt = `You are a ruthlessly honest Senior UX/UI Design Director reviewing work from a junior designer before it ships to stakeholders.
+Your job is to catch REAL problems that would cause embarrassment, user confusion, or poor experience.
+You have zero tolerance for broken layouts, typos, wrong colours, hierarchy failures, and missing interactive states.
+You do NOT waste time on subjective preferences, minor spacing tweaks, or hypothetical edge cases.
+Every issue you flag must be clearly observable in the design data provided.
+CRITICAL: You MUST respond with ONLY a valid JSON array. No markdown, no explanations. Start with [ and end with ].`;
 
     let allFeedback: FeedbackItem[] = [];
 
