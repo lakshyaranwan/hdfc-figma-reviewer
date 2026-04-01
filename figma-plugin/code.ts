@@ -11,6 +11,8 @@ interface DesignNode {
   visible: boolean;
   x?: number;
   y?: number;
+  absX?: number;
+  absY?: number;
   width?: number;
   height?: number;
   fills?: any[];
