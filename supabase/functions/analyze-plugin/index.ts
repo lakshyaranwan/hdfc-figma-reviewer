@@ -662,17 +662,40 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
       }
     }
 
-    // Deduplicate by title (case-insensitive) and sort high → medium → low
-    const seen = new Set<string>();
+    // Deduplicate: by nodeId first, then by fuzzy title similarity, then sort
+    const seenNodeIds = new Set<string>();
+    const seenTitleKeys = new Set<string>();
     const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    allFeedback = allFeedback
-      .filter(item => {
-        const key = (item.title || '').toLowerCase().trim();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
+    
+    // Sort by severity first so we keep the highest severity version of duplicates
+    allFeedback.sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
+    
+    allFeedback = allFeedback.filter(item => {
+      // Dedup by nodeId: same node = same issue
+      if (item.nodeId) {
+        if (seenNodeIds.has(item.nodeId)) return false;
+        seenNodeIds.add(item.nodeId);
+      }
+      
+      // Dedup by normalized title: strip quotes, IDs, punctuation, lowercase
+      const normalizedTitle = (item.title || '')
+        .toLowerCase()
+        .replace(/['"""''`]/g, '')
+        .replace(/\b(send money\s*2|send money2)\b/g, 'PLACEHOLDER_TEXT') // normalize specific repeated phrases
+        .replace(/\bid:[^\s,)]+/g, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Create a "signature" from the first 6 significant words
+      const words = normalizedTitle.split(' ').filter(w => w.length > 2);
+      const titleKey = words.slice(0, 6).join(' ');
+      
+      if (titleKey && seenTitleKeys.has(titleKey)) return false;
+      if (titleKey) seenTitleKeys.add(titleKey);
+      
+      return true;
+    });
 
     const categoryCount: Record<string, number> = {};
     allFeedback.forEach(item => {
