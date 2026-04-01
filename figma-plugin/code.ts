@@ -38,11 +38,11 @@ interface DesignNode {
 
 // Track extracted node count to cap payload size
 let _extractedNodeCount = 0;
-const MAX_EXTRACTED_NODES = 500;
+const MAX_EXTRACTED_NODES = 2000;
 
 // Extract design data from a node recursively
 function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null {
-  if (depth > 8) return null; // Limit depth
+  if (depth > 20) return null; // Safety limit only — allow full depth traversal
   if (_extractedNodeCount >= MAX_EXTRACTED_NODES) return null; // Cap total nodes
   
   // Skip hidden layers/elements
