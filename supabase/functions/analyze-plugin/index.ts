@@ -867,27 +867,8 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       if (crossScreenFacts) console.log(`CROSS-SCREEN:\n${crossScreenFacts}`);
       if (pageSemantics) console.log(`CLASHES:\n${pageSemantics}`);
 
-      const dsPromptSection = dsContext ? `
-═══ DESIGN SYSTEM CONTEXT ═══
-DS INVENTORY:
-- Components (${(dsContext.componentNames || []).length}): ${(dsContext.componentNames || []).slice(0, 100).join(', ')}
-- Color tokens (${(dsContext.colorTokenMap || dsContext.colorNames || []).length}): ${
-  (dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0)
-    ? dsContext.colorTokenMap.slice(0, 80).map((t: any) => `${t.name}=${t.hex}`).join(', ')
-    : (dsContext.colorNames || []).slice(0, 60).join(', ')
-}
-- Text styles: ${(dsContext.textStyleMap && dsContext.textStyleMap.length > 0)
-  ? dsContext.textStyleMap.slice(0, 30).map((t: any) => `${t.name}(${t.family} ${t.size}px ${t.weight})`).join(', ')
-  : (dsContext.textStyleNames || []).slice(0, 30).join(', ')}
-${dsContext.libraryNames?.length ? `- Libraries: ${dsContext.libraryNames.join(', ')}` : ""}
-
-DS RULES:
-- Nodes with fillStyleId set are ALREADY using a DS color token — do NOT flag them.
-- Nodes with textStyleId set are ALREADY using a DS text style — do NOT flag them.
-- Only flag nodes WITHOUT these bound style IDs.
-- For unbound fills, compare hex to DS COLOR TOKEN MAP and suggest the closest token.
-- For unbound text, compare font/size/weight to DS text styles and suggest the closest style.
-` : '';
+      // Design system prompt section disabled for now
+      const dsPromptSection = '';
 
       const analysisPrompt = `
 ═══ DESIGN DATA${chunkLabel} ═══
