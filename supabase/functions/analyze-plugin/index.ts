@@ -253,13 +253,10 @@ serve(async (req) => {
       }
     }
 
-    // Category setup
+    // Category setup — DS-independent, no design_system category
     let allowedCategories = categories || ["ux", "ui", "consistency"];
     if (isCustom) {
       allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
-    }
-    if (dsContext && !allowedCategories.includes("design_system")) {
-      allowedCategories.push("design_system");
     }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
@@ -310,11 +307,12 @@ CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
 - Provide around ${itemsPerCategory} issues per category
-- Focus on REAL, meaningful issues — typos, colour problems, hierarchy issues, inconsistencies
-- Do NOT skip any category
+- Focus on GLARING, significant issues first — broken layouts, wrong colours, obvious typos, major hierarchy problems, missing states, poor contrast
+- Do NOT flag minor nitpicks, slight spacing differences, or subjective style preferences
+- Prioritise issues that would embarrass the designer in a stakeholder review
 - Read EVERY text field character by character for typos and casing issues
-- Check EVERY fills[].hex value for colour inconsistencies and contrast issues
-- Compare fontSize values across all text nodes for hierarchy problems
+- Check fills[].hex values for obvious colour problems (wrong brand colours, poor contrast, jarring combinations)
+- Compare fontSize values across text nodes for clear hierarchy violations
 
 Format as JSON array:
 [{
@@ -360,53 +358,8 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
         ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
         : `${baseContext}\n\n${prompt}\n${formatInstructions}`;
 
-      // ─── DS ADDITIVE LAYER — completely separate, never modifies the core review ───
-      const dsAuditSection = dsContext
-        ? `
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DESIGN SYSTEM AUDIT — ADDITIVE PASS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-IMPORTANT: First complete the full core design review above. Then append these additional DS-specific items.
-Do NOT reduce, replace, or skip any core review items because of this section.
-These are purely additive findings on top of the full review.
-
-DS INVENTORY:
-Components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 80).join(", ")}
-Colour tokens: ${
-            dsContext.colorTokenMap && dsContext.colorTokenMap.length > 0
-              ? dsContext.colorTokenMap
-                  .slice(0, 60)
-                  .map((t: any) => `${t.name}=${t.hex}`)
-                  .join(", ")
-              : (dsContext.colorNames || []).slice(0, 60).join(", ")
-          }
-Text styles: ${
-            dsContext.textStyleMap && dsContext.textStyleMap.length > 0
-              ? dsContext.textStyleMap
-                  .slice(0, 25)
-                  .map((t: any) => `${t.name}(${t.family} ${t.size}px ${t.weight})`)
-                  .join(", ")
-              : (dsContext.textStyleNames || []).slice(0, 25).join(", ")
-          }
-${dsContext.libraryNames?.length ? `Libraries: ${dsContext.libraryNames.join(", ")}` : ""}
-
-DS AUDIT RULES (additive items only):
-1. COLOUR TOKENS — nodes WITHOUT "fillStyleId": compare fills[].hex to colour token map. Find nearest token by colour distance.
-   Format: { category: "ui", title: "Raw hex not using DS token", description: "Node uses #XXXXXX instead of DS token.", suggestion: "Replace #XXXXXX with DS colour token 'TokenName' [#YYYYYY] — nearest match.", ... }
-   SKIP any node that has "fillStyleId" already set — it is already compliant.
-
-2. TEXT STYLES — nodes WITHOUT "textStyleId": compare fontName+fontSize against DS text style map.
-   Format: { category: "ui", suggestion: "Replace Inter 16px Regular with DS text style 'Body/M Regular'.", ... }
-   SKIP any node that has "textStyleId" already set — it is correct.
-
-3. COMPONENT SUBSTITUTION — node looks like a custom-built version of a DS component: flag as "design_system".
-   Suggestion: "Use DS component 'Button/Primary' instead of this custom frame."
-
-4. DS CONSISTENCY — same element appears multiple times, one using DS component and another custom: flag as "consistency".`
-        : "";
-
-      const analysisPrompt = `${baseReviewPrompt}${dsAuditSection}`;
+      // DS layer disabled — reviews are independent of any design system
+      const analysisPrompt = baseReviewPrompt;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
