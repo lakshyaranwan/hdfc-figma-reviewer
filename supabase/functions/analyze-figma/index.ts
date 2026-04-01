@@ -89,6 +89,50 @@ function chunkNodes(canvasData: { name: string; nodes: any[] }, maxTokens: numbe
   return chunks;
 }
 
+// Robust JSON repair for truncated AI responses (matches plugin logic)
+function repairTruncatedJSON(raw: string): any[] {
+  const trimmed = raw.trim();
+  // Try direct parse first
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (_) { /* fall through */ }
+
+  // Extract complete JSON objects using brace-depth counting
+  const results: any[] = [];
+  let i = 0;
+  while (i < trimmed.length) {
+    if (trimmed[i] !== '{') { i++; continue; }
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    const objStart = i;
+    for (let j = i; j < trimmed.length; j++) {
+      const ch = trimmed[j];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          const objStr = trimmed.substring(objStart, j + 1);
+          try {
+            const obj = JSON.parse(objStr);
+            if (obj.title && obj.category) results.push(obj);
+          } catch (_) { /* skip malformed */ }
+          i = j + 1;
+          break;
+        }
+      }
+      if (j === trimmed.length - 1) { i = j + 1; } // incomplete object, skip
+    }
+    if (i === objStart) i++; // safety
+  }
+  return results;
+}
+
 // Helper to store chunk records in DB
 async function storeChunks(supabaseUrl: string, serviceRoleKey: string, jobId: string, chunks: any[]) {
   for (let i = 0; i < chunks.length; i++) {
