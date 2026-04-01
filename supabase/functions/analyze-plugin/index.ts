@@ -799,6 +799,7 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const semanticContext = extractSemanticContext(chunk);
       const pageSemantics = computePageSemantics(chunk);
       const crossScreenFacts = buildCrossScreenFacts(chunk);
+      const spatialLayout = buildSpatialLayoutSummary(chunk);
 
       // Debug: log semantic analysis results
       const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
