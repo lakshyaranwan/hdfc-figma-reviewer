@@ -232,8 +232,8 @@ Start your response with [ and end with ].`;
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
       const itemsPerCategory = isChunked
-        ? Math.max(3, Math.floor(10 / chunks.length))
-        : 10;
+        ? Math.max(3, Math.floor(8 / chunks.length))
+        : 8;
 
       const designContext = JSON.stringify(chunk, null, 2);
 
@@ -262,9 +262,10 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
+- You MUST provide EXACTLY ${itemsPerCategory} issues for EACH category (${allowedCategories.length} categories = ${itemsPerCategory * allowedCategories.length} total items minimum)
 - Focus on REAL, meaningful issues
 - Do NOT skip any category
+- If you cannot find ${itemsPerCategory} real issues for a category, provide as many as you can but aim for ${itemsPerCategory}
 
 Format as JSON array:
 [{
@@ -316,7 +317,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 16000,
+          max_tokens: 32000,
           temperature: 0,
         }),
       });
