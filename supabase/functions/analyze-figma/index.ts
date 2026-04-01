@@ -365,6 +365,7 @@ Ensure EVERY requested category has substantial feedback. Do not skip or under-r
           { role: "user", content: analysisPrompt },
         ],
         max_tokens: 16000,
+        temperature: 0,
       }),
     });
 
