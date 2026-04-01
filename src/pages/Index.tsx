@@ -100,6 +100,12 @@ const Index = () => {
                   No keys
                 </Badge>
               )}
+              <Button variant="ghost" size="sm" asChild>
+                <a href="/plugin-download.zip" download="HDFC-Design-Reviewer-Plugin.zip">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Plugin
+                </a>
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate("/usage")}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Usage
