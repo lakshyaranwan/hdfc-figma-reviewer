@@ -850,56 +850,7 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = `You are a senior product designer doing design QA. You review like a stakeholder would — you catch the things that would be embarrassing in a demo or confusing to a real user.
-
-CRITICAL DATA RULES:
-1. The "text" field is the ONLY source of truth for what the user sees on screen. THERE IS NO "name" FIELD — it has been removed. Do NOT reference layer names, frame names, section names, or component names in your analysis. They do not exist. Only "text" content matters.
-2. Every issue MUST cite a specific "text" string, hex colour, or node ID from the data. No theoretical issues.
-3. ONE issue per node ID. NEVER report the same nodeId twice.
-4. ONE issue per unique problem. If the same text appears in multiple places, report it ONCE.
-5. Spread attention EVENLY across ALL screens/frames. Do NOT fixate on one screen.
-6. NEVER flag or mention internal naming conventions, layer organization, or component structure. You CANNOT see these. You can ONLY see what the end user sees: text, colors, layout, and spacing.
-
-WORKFLOW — CROSS-SCREEN COMPARISON:
-Before writing issues, enumerate every top-level frame (screen). Then:
-Step 1: Compare screens as a FLOW — coherent story? Logical transitions?
-Step 2: Compare ACROSS screens — consistent styling? Same terminology?
-Step 3: Review EACH screen individually for internal problems.
-
-TWO-PASS STRATEGY:
-PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70%): Things a non-designer would spot.
-PASS 2 — DESIGNER POLISH (LOW, ≤30%): Pixel-level refinements.
-
-🚨🚨🚨 SEMANTIC CONTEXT IS YOUR #1 PRIORITY — READ BEFORE ANYTHING ELSE:
-The SEMANTIC CONTEXT section below pairs each coloured container with ALL text inside it.
-Lines marked ⚠️ with 🔴 RED/DANGER that contain positive words (success, confirmed, congratulations, processed, initiated, approved, completed) = **CRITICAL CLASH — MUST be flagged as HIGH severity**.
-Lines marked ⚠️ with 🟢 GREEN/SUCCESS that contain negative words (error, failed, declined, warning) = **CRITICAL CLASH — MUST be flagged as HIGH severity**.
-If you see ANY such clash and do NOT flag it, your review is WRONG. This is the single most important check.
-
-Severity definitions:
-HIGH = Semantic clashes (red container + success text, green + error text), broken flows, placeholder text with digits, actual typos. These are EMBARRASSING in a demo.
-MEDIUM = Inconsistencies across screens, confusing labels, misleading copy.
-LOW = Polish. Only a designer would notice. Spacing, alignment, border radius.
-
-ABSOLUTE NEVER-FLAG LIST:
-- Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
-- NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
-- NEVER flag "missing summary" or "lacks summary/details" when the CONTAINMENT MAP shows a container with multiple text elements inside it. A section heading with 5+ text children IS a summary — it is NOT empty.
-- NEVER flag "missing content below heading" — check the CONTAINMENT MAP. If the heading's parent container has child text nodes, the content EXISTS.
-- NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word.
-- NEVER flag "incomplete sentence" for marketing slogans, taglines, or promotional text.
-- NEVER invent problems that aren't evidenced in the data. If you're unsure, skip it.
-- NEVER flag "missing CTA" or "no call to action" if the screen contains ANY button text like "Confirm", "Submit", "Proceed", "Continue", "Done", "Pay", "Send", "Transfer", "Edit", "Cancel", etc. Check the SPATIAL LAYOUT and CONTAINMENT MAP.
-- NEVER flag "ambiguous instruction" or "missing options" for a label/heading when there are interactive elements (radio buttons, checkboxes, dropdowns, toggles, input fields) in the same or adjacent spatial section.
-- NEVER flag "missing explanation" for section headings — headings are meant to be short. The content below them IS the explanation.
-- Before flagging ANY "missing X" issue, you MUST: (1) check the CONTAINMENT MAP to see if X exists as child text, (2) check the SPATIAL LAYOUT to see if X exists nearby, (3) check ALL VISIBLE TEXT to see if X appears anywhere on the screen. Only flag if ALL THREE checks confirm it's truly absent.
-
-MANDATORY PRE-FLIGHT CHECK: Before outputting ANY issue with words like "missing", "lacks", "no summary", "no confirmation", "no content", "empty", or "placeholder":
-→ Search the CONTAINMENT MAP for the parent container — does it have text children? If yes, DO NOT FLAG.
-→ Search ALL VISIBLE TEXT for related keywords — do they exist on the screen? If yes, DO NOT FLAG.
-Violations of this rule make your entire review INVALID.
-
-Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
+    const systemPrompt = `You are an expert UX/UI designer providing professional design feedback. CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].`;
 
     console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
     let allFeedback: FeedbackItem[] = [];
@@ -915,148 +866,79 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
         ? Math.max(minPerCategory, Math.floor(10 / chunks.length))
         : Math.max(minPerCategory, Math.floor(60 / allowedCategories.length));
 
-      // Strip "name" field from data sent to AI — layer names are misleading and cause false flags
+      // Strip internal fields from data sent to AI
       const chunkForAI = chunk.map((node: any) => {
         const { name, _boilerplate, _salience, ...rest } = node;
         return rest;
       });
-      const designContext = JSON.stringify(chunkForAI, null, 2);
-      const textContent = extractTextContent(chunk);
-      const colorContent = extractColorContext(chunk);
-      const semanticContext = extractSemanticContext(chunk);
-      const pageSemantics = computePageSemantics(chunk);
-      const crossScreenFacts = buildCrossScreenFacts(chunk);
-      const spatialLayout = buildSpatialLayoutSummary(chunk);
-      const containmentSummary = buildContainmentSummary(chunk);
-      console.log(`Containment summary lines: ${containmentSummary.split('\n').length}`);
 
-      // Debug: log semantic analysis results
-      const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
-      console.log(`Semantic context entries: ${semanticContext.split('⚠️').length - 1}`);
-      console.log(`Red/danger nodes found in chunk: ${redNodes.length}`);
-      if (redNodes.length > 0) console.log(`Red nodes: ${redNodes.map((n: any) => `${n.id}(${n.type},fill:${n.fills[0]?.hex})`).join(', ')}`);
-      console.log(`Page-level clashes found: ${pageSemantics ? pageSemantics.split('🚨').length - 1 : 0}`);
-      console.log(`Cross-screen inconsistencies: ${crossScreenFacts ? crossScreenFacts.split('INCONSISTENCY').length - 1 : 0}`);
-      if (crossScreenFacts) console.log(`CROSS-SCREEN:\n${crossScreenFacts}`);
-      if (pageSemantics) console.log(`CLASHES:\n${pageSemantics}`);
+      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs. Analyze the following design data and provide detailed feedback.
 
-      // Design system prompt section disabled for now
-      const dsPromptSection = '';
+Design Structure${chunkLabel} (node hierarchy with IDs - USE THESE EXACT IDs):
+${JSON.stringify(chunkForAI, null, 2)}
 
-      const analysisPrompt = `
-═══ DESIGN DATA${chunkLabel} ═══
-File: ${fileName} | Page: ${pageName}
-IMPORTANT: Layer names, frame names, section names, and component names have been REMOVED from this data. They are internal designer labels and do NOT represent what users see. Only the "text" field shows actual visible content. Do NOT infer or guess content from node types or IDs.
+CRITICAL NODE ID INSTRUCTIONS:
+- You MUST use the EXACT node IDs from the list above
+- Choose the MOST SPECIFIC node ID for each piece of feedback
+- For a button issue, use the button's node ID, NOT its parent frame
+- For a text issue, use the text layer's node ID, NOT the containing group
+- The more specific the node, the better the comment placement will be
 
-Node hierarchy (use these exact IDs in nodeId field):
-${designContext}
+IMPORTANT: Do NOT reference internal layer/component names. Only analyze VISIBLE text content and visual properties.`;
 
-═══ SPATIAL LAYOUT (what's next to what on each screen) ═══
-This shows elements grouped by their vertical position on screen. Elements in the same "Section" are visually adjacent.
-Use this to understand context: if a label says "Transfer" and radio buttons "Now" / "Later" are in the same section or the next section, that means the radio buttons ARE the transfer options — do NOT flag as "missing instructions".
-If a screen has a "Confirm" or "Submit" button anywhere, the entire screen HAS a CTA — do NOT flag "missing CTA".
-${spatialLayout}
+      const formatInstructions = `
+For each issue found, provide:
+- A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
+- Detailed description of the issue AND specific actionable suggestions on how to fix it (NO technical IDs in the description)
+- Severity (low, medium, high)
+- The EXACT node ID from the structure above for the specific element this feedback applies to
+- Component/frame name (user-friendly name only, NO technical IDs)
 
-═══ 🔑 CONTAINMENT MAP (what's INSIDE each section — READ THIS BEFORE CLAIMING ANYTHING IS MISSING) ═══
-Each line shows a container and ALL the text elements nested inside it. If a container has text inside it, that content EXISTS — do NOT claim it is missing, empty, or lacks detail.
-${containmentSummary}
+CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
+Only use these exact category values: ${categoryOptions}
 
-═══ ALL VISIBLE TEXT (sorted top-to-bottom per screen) ═══
-These are the ACTUAL words displayed on screen. Read them carefully for typos, placeholders, truncation.
-${textContent}
+CRITICAL BALANCE REQUIREMENT: Provide feedback distributed across ALL requested categories.
+- Provide ${itemsPerCategory} feedback items for EACH category requested
+- Do NOT skip any category
 
-═══ ALL FILL COLOURS (with node IDs) ═══
-${colorContent}
-
-═══ 🚨 SEMANTIC CONTEXT — READ THIS FIRST (container fill → child text pairings) ═══
-Each line pairs a container's background colour with the text displayed inside it.
-Entries tagged 🔴 RED/DANGER + positive text = CRITICAL CLASH. Flag as HIGH immediately.
-Entries tagged 🟢 GREEN/SUCCESS + negative text = CRITICAL CLASH. Flag as HIGH immediately.
-${semanticContext}
-
-${pageSemantics ? `═══ 🚨🚨🚨 PRE-COMPUTED SEMANTIC CLASHES — YOU MUST FLAG THESE ═══
-The following clashes have been AUTOMATICALLY DETECTED. Each one MUST appear in your output as a HIGH severity issue. If you omit any of these, your review is INCOMPLETE and WRONG.
-${pageSemantics}
-` : ''}
-${crossScreenFacts ? `═══ 🔍 PRE-COMPUTED CROSS-SCREEN INCONSISTENCIES ═══
-The following inconsistencies have been AUTOMATICALLY DETECTED by comparing label-value pairs across screens.
-Each one should be flagged as a "consistency" issue (MEDIUM or HIGH severity).
-${crossScreenFacts}
-` : ''}
-${dsPromptSection}
-
-${isCustom ? `User's specific request: ${prompt}\n` : ''}
-═══ CONTENT PRIORITY (CRITICAL — READ THIS) ═══
-Focus your review on the PRIMARY CONTENT AREA of each screen — the main body, banners, cards, forms, CTAs, and key messages that users interact with.
-DO NOT waste feedback on these BOILERPLATE/CHROME areas:
-- Footers, headers, navigation bars, tab bars, status bars, app bars
-- Legal text, copyright notices, "Terms & Conditions", "Privacy Policy" links
-- Social media icons, help/contact links
-- Any element whose layer name contains: footer, header, nav, menu, legal, copyright, tab-bar, status-bar
-These are structural chrome — they are NOT interesting for design review. Skip them entirely.
-If a node is tagged _boilerplate:true in the data, IGNORE it completely.
-Prioritize nodes with high _salience scores — these are the visually prominent elements users will notice first.
-
-═══ PASS 1: STAKEHOLDER GLANCE (HIGH + MEDIUM) ═══
-Scan ALL screens. For each screen, check these categories. Flag every violation with evidence.
-CATEGORY each issue correctly:
-
-TYPOS & TEXT ISSUES → category "ux_writing":
-1. Spelling errors, grammatical errors, truncated words (e.g. "Transfera" instead of "Transfer", "Confrim" instead of "Confirm")
-2. Placeholder/dev text: trailing digits ("Send Money2"), "lorem ipsum", "copy of", "untitled", "label", "text here", "heading"
-3. Inconsistent terminology across screens: same action called different names (e.g. "Send" vs "Transfer")
-4. Inconsistent capitalisation: some buttons Title Case, others ALL CAPS, others sentence case
-
-COLOUR-SEMANTIC CLASHES → category "ux" (these are UX failures — wrong visual feedback for user):
-5. Red/danger container with positive/success text = wrong emotional signal to user
-6. Green/success container with negative/error text = wrong emotional signal to user
-7. Celebratory text inside error-styled containers, or error text inside success-styled containers
-
-CROSS-SCREEN CONSISTENCY → category "consistency":
-8. Same semantic role (primary CTA, error, success) in DIFFERENT colours across screens
-9. Same UI pattern (card, button, list item) built differently across screens instead of shared component
-10. Inconsistent terminology or naming for the same action across screens
-
-UX FLOW ISSUES → category "high_level":
-11. Destructive/irreversible action with no confirmation step
-12. Dead-end screens: no navigation, back button, or next action
-13. Empty state with no guidance or call to action
-14. Success/confirmation screen missing summary of what was confirmed
-15. Flow logic contradictions — screen intent vs actual content mismatch
-
-UI ISSUES → category "ui":
-16. Default layer names still visible: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+"
-17. Visual styling clashes within a single screen
-
-═══ PASS 2: DESIGNER POLISH (LOW) ═══
-18. Inconsistent spacing between same type of element across screens → "consistency"
-19. Alignment issues, border radius inconsistencies, padding mismatches → "ui"
-
-═══ DEDUPLICATION RULES ═══
-- If the SAME text problem appears on the SAME nodeId, report it ONCE only.
-- If the same issue type appears on DIFFERENT screens, you may report each instance but with DIFFERENT nodeIds.
-- Prefer DIVERSE issues over MANY instances of the same problem.
-
-═══ OUTPUT FORMAT ═══
-CRITICAL CATEGORY RESTRICTION: Only use these category values: ${categoryOptions}
-You MUST produce AT LEAST ${minPerCategory} items for EACH category. Target ${itemsPerCategory} per category.
-If you return fewer than ${minPerCategory} for any category, your review is INCOMPLETE — look harder.
-Every category MUST have at least one HIGH or MEDIUM severity issue.
-At least 70% of ALL items MUST be HIGH or MEDIUM severity.
-
-Use the MOST SPECIFIC node ID for each issue (the text layer, not the parent frame).
-NEVER include technical IDs like [123:456] in title or description fields.
-Every issue MUST cite the specific text string, hex colour, or node name that proves it.
-
+Format your response as a JSON array:
 [{
   "category": ${categoryOptions},
-  "title": "Human-readable issue title (unique — no two items should have the same title)",
-  "description": "What is wrong, citing specific evidence. If same issue in multiple places, list all locations here.",
+  "title": "Issue title (clean, no IDs)",
+  "description": "Detailed description with specific suggestions (clean, no IDs)",
   "suggestion": "Specific actionable fix",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name",
-  "nodeId": "exact_node_id_from_structure (UNIQUE — never reuse a nodeId)"
-}]`;
+  "nodeId": "exact_node_id_from_structure"
+}]
+
+CRITICAL: 
+- NEVER include technical IDs like [123:456] in title or description
+- Always include the nodeId field with the exact ID from the design structure
+- For the location field, use ONLY user-friendly, descriptive names
+- Do NOT flag "missing content" unless you can prove no text nodes exist in that area
+- For EACH issue, include specific, actionable suggestions
+
+${allowedCategories.includes("consistency") ? `
+SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
+- Compare ALL screens/pages/flows for inconsistent patterns
+- Look for text variations across similar elements
+- Check for inconsistent heading styles, button labels, spacing
+- Flag ALL instances of inconsistency
+` : ""}
+
+${allowedCategories.includes("ux_writing") ? `
+SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
+- Scan ALL text content thoroughly
+- Check EVERY button label, heading, paragraph, placeholder
+- Look for typos, spelling errors, grammatical mistakes
+- Identify inconsistent terminology
+- Be comprehensive - catch ALL text issues
+` : ""}`;
+
+      const analysisPrompt = isCustom
+        ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
+        : `${baseContext}\n\nProvide feedback in these categories:\n1. UX Issues - Navigation flows, user interactions, usability problems\n2. UI Issues - Visual design, typography, spacing, color usage\n3. Consistency Issues - Design pattern violations, inconsistent components\n4. Improvement Suggestions - Ways to enhance the design\n${formatInstructions}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
@@ -1073,7 +955,8 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 48000,
+          max_tokens: 16000,
+          temperature: 0.2,
         }),
       });
 
