@@ -131,15 +131,19 @@ function classifyColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  // Red-ish (danger/error)
+  // Red-ish (danger/error) — broadened to catch darker reds, HDFC reds, maroons
+  if (r > 150 && g < 80 && b < 80) return '🔴 RED/DANGER';
   if (r > 180 && g < 100 && b < 100) return '🔴 RED/DANGER';
   if (r > 200 && g < 80) return '🔴 RED/DANGER';
+  if (r > 140 && g < 60 && b < 60) return '🔴 RED/DANGER'; // deep/dark reds
+  // Reddish with some green (like #cc3333, #e04040)
+  if (r > 160 && r > g * 2 && r > b * 2) return '🔴 RED/DANGER';
   // Orange-ish (warning)
   if (r > 200 && g > 100 && g < 180 && b < 80) return '🟠 ORANGE/WARNING';
-  // Green-ish (success)
-  if (g > 150 && r < 150 && b < 150) return '🟢 GREEN/SUCCESS';
+  // Green-ish (success) — broadened
+  if (g > 120 && r < 150 && b < 150 && g > r && g > b) return '🟢 GREEN/SUCCESS';
   // Blue-ish (info)
-  if (b > 180 && r < 120 && g < 180) return '🔵 BLUE/INFO';
+  if (b > 150 && r < 120 && g < 180 && b > r) return '🔵 BLUE/INFO';
   // Yellow-ish (caution)
   if (r > 200 && g > 200 && b < 100) return '🟡 YELLOW/CAUTION';
   return '';
