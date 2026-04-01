@@ -22,29 +22,52 @@ function estimateTokens(text: string): number {
 }
 
 // Flatten deeply nested design data into a flat array of simplified nodes
-function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
+function flattenDesignData(nodes: any[]): any[] {
   const flat: any[] = [];
 
-  function traverse(node: any, path: string, depth: number) {
-    if (!node || depth > maxDepth) return;
+  function collectAllText(node: any): { text: string; y: number; x: number }[] {
+    const results: { text: string; y: number; x: number }[] = [];
+    if (node.characters) results.push({ text: node.characters.trim(), y: node.y ?? 0, x: node.x ?? 0 });
+    const children = node.children || node.nodes;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        if (child.visible === false) continue;
+        if (child.opacity !== undefined && child.opacity === 0) continue;
+        results.push(...collectAllText(child));
+      }
+    }
+    return results;
+  }
+
+  function traverse(node: any, path: string) {
+    if (!node) return;
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
 
-    // Use visible text content as path label for readability — not the layer name
-    const displayLabel = node.characters?.trim() || node.name || node.type || "unknown";
+    // Use visible text content as path label — NEVER the layer name
+    const displayLabel = node.characters?.trim() || node.type || "element";
     const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
     const simplified: any = {
       id: node.id,
-      name: node.name,
+      layerName: node.name,  // Figma layer name — INTERNAL ONLY, never use for feedback
       type: node.type,
       path: currentPath,
     };
 
-    // Include text content
+    // Include visible text content
     if (node.characters) simplified.text = node.characters;
 
-    // Include key style properties only (not full nested style objects)
+    // Aggregate all visible text from subtree for non-text nodes
+    if (!node.characters) {
+      const childTexts = collectAllText(node);
+      childTexts.sort((a, b) => a.y - b.y || a.x - b.x);
+      if (childTexts.length > 0) {
+        simplified.allText = childTexts.map(t => t.text).join(' · ');
+      }
+    }
+
+    // Include key style properties
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => ({
         type: f.type,
@@ -62,7 +85,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
       simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
     }
 
-    // Include position (enables spatial reasoning in feedback)
+    // Include position
     if (node.x !== undefined) simplified.x = Math.round(node.x);
     if (node.y !== undefined) simplified.y = Math.round(node.y);
 
@@ -75,17 +98,17 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
     flat.push(simplified);
 
-    // Recurse into children
+    // Recurse into children — NO depth limit
     const children = node.children || node.nodes;
     if (Array.isArray(children)) {
       for (const child of children) {
-        traverse(child, currentPath, depth + 1);
+        traverse(child, currentPath);
       }
     }
   }
 
   for (const node of nodes) {
-    traverse(node, "", 0);
+    traverse(node, "");
   }
 
   return flat;
@@ -254,6 +277,13 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
 You provide thorough, quality feedback - focus on real issues that matter.
+
+CRITICAL DATA RULES:
+- The "layerName" field is a Figma internal layer name (e.g. "NEFT", "Frame 1437256002", "Group 5"). It is DECORATIVE METADATA — NEVER reference it in titles, descriptions, or locations.
+- The "text" field contains the actual visible text on screen for TEXT nodes.
+- The "allText" field contains all visible text aggregated from a container's subtree (e.g. "Anmol Sharma · SBI Bank · Savings A/c: 9837..."). Use THIS to understand what the element actually shows.
+- Always describe elements by their visible content (text/allText), NOT by their layer name.
+
 CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
 Do not include markdown code blocks, explanations, or any text outside the JSON array.
 Start your response with [ and end with ].`;
@@ -274,11 +304,17 @@ Start your response with [ and end with ].`;
 
       const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
 
-Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
+Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs):
 ${designContext}
 
 File: ${fileName}
 Page: ${pageName}
+
+CRITICAL DATA INTERPRETATION:
+- "layerName" = Figma internal layer name. IGNORE THIS for all descriptions and locations. It is often misleading (e.g. "NEFT" when the visible text is "UPI").
+- "text" = actual visible text rendered on screen (for TEXT nodes).
+- "allText" = aggregated visible text from all children of a container (e.g. "Anmol Sharma · SBI Bank · ₹15,010"). Use this to understand what a component displays.
+- Always refer to elements by their visible text/allText content, NEVER by layerName.
 
 CRITICAL NODE ID INSTRUCTIONS:
 - You MUST use the EXACT node IDs from the design data above
@@ -366,7 +402,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 16000,
+          max_tokens: 64000,
           temperature: 0,
         }),
       });
@@ -416,6 +452,18 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
         else if (cleanContent.startsWith("```")) cleanContent = cleanContent.slice(3);
         if (cleanContent.endsWith("```")) cleanContent = cleanContent.slice(0, -3);
         cleanContent = cleanContent.trim();
+
+        // JSON truncation repair — if AI hit max_tokens the array may be cut off
+        if (!cleanContent.endsWith(']')) {
+          const lastBrace = cleanContent.lastIndexOf('}');
+          const lastComma = cleanContent.lastIndexOf(',');
+          if (lastBrace > 0 && lastBrace > lastComma) {
+            cleanContent = cleanContent.slice(0, lastBrace + 1) + ']';
+          } else if (lastComma > 0) {
+            cleanContent = cleanContent.slice(0, lastComma) + ']';
+          }
+          console.warn(`Chunk ${chunkIdx + 1}: repaired truncated JSON`);
+        }
         
         const chunkFeedback: FeedbackItem[] = JSON.parse(cleanContent);
         if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
