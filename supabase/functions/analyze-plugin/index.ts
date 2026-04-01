@@ -463,12 +463,16 @@ Green container + negative text ("Error", "Failed") = CRITICAL HIGH.
 READ THIS SECTION LINE BY LINE BEFORE ANYTHING ELSE.
 
 Severity definitions:
-HIGH = Broken, embarrassing, or actively misleading. Examples: red banner saying "Success", placeholder text, colour-meaning clashes, typos, truncated words.
-MEDIUM = Confusing or inconsistent across screens. Examples: same action called different names, inconsistent button styles.
-LOW = Polish. Only a designer would notice. Examples: spacing, border radius, alignment.
+HIGH = Semantic clashes (red container + success text, green + error text), broken flows, placeholder text with digits, actual typos. These are EMBARRASSING in a demo.
+MEDIUM = Inconsistencies across screens, confusing labels, misleading copy.
+LOW = Polish. Only a designer would notice. Spacing, alignment, border radius.
 
-NEVER FLAG:
-Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets. NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
+ABSOLUTE NEVER-FLAG LIST:
+- Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
+- NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
+- NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word. "Bill & Recharges" is a COMPLETE phrase, NOT truncated. You CANNOT see rendered layout — only text content.
+- NEVER flag "incomplete sentence" for marketing slogans, taglines, or promotional text.
+- NEVER invent problems that aren't evidenced in the data. If you're unsure, skip it.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
