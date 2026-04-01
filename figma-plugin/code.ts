@@ -204,18 +204,27 @@ function getSelectionData() {
   }
 
   // Reset node counter before extraction
+  // Count total visible nodes across all selected frames
+  let totalVisibleNodes = 0;
+  for (const node of selection) {
+    totalVisibleNodes += countVisibleNodes(node);
+  }
+
   _extractedNodeCount = 0;
   
   const nodes: DesignNode[] = [];
   for (const node of selection) {
-    if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
     const nodeData = extractNodeData(node);
     if (nodeData) nodes.push(nodeData);
   }
 
+  console.log(`Extracted ${_extractedNodeCount} of ${totalVisibleNodes} visible nodes`);
+
   return {
     hasSelection: true,
     selectionCount: selection.length,
+    extractedNodeCount: _extractedNodeCount,
+    totalVisibleNodes,
     nodes,
     pageName: figma.currentPage.name,
     fileName: figma.root.name,
