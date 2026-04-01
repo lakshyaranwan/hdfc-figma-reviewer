@@ -252,6 +252,64 @@ function extractColorContext(flatNodes: any[]): string {
     .join('\n\n');
 }
 
+// Build cross-screen comparison facts: find terminology inconsistencies and label-value pairs
+function buildCrossScreenFacts(flatNodes: any[]): string {
+  // Group text by frame
+  const frameTexts: Record<string, { text: string; id: string; y: number }[]> = {};
+  for (const node of flatNodes) {
+    if (!node.text) continue;
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!frameTexts[topFrame]) frameTexts[topFrame] = [];
+    frameTexts[topFrame].push({ text: node.text, id: node.id, y: node.y ?? 0 });
+  }
+
+  const facts: string[] = [];
+
+  // Find label-value pairs across screens (e.g. "Transfer Mode" → "NEFT" on one screen, "Within HDFC" on another)
+  const labelPatterns = [
+    /transfer\s*mode/i, /payment\s*method/i, /payment\s*mode/i, /transfer\s*type/i,
+    /amount/i, /from/i, /to\s*$/i,
+  ];
+
+  const frames = Object.keys(frameTexts);
+  if (frames.length > 1) {
+    // For each frame, find label→value pairs (label followed by value in y-order)
+    const frameLabelValues: Record<string, Record<string, string>> = {};
+    for (const [frame, nodes] of Object.entries(frameTexts)) {
+      const sorted = [...nodes].sort((a, b) => a.y - b.y);
+      frameLabelValues[frame] = {};
+      for (let i = 0; i < sorted.length - 1; i++) {
+        for (const pat of labelPatterns) {
+          if (pat.test(sorted[i].text)) {
+            frameLabelValues[frame][sorted[i].text.trim()] = sorted[i + 1].text.trim();
+          }
+        }
+      }
+    }
+
+    // Compare across frames
+    const allLabels = new Set<string>();
+    for (const lvs of Object.values(frameLabelValues)) {
+      for (const label of Object.keys(lvs)) allLabels.add(label);
+    }
+
+    for (const label of allLabels) {
+      const values: { frame: string; value: string }[] = [];
+      for (const [frame, lvs] of Object.entries(frameLabelValues)) {
+        if (lvs[label]) values.push({ frame, value: lvs[label] });
+      }
+      if (values.length > 1) {
+        const uniqueValues = [...new Set(values.map(v => v.value))];
+        if (uniqueValues.length > 1) {
+          facts.push(`INCONSISTENCY: "${label}" has different values across screens: ${values.map(v => `"${v.value}" on [${v.frame}]`).join(' vs ')}`);
+        }
+      }
+    }
+  }
+
+  return facts.length > 0 ? facts.join('\n') : '';
+}
+
 // Chunk flat nodes by estimated token size
 function chunkByTokens(nodes: any[], maxTokensPerChunk: number): any[][] {
   const chunks: any[][] = [];
