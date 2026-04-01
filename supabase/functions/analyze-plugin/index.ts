@@ -599,34 +599,38 @@ ${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNOR
 
 ═══ PASS 1: STAKEHOLDER GLANCE (HIGH + MEDIUM) ═══
 Scan ALL screens. For each screen, check these categories. Flag every violation with evidence.
+CATEGORY each issue correctly:
 
-TYPOS & TEXT ISSUES (check EVERY text node):
+TYPOS & TEXT ISSUES → category "ux_writing":
 1. Spelling errors, grammatical errors, truncated words (e.g. "Transfera" instead of "Transfer", "Confrim" instead of "Confirm")
 2. Placeholder/dev text: trailing digits ("Send Money2"), "lorem ipsum", "copy of", "untitled", "label", "text here", "heading"
 3. Inconsistent terminology across screens: same action called different names (e.g. "Send" vs "Transfer")
 4. Inconsistent capitalisation: some buttons Title Case, others ALL CAPS, others sentence case
-5. Question marks in CTA labels, exclamation marks in error messages
 
-COLOUR-CONTEXT CLASHES (cross-reference SEMANTIC CONTEXT section):
-6. Red/orange container with positive text ("success", "confirmed", "approved", "congratulations")
-7. Green container with negative text ("error", "failed", "declined", "warning")
+COLOUR-SEMANTIC CLASHES → category "ux" (these are UX failures — wrong visual feedback for user):
+5. Red/danger container with positive/success text = wrong emotional signal to user
+6. Green/success container with negative/error text = wrong emotional signal to user
+7. Celebratory text inside error-styled containers, or error text inside success-styled containers
+
+CROSS-SCREEN CONSISTENCY → category "consistency":
 8. Same semantic role (primary CTA, error, success) in DIFFERENT colours across screens
-9. Celebratory text inside error-styled containers, or error text inside success-styled containers
+9. Same UI pattern (card, button, list item) built differently across screens instead of shared component
+10. Inconsistent terminology or naming for the same action across screens
 
-COMPONENT & NAMING:
-10. Default names still present: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+"
-11. Same UI pattern (card, button, list item) built differently across screens instead of shared component
+UX FLOW ISSUES → category "high_level":
+11. Destructive/irreversible action with no confirmation step
+12. Dead-end screens: no navigation, back button, or next action
+13. Empty state with no guidance or call to action
+14. Success/confirmation screen missing summary of what was confirmed
+15. Flow logic contradictions — screen intent vs actual content mismatch
 
-UX FLOW (compare screens as a journey):
-12. Destructive/irreversible action with no confirmation step
-13. Dead-end screens: no navigation, back button, or next action
-14. Empty state with no guidance or call to action
-15. Success/confirmation screen missing summary of what was confirmed
-16. Progress indicators that skip steps or show inconsistent state
+UI ISSUES → category "ui":
+16. Default layer names still visible: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+"
+17. Visual styling clashes within a single screen
 
 ═══ PASS 2: DESIGNER POLISH (LOW) ═══
-17. Inconsistent spacing between same type of element across screens
-18. Alignment issues, border radius inconsistencies, padding mismatches
+18. Inconsistent spacing between same type of element across screens → "consistency"
+19. Alignment issues, border radius inconsistencies, padding mismatches → "ui"
 
 ═══ DEDUPLICATION RULES ═══
 - If the SAME text problem appears on the SAME nodeId, report it ONCE only.
