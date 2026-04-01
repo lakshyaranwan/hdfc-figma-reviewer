@@ -1589,15 +1589,7 @@
       } else {
         collapsedCategories.add(cat);
       }
-      // Toggle DOM directly instead of full re-render
-      const headers = document.querySelectorAll('.category-header');
-      headers.forEach(header => {
-        if (header.getAttribute('onclick')?.includes(`'${cat}'`)) {
-          header.classList.toggle('collapsed');
-          const content = header.nextElementSibling;
-          if (content) content.classList.toggle('hidden');
-        }
-      });
+      displayResults();
     }
     
     function renderFeedbackItem(item) {
@@ -1629,10 +1621,7 @@
       `;
     }
     
-    let _focusDebounce = null;
     function focusNode(nodeId, location) {
-      if (_focusDebounce) return; // prevent rapid clicks
-      _focusDebounce = setTimeout(() => { _focusDebounce = null; }, 300);
       parent.postMessage({ 
         pluginMessage: { 
           type: 'focus-node', 

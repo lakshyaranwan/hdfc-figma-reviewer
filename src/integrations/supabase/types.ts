@@ -14,36 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      analysis_chunks: {
-        Row: {
-          chunk_data: Json
-          chunk_index: number
-          created_at: string | null
-          id: string
-          job_id: string
-          result: Json | null
-          status: string | null
-        }
-        Insert: {
-          chunk_data: Json
-          chunk_index: number
-          created_at?: string | null
-          id?: string
-          job_id: string
-          result?: Json | null
-          status?: string | null
-        }
-        Update: {
-          chunk_data?: Json
-          chunk_index?: number
-          created_at?: string | null
-          id?: string
-          job_id?: string
-          result?: Json | null
-          status?: string | null
-        }
-        Relationships: []
-      }
       app_settings: {
         Row: {
           created_at: string | null
@@ -85,33 +55,6 @@ export type Database = {
           feedback?: string
           feedback_type?: string
           id?: string
-          user_name?: string
-        }
-        Relationships: []
-      }
-      plugin_usage: {
-        Row: {
-          action: string
-          category_count: number | null
-          created_at: string
-          id: string
-          node_count: number | null
-          user_name: string
-        }
-        Insert: {
-          action?: string
-          category_count?: number | null
-          created_at?: string
-          id?: string
-          node_count?: number | null
-          user_name?: string
-        }
-        Update: {
-          action?: string
-          category_count?: number | null
-          created_at?: string
-          id?: string
-          node_count?: number | null
           user_name?: string
         }
         Relationships: []
