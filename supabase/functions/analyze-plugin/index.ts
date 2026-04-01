@@ -48,7 +48,11 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     // Include key style properties only (not full nested style objects)
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => {
-        const hex = f.color ? `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}` : undefined;
+        // Use pre-computed hex from plugin if available, otherwise compute from color object
+        let hex = f.hex;
+        if (!hex && f.color) {
+          hex = `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}`;
+        }
         return {
           type: f.type,
           color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
