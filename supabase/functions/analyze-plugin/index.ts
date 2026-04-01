@@ -94,8 +94,8 @@ CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categori
 Only use these exact category values: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- Provide around 10 issues per category (can be 8-12 depending on what you find)
-- Total feedback should be 50-100 issues across all categories
+- Provide around 5-8 issues per category
+- Total feedback should be 20-40 issues across all categories
 - Focus on REAL, meaningful issues - do NOT invent problems
 - Be consistent - prioritize the most impactful issues first
 - Do NOT skip any category - analyze each one properly
