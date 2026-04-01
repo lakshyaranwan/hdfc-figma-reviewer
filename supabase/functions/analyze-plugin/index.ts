@@ -68,7 +68,7 @@ function repairTruncatedJSON(raw: string): any[] {
 }
 
 
-function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
+function flattenDesignData(nodes: any[], maxDepth = 12): any[] {
   const flat: any[] = [];
 
   function traverse(node: any, path: string, depth: number, parentId?: string) {
@@ -77,16 +77,31 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.opacity !== undefined && node.opacity === 0) return;
 
     // Use visible text content as path label for readability — not the layer name
-    const displayLabel = node.characters?.trim() || node.name || node.type || "unknown";
+    const displayLabel = node.characters?.trim() || node.type || "unknown";
     const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
+
+    // Collect visible child IDs BEFORE recursion so the AI knows containment
+    const childNodes = node.children || node.nodes;
+    const visibleChildIds: string[] = [];
+    if (Array.isArray(childNodes)) {
+      for (const child of childNodes) {
+        if (child && child.visible !== false && !(child.opacity !== undefined && child.opacity === 0)) {
+          visibleChildIds.push(child.id);
+        }
+      }
+    }
 
     const simplified: any = {
       id: node.id,
-      // name intentionally omitted — layer names cause false flags
       type: node.type,
       path: currentPath,
       parentId: parentId || null,
     };
+
+    // Include child IDs so the AI understands containment (what's inside what)
+    if (visibleChildIds.length > 0) {
+      simplified.childIds = visibleChildIds;
+    }
 
     // Include text content
     if (node.characters) simplified.text = node.characters;
@@ -94,7 +109,6 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     // Include key style properties only (not full nested style objects)
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => {
-        // Use pre-computed hex from plugin if available, otherwise compute from color object
         let hex = f.hex;
         if (!hex && f.color) {
           hex = `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}`;
@@ -108,22 +122,15 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     }
     if (node.fontSize) simplified.fontSize = node.fontSize;
     if (node.fontName) simplified.fontName = node.fontName;
-    // DS style IDs commented out — design system analysis disabled for now
-    // if (node.textStyleId) simplified.textStyleId = node.textStyleId;
-    // if (node.textStyleName) simplified.textStyleName = node.textStyleName;
-    // if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
-    // if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
     if (node.cornerRadius) simplified.cornerRadius = node.cornerRadius;
     if (node.opacity !== undefined && node.opacity !== 1) simplified.opacity = node.opacity;
-    if (node.constraints) simplified.constraints = node.constraints;
     if (node.layoutMode) simplified.layoutMode = node.layoutMode;
     if (node.itemSpacing) simplified.itemSpacing = node.itemSpacing;
     if (node.paddingLeft || node.paddingTop || node.paddingRight || node.paddingBottom) {
       simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
     }
 
-    // Include position — prefer absolute position for accurate spatial reasoning
-    // absX/absY are absolute canvas coordinates; x/y are relative to parent (misleading for spatial grouping)
+    // Prefer absolute position for accurate spatial reasoning
     if (node.absX !== undefined) {
       simplified.x = Math.round(node.absX);
       simplified.y = Math.round(node.absY);
@@ -142,9 +149,8 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     flat.push(simplified);
 
     // Recurse into children
-    const children = node.children || node.nodes;
-    if (Array.isArray(children)) {
-      for (const child of children) {
+    if (Array.isArray(childNodes)) {
+      for (const child of childNodes) {
         traverse(child, currentPath, depth + 1, node.id);
       }
     }
@@ -155,6 +161,64 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   }
 
   return flat;
+}
+
+// Build a containment summary: for each container that has text descendants,
+// show a tree of "SECTION contains: text1, text2, text3..."
+// This is the KEY context the AI needs to stop saying "no summary" when there IS one.
+function buildContainmentSummary(flatNodes: any[]): string {
+  const nodeById = new Map<string, any>();
+  const childrenOf = new Map<string, any[]>();
+  for (const node of flatNodes) {
+    nodeById.set(node.id, node);
+    if (node.parentId) {
+      if (!childrenOf.has(node.parentId)) childrenOf.set(node.parentId, []);
+      childrenOf.get(node.parentId)!.push(node);
+    }
+  }
+
+  // Recursively collect all text from descendants
+  function collectAllText(nodeId: string, maxDepth = 10): string[] {
+    if (maxDepth <= 0) return [];
+    const texts: string[] = [];
+    const children = childrenOf.get(nodeId) || [];
+    for (const child of children) {
+      if (child.text) texts.push(child.text);
+      texts.push(...collectAllText(child.id, maxDepth - 1));
+    }
+    return texts;
+  }
+
+  const summaries: string[] = [];
+  
+  // Find containers with significant text content (sections, cards, etc.)
+  for (const node of flatNodes) {
+    if (node.type === 'TEXT') continue;
+    const children = childrenOf.get(node.id);
+    if (!children || children.length === 0) continue;
+    
+    const allText = collectAllText(node.id);
+    if (allText.length < 2) continue; // skip containers with little content
+    
+    // Only show containers that are big enough to be meaningful sections
+    const area = (node.size?.w || 0) * (node.size?.h || 0);
+    if (area < 5000) continue;
+    
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    const textPreview = allText.slice(0, 15).map(t => `"${t}"`).join(', ');
+    const moreCount = allText.length > 15 ? ` (+${allText.length - 15} more)` : '';
+    summaries.push(`[${topFrame}] Container id:${node.id} (${node.size?.w}x${node.size?.h}) contains ${allText.length} text elements: ${textPreview}${moreCount}`);
+  }
+
+  // Limit to top 50 most content-rich containers
+  return summaries
+    .sort((a, b) => {
+      const countA = parseInt(a.match(/contains (\d+)/)?.[1] || '0');
+      const countB = parseInt(b.match(/contains (\d+)/)?.[1] || '0');
+      return countB - countA;
+    })
+    .slice(0, 50)
+    .join('\n');
 }
 
 // Classify nodes as boilerplate (footer/header/nav/legal) vs primary content
