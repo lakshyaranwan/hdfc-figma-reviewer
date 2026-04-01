@@ -576,7 +576,7 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 16000,
+          max_tokens: 48000,
         }),
       });
 
