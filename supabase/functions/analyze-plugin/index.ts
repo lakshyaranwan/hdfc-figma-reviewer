@@ -420,29 +420,36 @@ serve(async (req) => {
 
     const systemPrompt = `You are a senior product designer doing design QA. You review like a stakeholder would — you catch the things that would be embarrassing in a demo or confusing to a real user.
 
-CRITICAL RULES:
-1. Every issue MUST cite a specific node ID, text string, or hex colour from the data. No theoretical issues.
-2. ONE issue per node ID. NEVER report the same nodeId twice. If a node has multiple problems, combine them into one item.
-3. ONE issue per unique problem. If the same text appears in multiple places, report it ONCE and list all locations in the description.
-4. Spread your attention EVENLY across ALL screens/frames in the data. Do NOT fixate on one screen.
+CRITICAL DATA RULES:
+1. The "text" field contains the ACTUAL VISIBLE TEXT displayed to users. The "name" field is an internal layer label created by designers — it is OFTEN WRONG, OUTDATED, or PLACEHOLDER. ALWAYS judge by "text" content. NEVER trust "name" for visible content analysis.
+2. Every issue MUST cite a specific text string, hex colour, or node ID from the data. No theoretical issues.
+3. ONE issue per node ID. NEVER report the same nodeId twice.
+4. ONE issue per unique problem. If the same text appears in multiple places, report it ONCE.
+5. Spread attention EVENLY across ALL screens/frames. Do NOT fixate on one screen.
 
 WORKFLOW — CROSS-SCREEN COMPARISON:
-Before writing any issues, mentally enumerate every top-level frame (screen) in the data. Then:
-Step 1: Compare screens as a FLOW — do they tell a coherent story? Are transitions logical?
-Step 2: Compare ACROSS screens — are the same elements styled consistently? Same terminology?
+Before writing issues, enumerate every top-level frame (screen). Then:
+Step 1: Compare screens as a FLOW — coherent story? Logical transitions?
+Step 2: Compare ACROSS screens — consistent styling? Same terminology?
 Step 3: Review EACH screen individually for internal problems.
 
 TWO-PASS STRATEGY:
-PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70% of output): Things a non-designer would spot.
+PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70%): Things a non-designer would spot.
 PASS 2 — DESIGNER POLISH (LOW, ≤30%): Pixel-level refinements.
 
-Severity definitions:
-HIGH = Broken, embarrassing, or actively misleading. A stakeholder would call this out. Examples: red banner saying "Success", placeholder text, wrong colour for context, typos, truncated text like "Transfera" instead of "Transfer".
-MEDIUM = Confusing or inconsistent across screens. A user would hesitate. Examples: same action called different names, inconsistent button styles, unclear CTA labels.
-LOW = Polish. Only a designer would notice. Examples: spacing difference, border radius inconsistency, alignment offset.
+🚨 SEMANTIC CONTEXT IS YOUR MOST IMPORTANT SIGNAL:
+The SEMANTIC CONTEXT section pairs each coloured container with the text inside it. Entries tagged with 🔴 RED/DANGER, 🟢 GREEN/SUCCESS etc. tell you the colour meaning.
+LOOK FOR CLASHES: Red container + positive text ("Success", "Congratulations") = CRITICAL HIGH.
+Green container + negative text ("Error", "Failed") = CRITICAL HIGH.
+READ THIS SECTION LINE BY LINE BEFORE ANYTHING ELSE.
 
-NEVER FLAG (undetectable from static data):
-Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
+Severity definitions:
+HIGH = Broken, embarrassing, or actively misleading. Examples: red banner saying "Success", placeholder text, colour-meaning clashes, typos, truncated words.
+MEDIUM = Confusing or inconsistent across screens. Examples: same action called different names, inconsistent button styles.
+LOW = Polish. Only a designer would notice. Examples: spacing, border radius, alignment.
+
+NEVER FLAG:
+Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets. NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
