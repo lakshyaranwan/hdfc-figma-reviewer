@@ -1065,209 +1065,6 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
-    /* ── Design System Panel ─────────────────────────────── */
-    .ds-panel {
-      background: var(--white);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      margin-bottom: 12px;
-    }
-    .ds-panel-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      cursor: pointer;
-      background: var(--hdfc-surface);
-      border-bottom: 1px solid transparent;
-      transition: background 0.15s;
-      user-select: none;
-    }
-    .ds-panel-header:hover { background: var(--hdfc-light); }
-    .ds-panel-header.open { border-bottom-color: var(--border); }
-    .ds-panel-title {
-      flex: 1;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .ds-badge {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: var(--hdfc-light);
-      color: var(--hdfc-primary);
-    }
-    .ds-badge.connected { background: #D1FAE5; color: var(--success); }
-    .ds-badge.stale     { background: #FEF3C7; color: #D97706; }
-    .ds-panel-body {
-      padding: 14px;
-      display: none;
-    }
-    .ds-panel-body.open { display: block; }
-    .ds-field { margin-bottom: 10px; }
-    .ds-field label {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      margin-bottom: 4px;
-    }
-    .ds-field input {
-      width: 100%;
-      padding: 9px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 12px;
-      font-family: inherit;
-      background: var(--hdfc-surface);
-      transition: border-color 0.15s;
-    }
-    .ds-field input:focus { outline: none; border-color: var(--hdfc-primary); }
-    .ds-hint { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
-    .ds-actions { display: flex; gap: 8px; margin-top: 12px; }
-    .ds-btn {
-      flex: 1;
-      padding: 9px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: all 0.15s;
-    }
-    .ds-btn-primary { background: var(--hdfc-primary); color: var(--white); }
-    .ds-btn-primary:hover { background: var(--hdfc-dark); }
-    .ds-btn-secondary { background: var(--hdfc-light); color: var(--hdfc-primary); border: 1px solid var(--hdfc-primary); }
-    .ds-btn-secondary:hover { background: var(--hdfc-primary); color: var(--white); }
-    .ds-btn-danger { background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; }
-    .ds-btn-danger:hover { background: #DC2626; color: var(--white); }
-    .ds-status-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--hdfc-surface); border-radius: 6px; margin-bottom: 10px; }
-    .ds-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-
-    /* ── Annotation Bar (collapsible) ── */
-    .annot-bar {
-      background: #111827;
-      border-bottom: 1px solid #1f2937;
-    }
-    .annot-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-      background: none;
-      border: none;
-      padding: 9px 14px;
-      cursor: pointer;
-      font-family: inherit;
-      color: #6b7280;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      text-align: left;
-      transition: color 0.15s;
-    }
-    .annot-toggle:hover { color: #9ca3af; }
-    .annot-toggle-chevron {
-      margin-left: auto;
-      transition: transform 0.2s;
-      color: #4b5563;
-    }
-    .annot-toggle-chevron.open { transform: rotate(180deg); }
-    .annot-body {
-      overflow: hidden;
-      max-height: 0;
-      transition: max-height 0.22s ease, padding 0.22s ease;
-      padding: 0 14px;
-    }
-    .annot-body.open {
-      max-height: 200px;
-      padding: 0 14px 10px;
-    }
-    .annot-fields {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
-    .annot-field {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .annot-field label {
-      font-size: 9px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #6b7280;
-    }
-    .annot-field label .annot-dot {
-      display: inline-block;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      margin-right: 4px;
-      vertical-align: middle;
-    }
-    .annot-field label .dot-interaction { background: #a855f7; }
-    .annot-field label .dot-role        { background: #f97316; }
-    .annot-field label .dot-label       { background: #6366f1; }
-    .annot-field input {
-      background: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 5px;
-      color: #f9fafb;
-      font-size: 11px;
-      padding: 5px 8px;
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .annot-field input::placeholder { color: #4b5563; }
-    .annot-field input:focus { border-color: #6366f1; }
-    .annot-bar-footer {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 6px;
-    }
-    .annot-generate-btn {
-      background: #4f46e5;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      padding: 6px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s, transform 0.1s;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .annot-generate-btn:hover:not(:disabled) { background: #4338ca; }
-    .annot-generate-btn:active:not(:disabled) { transform: scale(0.97); }
-    .annot-generate-btn:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
-    .annot-clear-btn {
-      background: transparent;
-      color: #6b7280;
-      border: 1px solid #374151;
-      border-radius: 5px;
-      padding: 6px 10px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s;
-    }
-    .annot-clear-btn:hover { color: #f9fafb; border-color: #6b7280; }
-
     /* Accessibility Results */
     .a11y-item {
       background: var(--white);
@@ -1317,35 +1114,6 @@
       💬 Feedback
     </button>
   </div>
-
-  <!-- ── Annotation Bar (collapsible) ── -->
-  <div class="annot-bar" id="annotBar">
-    <button class="annot-toggle" id="annotToggle" onclick="toggleAnnotBar()">
-      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="4" x2="8.5" y2="4" stroke="currentColor" stroke-width="1.2"/><line x1="3.5" y1="6.5" x2="6.5" y2="6.5" stroke="currentColor" stroke-width="1.2"/></svg>
-      Annotate
-      <svg class="annot-toggle-chevron" id="annotChevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="annot-body" id="annotBody">
-      <div class="annot-fields">
-        <div class="annot-field">
-          <label><span class="annot-dot dot-interaction"></span>Interaction</label>
-          <input type="text" id="annotInteraction" placeholder="e.g. Whole field is…" oninput="checkAnnotFields()">
-        </div>
-        <div class="annot-field">
-          <label><span class="annot-dot dot-role"></span>Role / State</label>
-          <input type="text" id="annotRole" placeholder="e.g. Input Field" oninput="checkAnnotFields()">
-        </div>
-        <div class="annot-field">
-          <label><span class="annot-dot dot-label"></span>Label</label>
-          <input type="text" id="annotLabel" placeholder="e.g. Enter Name…" oninput="checkAnnotFields()">
-        </div>
-      </div>
-      <div class="annot-bar-footer">
-        <button class="annot-clear-btn" onclick="clearAnnotFields()" title="Clear fields">✕ Clear</button>
-        <button class="annot-generate-btn" id="annotGenerateBtn" onclick="generateAnnotation()" disabled>✦ Generate</button>
-      </div>
-    </div>
-  </div>
   
   <!-- Feedback Modal -->
   <div class="modal-overlay" id="feedbackModal">
@@ -1389,58 +1157,6 @@
     </div>
     
     <div id="analysisSection">
-      <!-- Design System Panel -->
-      <div class="ds-panel" id="dsPanel">
-        <div class="ds-panel-header" id="dsPanelHeader" onclick="toggleDsPanel()">
-          <span style="font-size:15px;">🎨</span>
-          <span class="ds-panel-title">
-            Design System Library
-            <span class="ds-badge" id="dsBadge">Not connected</span>
-          </span>
-          <span style="font-size:11px;color:var(--text-muted);" id="dsChevron">▼</span>
-        </div>
-        <div class="ds-panel-body" id="dsPanelBody">
-          <!-- Connected state -->
-          <div id="dsConnectedState" style="display:none;">
-            <div class="ds-status-row">
-              <div class="ds-status-dot" id="dsStatusDot" style="background:var(--success);"></div>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:12px;font-weight:600;color:var(--text-primary);" id="dsStatusLabel">Design system connected</div>
-                <div style="font-size:11px;color:var(--text-muted);" id="dsStatusSub"></div>
-              </div>
-            </div>
-            <div id="dsSummaryChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
-            <div class="ds-actions">
-              <button class="ds-btn ds-btn-secondary" onclick="refreshDS()">🔄 Refresh DS</button>
-              <button class="ds-btn ds-btn-danger" onclick="disconnectDS()">Disconnect</button>
-            </div>
-          </div>
-          <!-- Setup state — enter DS file URL/key + PAT -->
-          <div id="dsSetupState">
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6;">
-              Connect to your Design System file to fetch <strong>all components, variants, and color/text styles</strong> across all pages.
-            </div>
-            <div class="ds-field">
-              <label>Figma DS File URL or Key</label>
-              <input type="text" id="dsFileKeyInput" class="form-input" placeholder="https://figma.com/design/XXXXX/… or just the file key">
-            </div>
-            <div class="ds-field">
-              <label>Personal Access Token</label>
-              <input type="password" id="dsPATInput" class="form-input" placeholder="figd_xxxx…">
-              <div class="ds-hint">🔒 Stored only in your plugin — never sent to any server</div>
-            </div>
-            <div class="ds-actions">
-              <button class="ds-btn ds-btn-primary" id="dsConnectBtn" onclick="saveAndLoadDS()">
-                🔗 Connect Design System
-              </button>
-            </div>
-            <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center;">
-              No DS file? <a href="#" style="color:var(--hdfc-primary);text-decoration:none;" onclick="loadFromCurrentFile();return false;">Load components used in this file instead</a>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Global ignore chrome toggle -->
       <div id="ignoreChromeRow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -1510,7 +1226,6 @@
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 4.5:1 for all text</div>
             </div>
           </label>
-          <!-- Icon Contrast hidden for now
           <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
             <input type="checkbox" id="a11yCheckIcon" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
             <div style="flex: 1;">
@@ -1520,8 +1235,6 @@
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 3:1 for icons & UI components</div>
             </div>
           </label>
-          -->
-          <input type="checkbox" id="a11yCheckIcon" style="display:none;">
           <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
             <input type="checkbox" id="a11yCheckAria" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
             <div style="flex: 1;">
@@ -1607,48 +1320,6 @@
     let appliedItems = new Set();
     let collapsedCategories = new Set();
 
-    // ── Annotation Bar ───────────────────────────────────────────────────────
-    function toggleAnnotBar() {
-      const body    = document.getElementById('annotBody');
-      const chevron = document.getElementById('annotChevron');
-      const open    = body.classList.toggle('open');
-      chevron.classList.toggle('open', open);
-    }
-
-    function checkAnnotFields() {
-      const interaction = document.getElementById('annotInteraction').value.trim();
-      const role        = document.getElementById('annotRole').value.trim();
-      const label       = document.getElementById('annotLabel').value.trim();
-      const btn         = document.getElementById('annotGenerateBtn');
-      btn.disabled      = !interaction && !role && !label;
-    }
-
-    function clearAnnotFields() {
-      document.getElementById('annotInteraction').value = '';
-      document.getElementById('annotRole').value        = '';
-      document.getElementById('annotLabel').value       = '';
-      checkAnnotFields();
-    }
-
-    function generateAnnotation() {
-      const interaction = document.getElementById('annotInteraction').value.trim();
-      const role        = document.getElementById('annotRole').value.trim();
-      const label       = document.getElementById('annotLabel').value.trim();
-
-      if (!interaction && !role && !label) {
-        showToast('Fill in at least one field before generating.', 'error');
-        return;
-      }
-
-      const btn = document.getElementById('annotGenerateBtn');
-      btn.disabled    = true;
-      btn.textContent = '⏳ Generating…';
-
-      parent.postMessage({
-        pluginMessage: { type: 'create-annotation', nodeId: null, nodeName: null, interaction, role, label }
-      }, '*');
-    }
-
     // ── Ignore-chrome toggle wiring ──────────────────────────────────────────
     const _ignoreChromeToggle = document.getElementById('ignoreChromeToggle');
     const _ignoreChromeKnob   = document.getElementById('ignoreChromeKnob');
@@ -1718,31 +1389,8 @@
       
       if (msg.type === 'selection-data') {
         selectionData = msg.data;
-        window._dsContext = msg.dsContext || null; // store DS context for analysis
         updateSelectionUI();
         handleSelectionReceived(msg.data);
-        // Update annotation bar target
-        if (msg.data && msg.data.nodes && msg.data.nodes.length > 0) {
-          const firstNode = msg.data.nodes[0];
-          updateAnnotBar(firstNode.id, firstNode.name);
-        } else {
-          updateAnnotBar(null, null);
-        }
-      }
-
-      if (msg.type === 'annotation-done') {
-        const btn = document.getElementById('annotGenerateBtn');
-        if (btn) { btn.disabled = false; btn.textContent = '✦ Generate'; }
-        if (msg.success) {
-          showToast('✅ Annotations placed on canvas!', 'success');
-          clearAnnotFields();
-        } else {
-          showToast('❌ ' + (msg.error || 'Failed to create annotation'), 'error');
-        }
-      }
-
-      if (msg.type === 'selection-node-changed') {
-        updateAnnotBar(msg.nodeId, msg.nodeName);
       }
       
       if (msg.type === 'analyze-data') {
@@ -1767,146 +1415,13 @@
       }
 
       if (msg.type === 'selection-for-a11y-ai') {
-        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus, msg.dsContext || null);
+        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus);
       }
 
       if (msg.type === 'a11y-ai-annotate-done') {
         showToast(msg.message || 'Annotations written to Figma!', 'success');
       }
-
-      if (msg.type === 'ds-config-status') {
-        updateDsUI(msg);
-      }
-
-      if (msg.type === 'ds-loaded') {
-        updateDsUI({ hasDS: true, stale: false, summary: msg.summary });
-        showToast('✅ Design system loaded!', 'success');
-        const btn = document.getElementById('dsConnectBtn');
-        if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
-      }
-
-      if (msg.type === 'ds-stale') {
-        const badge = document.getElementById('dsBadge');
-        if (badge) { badge.textContent = 'Outdated — refresh?'; badge.className = 'ds-badge stale'; }
-      }
-
-      // ── Gradient background contrast: pixel-sample via canvas ──────────────
-      if (msg.type === 'gradient-contrast-check') {
-        sampleGradientAndComputeContrast(msg);
-      }
     };
-
-    // ── Design System Panel ──────────────────────────────────────────
-    function toggleDsPanel() {
-      const body    = document.getElementById('dsPanelBody');
-      const header  = document.getElementById('dsPanelHeader');
-      const chevron = document.getElementById('dsChevron');
-      const isOpen  = body.classList.contains('open');
-      body.classList.toggle('open', !isOpen);
-      header.classList.toggle('open', !isOpen);
-      chevron.textContent = isOpen ? '▼' : '▲';
-    }
-
-    function saveAndLoadDS() {
-      const rawInput = document.getElementById('dsFileKeyInput').value.trim();
-      const pat = document.getElementById('dsPATInput').value.trim();
-      if (!rawInput || !pat) {
-        showToast('Please enter both a file URL/key and a Personal Access Token.', 'error');
-        return;
-      }
-      const match = rawInput.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
-      const fileKey = match ? match[1] : rawInput;
-      const btn = document.getElementById('dsConnectBtn');
-      btn.disabled = true;
-      btn.textContent = 'Connecting…';
-      parent.postMessage({ pluginMessage: { type: 'save-ds-config', fileKey, pat } }, '*');
-    }
-
-    function loadFromCurrentFile() {
-      const btn = document.getElementById('dsConnectBtn');
-      if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
-      parent.postMessage({ pluginMessage: { type: 'load-ds-from-current-file' } }, '*');
-    }
-
-    function refreshDS() {
-      showToast('Refreshing design system…', '');
-      parent.postMessage({ pluginMessage: { type: 'refresh-ds-config' } }, '*');
-    }
-
-    function disconnectDS() {
-      parent.postMessage({ pluginMessage: { type: 'disconnect-ds' } }, '*');
-      updateDsUI({ hasDS: false });
-      const chips = document.getElementById('dsSummaryChips');
-      if (chips) chips.innerHTML = '';
-      showToast('Design system disconnected.', '');
-    }
-
-    function updateDsUI(msg) {
-      const badge          = document.getElementById('dsBadge');
-      const connectedState = document.getElementById('dsConnectedState');
-      const setupState     = document.getElementById('dsSetupState');
-      const statusLabel    = document.getElementById('dsStatusLabel');
-      const statusSub      = document.getElementById('dsStatusSub');
-      const statusDot      = document.getElementById('dsStatusDot');
-
-      if (msg.error) {
-        showToast('❌ ' + msg.error, 'error');
-        const btn = document.getElementById('dsConnectBtn');
-        if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
-        return;
-      }
-
-      if (msg.hasDS) {
-        const summary = msg.summary;
-        const isCurrentFileOnly = summary && summary.libraryNames && summary.libraryNames.includes('This file only');
-        const compCount = summary ? (summary.componentNames ? summary.componentNames.length : 0) : 0;
-        const colorCount = summary ? (summary.colorNames ? summary.colorNames.length : 0) : 0;
-        const libCount = summary ? (summary.libraryNames ? summary.libraryNames.length : 0) : 0;
-
-        if (badge) { badge.textContent = msg.stale ? 'Outdated' : 'Connected'; badge.className = 'ds-badge ' + (msg.stale ? 'stale' : 'connected'); }
-        if (statusDot)   statusDot.style.background = msg.stale ? '#D97706' : 'var(--success)';
-        if (statusLabel) statusLabel.textContent     = msg.stale ? 'Cache may be outdated' : 'Design system connected';
-        if (statusSub) {
-          statusSub.textContent = summary
-            ? compCount + ' components · ' + colorCount + ' colors' + (isCurrentFileOnly ? ' (current file only)' : (libCount > 0 ? ' · ' + libCount + ' page' + (libCount === 1 ? '' : 's') : ''))
-            : 'Loaded from design system';
-        }
-        if (connectedState) connectedState.style.display = 'block';
-        if (setupState)     setupState.style.display     = 'none';
-        if (summary) renderDsLibraries(null, summary);
-      } else {
-        if (badge) { badge.textContent = 'Not connected'; badge.className = 'ds-badge'; }
-        if (connectedState) connectedState.style.display = 'none';
-        if (setupState)     setupState.style.display     = 'block';
-      }
-    }
-
-    function renderDsLibraries(libraries, summary) {
-      const chips = document.getElementById('dsSummaryChips');
-      if (!chips) return;
-
-      if (summary && summary.libraryNames && summary.libraryNames.length > 0) {
-        chips.innerHTML = summary.libraryNames.map(function(name) {
-          return '<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:var(--hdfc-light);width:100%;box-sizing:border-box;margin-bottom:2px;">' +
-            '<span style="font-size:11px;flex:1;font-weight:600;color:var(--hdfc-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</span>' +
-          '</div>';
-        }).join('');
-        return;
-      }
-
-      if (summary) {
-        var items = [];
-        if (summary.componentNames && summary.componentNames.length) items.push(summary.componentNames.length + ' components');
-        if (summary.colorNames && summary.colorNames.length)         items.push(summary.colorNames.length + ' color tokens');
-        if (summary.textStyleNames && summary.textStyleNames.length) items.push(summary.textStyleNames.length + ' text styles');
-        chips.innerHTML = items.map(function(label) {
-          return '<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:var(--hdfc-light);color:var(--hdfc-primary);font-weight:600;">' + label + '</span>';
-        }).join('');
-      }
-    }
-
-    // On plugin load — ask code.ts if DS is already configured
-    parent.postMessage({ pluginMessage: { type: 'get-ds-config' } }, '*');
     
     function showToast(message, type = '') {
       const toast = document.getElementById('toast');
@@ -2073,8 +1588,7 @@
             isCustom: promptData.isCustom,
             fileName: data.fileName,
             pageName: data.pageName,
-            ignoreChrome: getIgnoreChrome(),
-            dsContext: window._dsContext || null
+            ignoreChrome: getIgnoreChrome()
           })
         });
         
@@ -2468,10 +1982,8 @@
       const chipsEl = document.getElementById('a11yStatusChips');
       if (chipsEl) chipsEl.style.display = 'flex';
 
-      // Reset issues list for fresh run (clears stale gradient results from previous run)
+      // Run contrast checks (local, via plugin code) — instant
       if (checkText || checkIcon) {
-        a11yIssues = [];
-        _gradientChecksInFlight = 0;
         parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
       }
 
@@ -2488,7 +2000,7 @@
     let a11yAIResults = { aria: null, focus_order: null }; // AI check results
 
     // ====== AI ACCESSIBILITY CHECK (parallel) ======
-    async function runAIAccessibilityCheck(data, checkAria, checkFocus, dsContext) {
+    async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
       const promises = [];
 
       const runCheck = async (checkType) => {
@@ -2505,8 +2017,7 @@
               checkType,
               fileName: data.fileName,
               pageName: data.pageName,
-              ignoreChrome: getIgnoreChrome(),
-              dsContext: dsContext || null
+              ignoreChrome: getIgnoreChrome()
             })
           });
 
@@ -2708,25 +2219,8 @@
         return;
       }
       
-      // Preserve any gradient results already pushed to a11yIssues by
-      // sampleGradientAndComputeContrast (they arrive before this message).
-      // Only replace non-gradient entries so we don't duplicate solid-bg results.
-      const gradientAlready = a11yIssues.filter(i => i.isGradientBg);
-      const incomingIds = new Set((issues || []).map(i => i.nodeId));
-      // Also keep gradient results whose nodeId isn't in the solid-bg batch
-      const gradientToKeep = gradientAlready.filter(i => !incomingIds.has(i.nodeId));
-      a11yIssues = [...(issues || []), ...gradientToKeep];
+      a11yIssues = issues;
       renderA11yResults();
-
-      // If gradient checks are still in-flight, re-render once they all finish
-      if (_gradientChecksInFlight > 0) {
-        const poll = setInterval(() => {
-          if (_gradientChecksInFlight <= 0) {
-            clearInterval(poll);
-            renderA11yResults();
-          }
-        }, 100);
-      }
     }
     
     function setA11ySort(sort) {
@@ -2860,17 +2354,13 @@
     }
     
     function renderA11yItem(issue) {
-      const gradientBadge = issue.isGradientBg
-        ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#FFF7ED;color:#D97706;border:1px solid #FDE68A;font-weight:600;margin-left:4px;" title="Background sampled from gradient via pixel average">∿ Gradient</span>`
-        : '';
       return `
         <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div style="flex: 1; min-width: 0;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px; flex-wrap:wrap;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
                 <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
                 <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
-                ${gradientBadge}
               </div>
               <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
             </div>
@@ -2882,7 +2372,7 @@
           <div class="a11y-colors">
             <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
             <span style="font-size: 11px; color: var(--text-muted);">on</span>
-            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}${issue.isGradientBg ? ' (gradient avg)' : ''}"></div>
+            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
             <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
             <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
           </div>
@@ -2906,128 +2396,6 @@
       document.querySelector('.filter-controls').style.display = '';
       document.querySelector('.results-title').textContent = 'Analysis Results';
     });
-
-    // ── Gradient background contrast via canvas pixel sampling ──────────────
-    // Track how many gradient checks are in-flight so we know when all are done
-    let _gradientChecksInFlight = 0;
-
-    function sRGBtoLinearUI(c) {
-      const s = c / 255;
-      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-    }
-
-    function relativeLuminanceUI(r, g, b) {
-      return 0.2126 * sRGBtoLinearUI(r) + 0.7152 * sRGBtoLinearUI(g) + 0.0722 * sRGBtoLinearUI(b);
-    }
-
-    function contrastRatioUI(l1, l2) {
-      const lighter = Math.max(l1, l2);
-      const darker  = Math.min(l1, l2);
-      return (lighter + 0.05) / (darker + 0.05);
-    }
-
-    function hexToRgb255(hex) {
-      const h = hex.replace('#', '');
-      return {
-        r: parseInt(h.substring(0, 2), 16),
-        g: parseInt(h.substring(2, 4), 16),
-        b: parseInt(h.substring(4, 6), 16),
-      };
-    }
-
-    function rgbToHexUI(r, g, b) {
-      const toH = v => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0');
-      return '#' + toH(r) + toH(g) + toH(b);
-    }
-
-    async function sampleGradientAndComputeContrast(msg) {
-      _gradientChecksInFlight++;
-      try {
-        const bytes = new Uint8Array(msg.imageBytes);
-        const blob  = new Blob([bytes], { type: 'image/png' });
-        const url   = URL.createObjectURL(blob);
-
-        const img = await new Promise((resolve, reject) => {
-          const i = new Image();
-          i.onload  = () => resolve(i);
-          i.onerror = reject;
-          i.src = url;
-        });
-
-        // Draw the full gradient parent image onto a temp canvas, then crop to
-        // the text node's bounding box region (provided as 0–1 fractions).
-        const SAMPLE_SIZE = 20;
-        const canvas = document.getElementById('gradientSampleCanvas');
-        const ctx = canvas.getContext('2d');
-
-        // Intermediate full-size canvas to draw the full image first
-        const fullCanvas = document.createElement('canvas');
-        fullCanvas.width  = img.naturalWidth  || img.width;
-        fullCanvas.height = img.naturalHeight || img.height;
-        const fullCtx = fullCanvas.getContext('2d');
-        fullCtx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-
-        // Crop coordinates (fractional → pixel)
-        const cropX = (msg.cropX != null ? msg.cropX : 0) * fullCanvas.width;
-        const cropY = (msg.cropY != null ? msg.cropY : 0) * fullCanvas.height;
-        const cropW = Math.max(1, (msg.cropW != null ? msg.cropW : 1) * fullCanvas.width);
-        const cropH = Math.max(1, (msg.cropH != null ? msg.cropH : 1) * fullCanvas.height);
-
-        // Draw the cropped region into the 20×20 sample canvas
-        canvas.width  = SAMPLE_SIZE;
-        canvas.height = SAMPLE_SIZE;
-        ctx.drawImage(fullCanvas, cropX, cropY, cropW, cropH, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
-
-        const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
-        let sumR = 0, sumG = 0, sumB = 0, count = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          const a = data[i + 3];
-          if (a < 16) continue; // skip fully transparent pixels
-          sumR += data[i];
-          sumG += data[i + 1];
-          sumB += data[i + 2];
-          count++;
-        }
-
-        if (count === 0) { _gradientChecksInFlight--; return; }
-
-        const avgR = sumR / count;
-        const avgG = sumG / count;
-        const avgB = sumB / count;
-
-        const bgHex   = rgbToHexUI(avgR, avgG, avgB).toUpperCase();
-        const fgRgb   = hexToRgb255(msg.fgColor);
-        const fgLum   = relativeLuminanceUI(fgRgb.r, fgRgb.g, fgRgb.b);
-        const bgLum   = relativeLuminanceUI(avgR, avgG, avgB);
-        const ratio   = contrastRatioUI(fgLum, bgLum);
-        const required = 4.5;
-
-        const issue = {
-          nodeId:   msg.nodeId,
-          nodeName: msg.nodeName,
-          type:     'text_contrast',
-          text:     msg.text,
-          ratio:    Math.round(ratio * 100) / 100,
-          required,
-          fgColor:  msg.fgColor.toUpperCase(),
-          bgColor:  bgHex,
-          fontSize: msg.fontSize,
-          pass:     ratio >= required,
-          isGradientBg: true,
-        };
-
-        a11yIssues.push(issue);
-        renderA11yResults();
-
-      } catch (e) {
-        console.error('Gradient contrast sampling failed:', e);
-      } finally {
-        _gradientChecksInFlight--;
-      }
-    }
   </script>
-  <!-- Hidden canvas used for gradient bg pixel sampling -->
-  <canvas id="gradientSampleCanvas" style="display:none;"></canvas>
 </body>
 </html>

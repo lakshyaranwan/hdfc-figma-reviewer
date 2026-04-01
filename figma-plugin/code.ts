@@ -531,7 +531,7 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
               await figma.loadFontAsync({ family: currentFont.family, style: boldStyle });
               textNode.fontName = { family: currentFont.family, style: boldStyle };
               appliedChanges.push(`font-weight: ${boldStyle}`);
-            } catch (_e) {
+            } catch {
               // Bold variant might not exist
               console.log('Bold variant not available for this font');
             }
@@ -768,74 +768,19 @@ function hasImageFill(node: SceneNode): boolean {
   return false;
 }
 
-// Check if a node has a gradient fill
-function hasGradientFill(node: SceneNode): boolean {
-  if (!('fills' in node)) return false;
-  const fills = node.fills;
-  if (fills === figma.mixed || !Array.isArray(fills)) return false;
-  for (const fill of fills as readonly Paint[]) {
-    if (fill.visible === false) continue;
-    if (
-      fill.type === 'GRADIENT_LINEAR' ||
-      fill.type === 'GRADIENT_RADIAL' ||
-      fill.type === 'GRADIENT_ANGULAR' ||
-      fill.type === 'GRADIENT_DIAMOND'
-    ) return true;
-  }
-  return false;
-}
-
-// Returns true if node has a fully-opaque solid fill that completely occludes anything behind it
-function hasOpaqueSolidFill(node: SceneNode): boolean {
-  if (!('fills' in node)) return false;
-  const fills = node.fills;
-  if (fills === figma.mixed || !Array.isArray(fills)) return false;
-  for (const fill of fills as readonly Paint[]) {
-    if (fill.visible === false) continue;
-    if (fill.type === 'SOLID') {
-      const fillOpacity = fill.opacity ?? 1;
-      const nodeOpacity = ('opacity' in node) ? (node as any).opacity ?? 1 : 1;
-      // Consider opaque if combined opacity >= 95%
-      if (fillOpacity * nodeOpacity >= 0.95) return true;
-    }
-  }
-  return false;
-}
-
 // Walk up parent chain to find background color
-// Returns null if background cannot be determined (image fills, no fills at all, or gradient behind semi-transparent layer)
+// Returns null if background cannot be determined (image fills, no fills at all)
 function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
     // If a parent has an image fill, we can't determine the bg color
     if (hasImageFill(sceneNode)) return null;
-    // Gradient fills: skip here (handled separately via pixel sampling)
-    if (hasGradientFill(sceneNode)) return null;
-    // Only return this color if the fill is fully opaque — semi-transparent fills
-    // let the layers behind bleed through, so we can't rely on this color alone.
-    if (hasOpaqueSolidFill(sceneNode)) {
-      return getNodeFillColor(sceneNode);
-    }
+    const color = getNodeFillColor(sceneNode);
+    if (color) return color;
     current = current.parent;
   }
   // No background found at all - return null instead of assuming white
-  return null;
-}
-
-// Walk up parent chain looking for the nearest ancestor with a gradient fill.
-// Also returns the gradient parent if a semi-transparent solid fill sits between
-// the text and the gradient (the gradient still bleeds through).
-function getGradientBackgroundParent(node: SceneNode): SceneNode | null {
-  let current: BaseNode | null = node.parent;
-  while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
-    const sceneNode = current as SceneNode;
-    if (hasGradientFill(sceneNode)) return sceneNode;
-    // Stop only if this layer is FULLY opaque — it completely hides what's behind it
-    if (hasOpaqueSolidFill(sceneNode)) return null;
-    // Semi-transparent fills don't fully occlude the gradient, keep walking
-    current = current.parent;
-  }
   return null;
 }
 
@@ -857,422 +802,146 @@ interface AccessibilityIssue {
   pass: boolean;
 }
 
-// Collect all TEXT nodes from a subtree
-function collectTextNodes(nodes: readonly SceneNode[]): TextNode[] {
-  const result: TextNode[] = [];
+// Run text contrast audit on selected nodes
+function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
+  const issues: AccessibilityIssue[] = [];
+
   function walk(node: SceneNode) {
     if (!node.visible) return;
-    if ('opacity' in node && (node as any).opacity === 0) return;
-    if (node.type === 'TEXT') result.push(node as TextNode);
-    if ('children' in node) {
-      for (const child of (node as FrameNode).children) walk(child);
-    }
-  }
-  for (const node of nodes) walk(node);
-  return result;
-}
+    if ('opacity' in node && node.opacity === 0) return;
 
-// Run text contrast audit on selected nodes (async to support gradient pixel-sampling)
-async function runTextContrastAudit(nodes: readonly SceneNode[]): Promise<AccessibilityIssue[]> {
-  const issues: AccessibilityIssue[] = [];
-  const textNodes = collectTextNodes(nodes);
+    if (node.type === 'TEXT') {
+      const textNode = node as TextNode;
+      const fgColor = getNodeFillColor(textNode);
+      if (!fgColor) return; // no fill to check
 
-  for (const textNode of textNodes) {
-    const fgColor = getNodeFillColor(textNode);
-    if (!fgColor) continue;
+      const bgColor = getBackgroundColor(textNode);
+      if (!bgColor) return; // Can't determine background (image fill, etc.) - skip to avoid false positives
+      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+      const ratio = contrastRatio(fgLum, bgLum);
 
-    // Check if the background is a gradient — if so, use pixel sampling
-    const gradientParent = getGradientBackgroundParent(textNode);
-    if (gradientParent) {
-      try {
-        // Export the GRADIENT PARENT with the text node temporarily hidden,
-        // so sampled pixels reflect only the background — not the text rendered on top.
-        const wasVisible = textNode.visible;
-        textNode.visible = false;
-        let bytes: Uint8Array;
-        try {
-          bytes = await gradientParent.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } });
-        } finally {
-          textNode.visible = wasVisible; // always restore
-        }
-        const fgHex = rgbToHex(fgColor.r, fgColor.g, fgColor.b);
-        const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
+      // WCAG AA: 4.5:1 for ALL text (no large text exception)
+      const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
+      const required = 4.5;
 
-        // Compute text node's absolute bounds relative to the gradient parent
-        const px = ('absoluteBoundingBox' in textNode && textNode.absoluteBoundingBox)
-          ? textNode.absoluteBoundingBox.x - gradientParent.absoluteBoundingBox.x
-          : textNode.x - ('x' in gradientParent ? gradientParent.x : 0);
-        const py = ('absoluteBoundingBox' in textNode && textNode.absoluteBoundingBox)
-          ? textNode.absoluteBoundingBox.y - gradientParent.absoluteBoundingBox.y
-          : textNode.y - ('y' in gradientParent ? gradientParent.y : 0);
-        const pw = 'width' in gradientParent ? gradientParent.width : 1;
-        const ph = 'height' in gradientParent ? gradientParent.height : 1;
-        const tw = textNode.width || pw;
-        const th = textNode.height || ph;
-
-        // Send image bytes + crop info to UI for pixel sampling
-        figma.ui.postMessage({
-          type: 'gradient-contrast-check',
-          nodeId: textNode.id,
-          nodeName: textNode.name,
-          text: textNode.characters.substring(0, 60),
-          fontSize: Math.round(fontSize),
-          fgColor: fgHex,
-          imageBytes: Array.from(bytes),
-          // crop region as fractions [0,1] of the exported image
-          cropX: Math.max(0, px / pw),
-          cropY: Math.max(0, py / ph),
-          cropW: Math.min(1, tw / pw),
-          cropH: Math.min(1, th / ph),
-        });
-        // Result collected via canvas pixel-sampling in UI — skip pushing here
-        continue;
-      } catch (_e) {
-        // Export failed — fall through to regular solid bg check
-      }
-    }
-
-    const bgColor = getBackgroundColor(textNode);
-    if (!bgColor) continue; // image fill or undetermined — skip
-    const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
-    const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-    const ratio = contrastRatio(fgLum, bgLum);
-
-    // WCAG AA: 4.5:1 for ALL text (no large text exception)
-    const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
-    const required = 4.5;
-
-    issues.push({
-      nodeId: textNode.id,
-      nodeName: textNode.name,
-      type: 'text_contrast',
-      text: textNode.characters.substring(0, 60),
-      ratio: Math.round(ratio * 100) / 100,
-      required,
-      fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-      bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
-      fontSize: Math.round(fontSize),
-      pass: ratio >= required,
-    });
-  }
-
-  return issues;
-}
-
-// Module-level DS icon name set — populated from cache on startup and after each DS load
-let _dsIconNames: Set<string> = new Set();
-
-async function refreshDSIconNames(): Promise<void> {
-  try {
-    const raw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
-    if (!raw) return;
-    const ds = JSON.parse(raw);
-    const names: string[] = (ds.summary && ds.summary.iconNames) ? ds.summary.iconNames : [];
-    _dsIconNames = new Set(names);
-  } catch (_e) {}
-}
-
-// Returns a trimmed DS context object safe to attach to AI messages (no credentials)
-async function getDSContext(): Promise<any | null> {
-  try {
-    const raw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
-    if (!raw) return null;
-    const ds = JSON.parse(raw);
-    const s = ds.summary || {};
-    const slice = (arr: any[], n: number) => Array.isArray(arr) ? arr.slice(0, n) : [];
-    return {
-      componentNames:   slice(s.componentNames, 150),
-      iconNames:        slice(s.iconNames, 100),
-      colorNames:       slice(s.colorNames, 80),
-      textStyleNames:   slice(s.textStyleNames, 40),
-      effectStyleNames: slice(s.effectStyleNames, 20),
-      libraryNames:     s.libraryNames || [],
-      isCurrentFileOnly: ds.isCurrentFileOnly || false,
-    };
-  } catch (_e) { return null; }
-}
-
-// Icon / non-text contrast audit — only scans DS icon INSTANCES, not raw vectors
-function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
-  const issues: AccessibilityIssue[] = [];
-
-  function isIconInstance(node: SceneNode): boolean {
-    if (node.type !== 'INSTANCE') return false;
-    const mc = (node as InstanceNode).mainComponent;
-    if (!mc) return false;
-    const name = mc.name.toLowerCase();
-    if (_dsIconNames.size > 0) {
-      return _dsIconNames.has(mc.name) ||
-        name.indexOf('icon') !== -1 ||
-        mc.name.indexOf('Icons/') === 0 ||
-        mc.name.indexOf('ic_') === 0;
-    }
-    // Fallback: name-based heuristic only
-    return name.indexOf('icon') !== -1 || mc.name.indexOf('Icons/') === 0 || mc.name.indexOf('ic_') === 0;
-  }
-
-  function checkIconContrast(node: InstanceNode): AccessibilityIssue | null {
-    const fgColor = getNodeFillColor(node);
-    if (!fgColor) return null;
-    const bgColor = getBackgroundColor(node);
-    if (!bgColor) return null;
-    const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
-    const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-    const ratio = contrastRatio(fgLum, bgLum);
-    const required = 3;
-    const w = 'width' in node ? (node as any).width : 0;
-    const h = 'height' in node ? (node as any).height : 0;
-    return {
-      nodeId: node.id,
-      nodeName: node.name,
-      type: 'icon_contrast',
-      text: `${Math.round(w)}x${Math.round(h)}`,
-      ratio: Math.round(ratio * 100) / 100,
-      required,
-      fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-      bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
-      fontSize: 0,
-      pass: ratio >= required,
-    };
-  }
-
-  function auditNode(node: SceneNode) {
-    if (!node.visible) return;
-    if ('opacity' in node && (node as any).opacity === 0) return;
-
-    if (isIconInstance(node)) {
-      const result = checkIconContrast(node as InstanceNode);
-      if (result) issues.push(result);
-      return; // Don't recurse into icon internals
+      issues.push({
+        nodeId: textNode.id,
+        nodeName: textNode.name,
+        type: 'text_contrast',
+        text: textNode.characters.substring(0, 60),
+        ratio: Math.round(ratio * 100) / 100,
+        required,
+        fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
+        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+        fontSize: Math.round(fontSize),
+        pass: ratio >= required,
+      });
     }
 
     if ('children' in node) {
       for (const child of (node as FrameNode).children) {
-        auditNode(child);
+        walk(child);
       }
     }
   }
 
-  for (const node of nodes) auditNode(node);
+  for (const node of nodes) {
+    walk(node);
+  }
+
   return issues;
 }
 
-// ============================================================
-// DESIGN SYSTEM: Fetch full DS file via Figma REST API
-// ============================================================
+// Icon / non-text contrast audit (3:1 for shapes, vectors, icons)
+function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
+  const issues: AccessibilityIssue[] = [];
+  const iconTypes: string[] = ['VECTOR', 'STAR', 'POLYGON', 'ELLIPSE', 'RECTANGLE', 'LINE', 'BOOLEAN_OPERATION'];
 
-async function fetchAndCacheDS(fileKey: string, pat: string): Promise<void> {
-  try {
-    figma.notify('🔄 Loading design system from Figma API…');
+  // Check if a vector node looks like an outlined text glyph (flattened text)
+  function isOutlinedTextGlyph(node: SceneNode): boolean {
+    if (node.type !== 'VECTOR') return false;
+    const parent = node.parent;
+    if (!parent || parent.type === 'PAGE' || parent.type === 'DOCUMENT') return false;
 
-    const response = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}?depth=3`,
-      { headers: { 'X-Figma-Token': pat } }
-    );
+    // Single-character generic names like "Vector", letter names, or digit names suggest outlined text
+    const name = node.name.trim();
+    const isGenericName = name === 'Vector' || name.length === 1;
 
-    if (!response.ok) {
-      if (response.status === 403 || response.status === 401) {
-        figma.notify('❌ Invalid PAT or no access to this file. Check your token.');
-      } else {
-        figma.notify(`❌ Figma API error: ${response.status}`);
+    // Check if parent is a group/frame with multiple similar small vectors (typical of outlined text)
+    if ('children' in parent) {
+      const siblings = (parent as FrameNode).children;
+      if (siblings.length >= 2) {
+        const vectorSiblings = siblings.filter(s => s.type === 'VECTOR' && s.visible);
+        // If most siblings are vectors with generic names, this is likely outlined text
+        if (vectorSiblings.length >= 2) {
+          const genericCount = vectorSiblings.filter(s => s.name.trim() === 'Vector' || s.name.trim().length === 1).length;
+          if (genericCount >= vectorSiblings.length * 0.5) return true;
+        }
       }
-      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: `API error ${response.status}` });
-      return;
     }
 
-    const data = await response.json();
-    const dsData = extractDSData(data, fileKey);
+    // Very small vectors (< 24px in both dimensions) with generic "Vector" name inside a group
+    if (isGenericName) {
+      const w = 'width' in node ? (node as any).width : 0;
+      const h = 'height' in node ? (node as any).height : 0;
+      if (w < 24 && h < 24 && parent.type === 'GROUP') return true;
+    }
 
-    await figma.clientStorage.setAsync('ds_file_key', fileKey);
-    await figma.clientStorage.setAsync('figma_pat', pat);
-    await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
-    await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
-
-    figma.notify(`✅ DS loaded — ${dsData.componentCount} components · ${dsData.colorCount} colors · ${dsData.iconCount} icons`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
-
-  } catch (e) {
-    figma.notify('❌ Failed to fetch DS file. Check manifest.json networkAccess.');
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: String(e) });
+    return false;
   }
+
+  function walk(node: SceneNode) {
+    if (!node.visible) return;
+    if ('opacity' in node && node.opacity === 0) return;
+
+    if (iconTypes.includes(node.type)) {
+      // Skip vectors that are part of outlined/flattened text
+      if (isOutlinedTextGlyph(node)) return;
+
+      const fgColor = getNodeFillColor(node);
+      if (!fgColor) return;
+
+      const bgColor = getBackgroundColor(node);
+      if (!bgColor) return; // Can't determine background - skip to avoid false positives
+      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+      const ratio = contrastRatio(fgLum, bgLum);
+      const required = 3;
+
+      const w = 'width' in node ? (node as any).width : 0;
+      const h = 'height' in node ? (node as any).height : 0;
+
+      issues.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        type: 'icon_contrast',
+        text: `${Math.round(w)}×${Math.round(h)}`,
+        ratio: Math.round(ratio * 100) / 100,
+        required,
+        fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
+        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+        fontSize: 0,
+        pass: ratio >= required,
+      });
+    }
+
+    if ('children' in node) {
+      for (const child of (node as FrameNode).children) {
+        walk(child);
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    walk(node);
+  }
+
+  return issues;
 }
 
-function extractDSData(figmaFile: any, fileKey: string): any {
-  // ── Styles from root-level styles map ─────────────────────────
-  const paintStyles: any[] = [];
-  const textStyles: any[] = [];
-  const effectStyles: any[] = [];
-
-  const stylesMap = figmaFile.styles || {};
-  const styleKeys = Object.keys(stylesMap);
-  for (let i = 0; i < styleKeys.length; i++) {
-    const id = styleKeys[i];
-    const s = stylesMap[id] as any;
-    const entry = { id, name: s.name, key: s.key };
-    if (s.styleType === 'FILL')   paintStyles.push(entry);
-    if (s.styleType === 'TEXT')   textStyles.push(entry);
-    if (s.styleType === 'EFFECT') effectStyles.push(entry);
-  }
-
-  // ── Components — walk all pages ───────────────────────────────
-  const allComponents: any[] = [];
-  const libraryMap: { [key: string]: any[] } = {};
-
-  function walkNode(node: any, pageName: string): void {
-    if (!node) return;
-    if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
-      const entry = { key: node.key, name: node.name, page: pageName };
-      allComponents.push(entry);
-      if (!libraryMap[pageName]) libraryMap[pageName] = [];
-      libraryMap[pageName].push(entry);
-    }
-    const children = node.children;
-    if (children && children.length) {
-      for (let i = 0; i < children.length; i++) {
-        walkNode(children[i], pageName);
-      }
-    }
-  }
-
-  const pages = (figmaFile.document && figmaFile.document.children) ? figmaFile.document.children : [];
-  for (let p = 0; p < pages.length; p++) {
-    const page = pages[p];
-    const pageChildren = page.children || [];
-    for (let c = 0; c < pageChildren.length; c++) {
-      walkNode(pageChildren[c], page.name);
-    }
-  }
-
-  // ── Icon components ─────────────────────────────────────────
-  const iconComponents: any[] = [];
-  for (let i = 0; i < allComponents.length; i++) {
-    const comp = allComponents[i];
-    if (
-      comp.name.toLowerCase().indexOf('icon') !== -1 ||
-      comp.name.indexOf('Icons/') === 0 ||
-      comp.name.indexOf('ic_') === 0
-    ) {
-      iconComponents.push(comp);
-    }
-  }
-
-  const colorNames: string[] = [];
-  for (let i = 0; i < Math.min(paintStyles.length, 80); i++) colorNames.push(paintStyles[i].name);
-  const textStyleNames: string[] = [];
-  for (let i = 0; i < Math.min(textStyles.length, 40); i++) textStyleNames.push(textStyles[i].name);
-  const effectStyleNames: string[] = [];
-  for (let i = 0; i < Math.min(effectStyles.length, 20); i++) effectStyleNames.push(effectStyles[i].name);
-  const componentNames: string[] = [];
-  for (let i = 0; i < Math.min(allComponents.length, 150); i++) componentNames.push(allComponents[i].name);
-  const iconNames: string[] = [];
-  for (let i = 0; i < Math.min(iconComponents.length, 100); i++) iconNames.push(iconComponents[i].name);
-
-  return {
-    fileKey,
-    paintStyles,
-    textStyles,
-    effectStyles,
-    allComponents,
-    iconComponents,
-    libraryMap,
-    componentCount: allComponents.length,
-    colorCount: paintStyles.length,
-    iconCount: iconComponents.length,
-    summary: {
-      colorNames,
-      textStyleNames,
-      effectStyleNames,
-      componentNames,
-      iconNames,
-      libraryNames: Object.keys(libraryMap),
-    }
-  };
-}
-
-async function loadDSFromCurrentFile(): Promise<void> {
-  try {
-    figma.notify('🔄 Scanning components used in this file…');
-    const paintStyles = figma.getLocalPaintStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
-    const textStyles = figma.getLocalTextStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
-    const effectStyles = figma.getLocalEffectStyles().map(s => ({ id: s.id, name: s.name, key: s.key }));
-    const seen = new Set<string>();
-    const allComponents: any[] = [];
-    const instances = figma.currentPage.findAllWithCriteria({ types: ['INSTANCE'] });
-    for (let i = 0; i < instances.length; i++) {
-      const inst = instances[i] as InstanceNode;
-      const mc = inst.mainComponent;
-      if (mc && !seen.has(mc.key)) {
-        seen.add(mc.key);
-        allComponents.push({ key: mc.key, name: mc.name, page: mc.remote ? 'External Library' : 'This File' });
-      }
-    }
-    const iconComponents: any[] = [];
-    for (let i = 0; i < allComponents.length; i++) {
-      const c = allComponents[i];
-      if (c.name.toLowerCase().indexOf('icon') !== -1 || c.name.indexOf('Icons/') === 0 || c.name.indexOf('ic_') === 0) {
-        iconComponents.push(c);
-      }
-    }
-    const colorNames = paintStyles.slice(0, 80).map(s => s.name);
-    const textStyleNames = textStyles.slice(0, 40).map(s => s.name);
-    const componentNames = allComponents.slice(0, 150).map(c => c.name);
-    const iconNames = iconComponents.slice(0, 100).map(c => c.name);
-    const dsData = {
-      paintStyles, textStyles, effectStyles,
-      allComponents, iconComponents, libraryMap: {},
-      componentCount: allComponents.length,
-      colorCount: paintStyles.length,
-      iconCount: iconComponents.length,
-      isCurrentFileOnly: true,
-      summary: {
-        colorNames,
-        textStyleNames,
-        componentNames,
-        iconNames,
-        libraryNames: ['This file only'],
-      }
-    };
-    await figma.clientStorage.setAsync('ds_cache', JSON.stringify(dsData));
-    await figma.clientStorage.setAsync('ds_cache_timestamp', String(Date.now()));
-    figma.notify(`✅ Loaded ${dsData.componentCount} components from current file`);
-    figma.ui.postMessage({ type: 'ds-loaded', summary: dsData.summary });
-  } catch (e) {
-    figma.notify('❌ Failed to scan current file');
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: String(e) });
-  }
-}
-
-// On startup: check DS cache, populate icon name set, and notify UI
-(async () => {
-  await refreshDSIconNames();
-  const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
-  const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
-  const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
-  const cacheAge = cacheTimestampRaw ? Date.now() - parseInt(cacheTimestampRaw) : Infinity;
-  const stale = cacheAge > 24 * 60 * 60 * 1000;
-  let summary = null;
-  if (cacheRaw) {
-    try {
-      summary = JSON.parse(cacheRaw).summary;
-    } catch (_e) {}
-  }
-  figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
-})();
-
-// Broadcast selection change to UI so annotation bar can update
-figma.on('selectionchange', () => {
-  const sel = figma.currentPage.selection;
-  if (sel.length > 0) {
-    const node = sel[0];
-    figma.ui.postMessage({
-      type: 'selection-node-changed',
-      nodeId:   node.id,
-      nodeName: node.name,
-    });
-  } else {
-    figma.ui.postMessage({ type: 'selection-node-changed', nodeId: null, nodeName: null });
-  }
-});
+// Do NOT send initial selection data - selection is captured on-demand only
+// when user clicks the selection box in the UI
 
 // Handle messages from UI
 figma.ui.onmessage = async (msg: any) => {
@@ -1280,11 +949,9 @@ figma.ui.onmessage = async (msg: any) => {
     const data = getSelectionData();
     if (data.nodes) cacheNodeNames(data.nodes);
     _analysisRootIds = figma.currentPage.selection.map(n => n.id);
-    const dsContext = await getDSContext();
     figma.ui.postMessage({
       type: 'selection-data',
       data,
-      dsContext,
     });
   }
 
@@ -1414,64 +1081,12 @@ figma.ui.onmessage = async (msg: any) => {
     }
     const checkText = msg.checkText !== false;
     const checkIcon = msg.checkIcon !== false;
-    // runTextContrastAudit is now async (gradient pixel-sampling via UI canvas)
-    const textIssues = checkText ? await runTextContrastAudit(selection) : [];
+    const textIssues = checkText ? runTextContrastAudit(selection) : [];
     const iconIssues = checkIcon ? runIconContrastAudit(selection) : [];
     const issues = [...textIssues, ...iconIssues];
     figma.ui.postMessage({ type: 'accessibility-results', issues });
     const failCount = issues.filter(i => !i.pass).length;
     figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
-  }
-
-  // ============================================================
-  // DESIGN SYSTEM: Fetch full DS via Figma REST API
-  // ============================================================
-  if (msg.type === 'save-ds-config') {
-    if (!msg.fileKey || !msg.pat) {
-      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'File key and PAT are required.' });
-      return;
-    }
-    await fetchAndCacheDS(msg.fileKey, msg.pat);
-    await refreshDSIconNames();
-  }
-
-  if (msg.type === 'refresh-ds-config') {
-    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
-    const pat = await figma.clientStorage.getAsync('figma_pat') as string | undefined;
-    if (!fileKey || !pat) {
-      figma.ui.postMessage({ type: 'ds-config-status', hasDS: false, error: 'No DS configured. Please connect first.' });
-      return;
-    }
-    await fetchAndCacheDS(fileKey, pat);
-    await refreshDSIconNames();
-  }
-
-  if (msg.type === 'load-ds-from-current-file') {
-    await loadDSFromCurrentFile();
-    await refreshDSIconNames();
-  }
-
-  if (msg.type === 'get-ds-config') {
-    const cacheRaw = await figma.clientStorage.getAsync('ds_cache') as string | undefined;
-    const cacheTimestampRaw = await figma.clientStorage.getAsync('ds_cache_timestamp') as string | undefined;
-    const fileKey = await figma.clientStorage.getAsync('ds_file_key') as string | undefined;
-    const stale = cacheTimestampRaw
-      ? (Date.now() - parseInt(cacheTimestampRaw)) > 24 * 60 * 60 * 1000
-      : true;
-    let summary = null;
-    if (cacheRaw) {
-      try { summary = JSON.parse(cacheRaw).summary; } catch (_e) {}
-    }
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: !!cacheRaw, stale, fileKey, summary });
-  }
-
-  if (msg.type === 'disconnect-ds') {
-    await figma.clientStorage.deleteAsync('ds_file_key');
-    await figma.clientStorage.deleteAsync('figma_pat');
-    await figma.clientStorage.deleteAsync('ds_cache');
-    await figma.clientStorage.deleteAsync('ds_cache_timestamp');
-    _dsIconNames = new Set();
-    figma.ui.postMessage({ type: 'ds-config-status', hasDS: false });
   }
 
   if (msg.type === 'get-selection-for-a11y-ai') {
@@ -1481,17 +1096,141 @@ figma.ui.onmessage = async (msg: any) => {
       return;
     }
 
-    // Extract nodes for A11y analysis
-    _extractedNodeCount = 0;
-    const nodes: DesignNode[] = [];
-    for (const node of selection) {
-      if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
-      const nodeData = extractNodeData(node, 0);
-      if (nodeData) nodes.push(nodeData);
+    // Use a deeper extraction for A11y — more nodes, more depth, capture all interactive elements
+    const A11Y_MAX_DEPTH = 12;
+    const A11Y_MAX_NODES = 2000;
+    let a11yNodeCount = 0;
+
+    function extractA11yNode(node: SceneNode, depth: number, parentPathStr: string): any | null {
+      if (depth > A11Y_MAX_DEPTH) return null;
+      if (a11yNodeCount >= A11Y_MAX_NODES) return null;
+      if (!node.visible) return null;
+      if ('opacity' in node && node.opacity === 0) return null;
+
+      a11yNodeCount++;
+
+      const textContent = node.type === 'TEXT' ? (node as TextNode).characters.trim() : undefined;
+      const pathLabel = textContent || node.name || node.type;
+      const currentPath = parentPathStr ? `${parentPathStr} > ${pathLabel}` : pathLabel;
+
+      const n: any = {
+        id: node.id,
+        name: node.name,   // Figma layer name — INTERNAL ONLY, never use as label content
+        type: node.type,
+        path: currentPath,
+      };
+
+      if (textContent) n.characters = textContent;
+      if ('x' in node) n.x = Math.round((node as any).x);
+      if ('y' in node) n.y = Math.round((node as any).y);
+      if ('width' in node) n.width = Math.round((node as any).width);
+      if ('height' in node) n.height = Math.round((node as any).height);
+      if (node.type === 'TEXT') {
+        const t = node as TextNode;
+        if (t.fontSize !== figma.mixed) n.fontSize = t.fontSize;
+      }
+      if ('cornerRadius' in node && (node as any).cornerRadius !== figma.mixed) {
+        n.cornerRadius = (node as any).cornerRadius;
+      }
+      if ('fills' in node && (node as any).fills !== figma.mixed) {
+        const fills = (node as any).fills as readonly Paint[];
+        n.fills = fills.filter(f => f.visible !== false).map(f => ({ type: f.type }));
+      }
+      if ('layoutMode' in node) n.layoutMode = (node as any).layoutMode;
+
+      let childNodes: any[] = [];
+      if ('children' in node && a11yNodeCount < A11Y_MAX_NODES) {
+        for (const child of (node as FrameNode).children) {
+          if (a11yNodeCount >= A11Y_MAX_NODES) break;
+          const childData = extractA11yNode(child, depth + 1, currentPath);
+          if (childData) childNodes.push(childData);
+        }
+        if (childNodes.length > 0) n.children = childNodes;
+      }
+
+      // Aggregate all visible text in subtree into allText — used by AI for label construction
+      // This prevents the AI from falling back to layerName
+      if (node.type !== 'TEXT') {
+        const texts: { text: string; y: number; x: number }[] = [];
+        function collectTexts(child: any) {
+          if (child.characters) texts.push({ text: child.characters, y: child.y ?? 0, x: child.x ?? 0 });
+          if (child.children) child.children.forEach(collectTexts);
+        }
+        childNodes.forEach(collectTexts);
+        texts.sort((a, b) => a.y - b.y || a.x - b.x);
+        if (texts.length > 0) n.allText = texts.map(t => t.text).join(' · ');
+      }
+
+      // Signal icon-only interactive elements (no text, roughly square, small, has fills)
+      if (!textContent && !n.allText) {
+        const w = n.width ?? 0;
+        const h = n.height ?? 0;
+        if (w > 0 && h > 0 && Math.abs(w - h) <= w * 0.3 && w <= 60 && n.fills && n.fills.length > 0) {
+          n._isIconButton = true;
+        }
+      }
+
+      return n;
     }
 
-    // Use getDSContext() helper — returns only safe/trimmed summary data
-    const dsContext = await getDSContext();
+    a11yNodeCount = 0;
+    const nodes: any[] = [];
+    for (const node of selection) {
+      if (a11yNodeCount >= A11Y_MAX_NODES) break;
+      const data = extractA11yNode(node, 0, '');
+      if (data) nodes.push(data);
+    }
+
+    // Post-process: annotate nodes with structural interactivity signals
+    function annotateInteractivity(node: any, siblings: any[] = []): void {
+      if (node.type === 'INSTANCE' || node.type === 'COMPONENT') {
+        node._isComponent = true;
+      }
+
+      if (siblings.length >= 3) {
+        const sameSizeCount = siblings.filter(s =>
+          Math.abs((s.width || 0) - (node.width || 0)) < 10 &&
+          Math.abs((s.height || 0) - (node.height || 0)) < 10
+        ).length;
+        if (sameSizeCount >= 3) {
+          node._inRepeatingGroup = true;
+          node._repeatingSiblingCount = sameSizeCount;
+        }
+      }
+
+      const children = node.children || [];
+      const hasOnlyTextChildren = children.length > 0 && children.every((c: any) => c.type === 'TEXT');
+      if (hasOnlyTextChildren || children.length === 0) {
+        node._isLeaf = true;
+      }
+
+      // Sort children by visual position (y then x) so the AI always
+      // receives siblings in top-left → bottom-right order regardless
+      // of how the designer stacked layers in Figma.
+      if (children.length > 1) {
+        children.sort((a: any, b: any) => {
+          const ay = a.y ?? 0, by = b.y ?? 0;
+          if (Math.abs(ay - by) > 8) return ay - by;   // Different rows
+          return (a.x ?? 0) - (b.x ?? 0);              // Same row → left to right
+        });
+        node.children = children;
+      }
+
+      for (let i = 0; i < children.length; i++) {
+        annotateInteractivity(children[i], children);
+      }
+    }
+
+    for (const node of nodes) {
+      annotateInteractivity(node, []);
+    }
+
+    // Also sort top-level nodes spatially before sending
+    nodes.sort((a: any, b: any) => {
+      const ay = a.y ?? 0, by = b.y ?? 0;
+      if (Math.abs(ay - by) > 8) return ay - by;
+      return (a.x ?? 0) - (b.x ?? 0);
+    });
 
     figma.ui.postMessage({
       type: 'selection-for-a11y-ai',
@@ -1500,7 +1239,6 @@ figma.ui.onmessage = async (msg: any) => {
         fileName: figma.root.name,
         pageName: figma.currentPage.name,
       },
-      dsContext,
       checkAria: msg.checkAria,
       checkFocus: msg.checkFocus,
     });
@@ -1542,126 +1280,6 @@ figma.ui.onmessage = async (msg: any) => {
       type: 'a11y-ai-annotate-done',
       message: `${annotated} ${label} written to Figma`,
     });
-  }
-
-  // ============================================================
-  // ANNOTATION: Draw visual annotation cards on the canvas
-  // ============================================================
-  if (msg.type === 'create-annotation') {
-    const { nodeId, nodeName, interaction, role, label } = msg;
-
-    try {
-      await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
-      await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
-
-      // ── Constants ──────────────────────────────────────────
-      const CARD_W       = 220;
-      const CARD_PAD     = 14;
-      const CARD_GAP     = 10;
-      const CARD_RADIUS  = 10;
-      const BG_COLOR     = { r: 0.125, g: 0.141, b: 0.173 }; // #1f2437
-      const TEXT_WHITE   = { r: 0.96,  g: 0.965, b: 0.975 };
-      const TEXT_MUTED   = { r: 0.55,  g: 0.56,  b: 0.60  };
-
-      const PILL_CONFIGS: Record<string, { bg: {r:number,g:number,b:number}, text: {r:number,g:number,b:number}, label: string }> = {
-        interaction: { bg: { r: 0.459, g: 0.176, b: 0.71  }, text: { r: 0.98, g: 0.95, b: 1.0  }, label: 'Interaction'  },
-        role:        { bg: { r: 0.671, g: 0.290, b: 0.106 }, text: { r: 1.0,  g: 0.96, b: 0.93 }, label: 'Role/State'   },
-        label:       { bg: { r: 0.247, g: 0.263, b: 0.863 }, text: { r: 0.92, g: 0.93, b: 1.0  }, label: 'Label'        },
-      };
-
-      // Helper: make a pill text node
-      async function makePill(type: keyof typeof PILL_CONFIGS): Promise<FrameNode> {
-        const cfg   = PILL_CONFIGS[type];
-        const pill  = figma.createFrame();
-        pill.name   = `Pill/${cfg.label}`;
-        pill.cornerRadius = 20;
-        pill.fills  = [{ type: 'SOLID', color: cfg.bg }];
-        pill.layoutMode = 'HORIZONTAL';
-        pill.primaryAxisSizingMode  = 'AUTO';
-        pill.counterAxisSizingMode  = 'AUTO';
-        pill.paddingLeft = pill.paddingRight  = 10;
-        pill.paddingTop  = pill.paddingBottom = 4;
-
-        const t = figma.createText();
-        t.fontName = { family: 'Inter', style: 'Bold' };
-        t.fontSize = 10;
-        t.characters = cfg.label;
-        t.fills = [{ type: 'SOLID', color: cfg.text }];
-        pill.appendChild(t);
-        return pill;
-      }
-
-      // Helper: make body text
-      function makeBodyText(content: string): TextNode {
-        const t = figma.createText();
-        t.fontName = { family: 'Inter', style: 'Regular' };
-        t.fontSize = 14;
-        t.lineHeight = { value: 140, unit: 'PERCENT' };
-        t.characters = content;
-        t.fills = [{ type: 'SOLID', color: TEXT_WHITE }];
-        t.textAutoResize = 'WIDTH_AND_HEIGHT';
-        return t;
-      }
-
-      // Build one annotation card per filled field
-      const entries: Array<{ type: keyof typeof PILL_CONFIGS; value: string }> = [];
-      if (interaction) entries.push({ type: 'interaction', value: interaction });
-      if (role)        entries.push({ type: 'role',        value: role });
-      if (label)       entries.push({ type: 'label',       value: label });
-
-      // Place cards in the centre of the current viewport so they appear
-      // exactly where the designer is looking — no connector, no repositioning.
-      const vp     = figma.viewport;
-      const vpCx   = vp.center.x;
-      const vpCy   = vp.center.y;
-
-      // Stack cards vertically, centred on the viewport centre
-      const totalCards = entries.length;
-      const estimatedCardH = 90; // approximate before auto-layout resolves
-      const totalH = totalCards * estimatedCardH + (totalCards - 1) * CARD_GAP;
-      let curY = vpCy - totalH / 2;
-      const startX = vpCx - CARD_W / 2;
-
-      // Always append to the current page so cards are never clipped by a frame
-      const page = figma.currentPage;
-
-      const createdCards: FrameNode[] = [];
-
-      for (const entry of entries) {
-        const card = figma.createFrame();
-        card.name  = `A11y Annotation · ${PILL_CONFIGS[entry.type].label}`;
-        card.fills = [{ type: 'SOLID', color: BG_COLOR }];
-        card.cornerRadius = CARD_RADIUS;
-        card.layoutMode   = 'VERTICAL';
-        card.primaryAxisSizingMode  = 'AUTO';
-        card.counterAxisSizingMode  = 'FIXED';
-        card.resize(CARD_W, 80);
-        card.paddingLeft = card.paddingRight  = CARD_PAD;
-        card.paddingTop  = card.paddingBottom = CARD_PAD;
-        card.itemSpacing = 8;
-        card.x = startX;
-        card.y = curY;
-
-        const pill = await makePill(entry.type);
-        card.appendChild(pill);
-
-        const body = makeBodyText(entry.value);
-        card.appendChild(body);
-        body.layoutSizingHorizontal = 'FILL';
-
-        page.appendChild(card);
-        createdCards.push(card);
-
-        curY += estimatedCardH + CARD_GAP;
-      }
-
-      figma.ui.postMessage({ type: 'annotation-done', success: true });
-      figma.notify(`✅ ${entries.length} annotation card${entries.length > 1 ? 's' : ''} placed`);
-
-    } catch (e) {
-      figma.ui.postMessage({ type: 'annotation-done', success: false, error: String(e) });
-      figma.notify('❌ Failed to create annotation: ' + String(e));
-    }
   }
 
   if (msg.type === 'notify') {

@@ -48,9 +48,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => ({
         type: f.type,
-        color: f.color
-          ? `rgba(${Math.round(f.color.r * 255)},${Math.round(f.color.g * 255)},${Math.round(f.color.b * 255)},${f.color.a ?? 1})`
-          : undefined,
+        color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
       }));
     }
     if (node.fontSize) simplified.fontSize = node.fontSize;
@@ -124,8 +122,8 @@ async function storeChunks(supabaseUrl: string, serviceRoleKey: string, jobId: s
     await fetch(`${supabaseUrl}/rest/v1/analysis_chunks`, {
       method: "POST",
       headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
+        "apikey": serviceRoleKey,
+        "Authorization": `Bearer ${serviceRoleKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -138,19 +136,12 @@ async function storeChunks(supabaseUrl: string, serviceRoleKey: string, jobId: s
   }
 }
 
-async function updateChunkStatus(
-  supabaseUrl: string,
-  serviceRoleKey: string,
-  jobId: string,
-  chunkIndex: number,
-  status: string,
-  result?: any,
-) {
+async function updateChunkStatus(supabaseUrl: string, serviceRoleKey: string, jobId: string, chunkIndex: number, status: string, result?: any) {
   await fetch(`${supabaseUrl}/rest/v1/analysis_chunks?job_id=eq.${jobId}&chunk_index=eq.${chunkIndex}`, {
     method: "PATCH",
     headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
+      "apikey": serviceRoleKey,
+      "Authorization": `Bearer ${serviceRoleKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ status, ...(result ? { result } : {}) }),
@@ -161,8 +152,8 @@ async function cleanupChunks(supabaseUrl: string, serviceRoleKey: string, jobId:
   await fetch(`${supabaseUrl}/rest/v1/analysis_chunks?job_id=eq.${jobId}`, {
     method: "DELETE",
     headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
+      "apikey": serviceRoleKey,
+      "Authorization": `Bearer ${serviceRoleKey}`,
     },
   });
 }
@@ -174,7 +165,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-
+    
     // Handle lightweight usage-tracking-only calls from the UI (contrast checks etc.)
     if (body._trackOnly) {
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -184,10 +175,10 @@ serve(async (req) => {
           await fetch(`${SUPABASE_URL}/rest/v1/plugin_usage`, {
             method: "POST",
             headers: {
-              apikey: SUPABASE_SERVICE_ROLE_KEY,
-              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              "apikey": SUPABASE_SERVICE_ROLE_KEY,
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
               "Content-Type": "application/json",
-              Prefer: "return=minimal",
+              "Prefer": "return=minimal",
             },
             body: JSON.stringify({
               user_name: body.fileName || "unknown",
@@ -196,29 +187,24 @@ serve(async (req) => {
               category_count: 1,
             }),
           });
-        } catch (e) {
-          /* ignore */
-        }
+        } catch (e) { /* ignore */ }
       }
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome, dsContext } = body;
-
+    
+    const { designData, prompt, categories, isCustom, fileName, pageName, ignoreChrome } = body;
+    
     console.log("Analyzing design from plugin");
     console.log("File:", fileName);
     console.log("Page:", pageName);
     console.log("Raw nodes received:", designData?.length || 0);
     console.log("Categories:", categories);
     console.log("Is custom prompt:", isCustom);
-    console.log("DS context present:", !!dsContext);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
+    
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
@@ -263,10 +249,6 @@ serve(async (req) => {
     if (isCustom) {
       allowedCategories = ["ux", "ui", "consistency", "ux_writing", "high_level", "improvement"];
     }
-    // Add design_system category when DS context is available
-    if (dsContext && !allowedCategories.includes("design_system")) {
-      allowedCategories.push("design_system");
-    }
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
@@ -284,7 +266,9 @@ Start your response with [ and end with ].`;
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
-      const itemsPerCategory = 10;
+      const itemsPerCategory = isChunked
+        ? Math.max(3, Math.floor(10 / chunks.length))
+        : 10;
 
       const designContext = JSON.stringify(chunk, null, 2);
 
@@ -313,10 +297,9 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- You MUST provide AT LEAST ${itemsPerCategory} issues for EACH category listed above
-- This means your response must contain a MINIMUM of ${itemsPerCategory * allowedCategories.length} total items (${itemsPerCategory} × ${allowedCategories.length} categories)
+- Provide around ${itemsPerCategory} issues per category
 - Focus on REAL, meaningful issues
-- Do NOT skip any category — every category must have ${itemsPerCategory} items
+- Do NOT skip any category
 
 Format as JSON array:
 [{
@@ -334,61 +317,31 @@ CRITICAL:
 - Always include nodeId with exact ID from design data
 - Location must be user-friendly names only
 
-${
-  ignoreChrome
-    ? `
+${ignoreChrome ? `
 IGNORE CHROME ELEMENTS:
 - Do NOT provide any feedback on: status bars, app bars, headers, top navigation bars, bottom navigation bars, footers, navigation drawers, tab bars at the bottom/top of the screen, or any other structural chrome/shell elements.
 - Only focus on the actual content area of the screen — the unique, page-specific content that the designer controls.
 - If an issue exists exclusively in a header, footer, or nav bar, skip it entirely.
-`
-    : ""
-}
+` : ""}
 
-${
-  allowedCategories.includes("consistency")
-    ? `
+${allowedCategories.includes("consistency") ? `
 SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
 - Compare ALL elements for inconsistent patterns
 - Look for text variations, inconsistent styles, spacing
 - Flag ALL instances of inconsistency
-`
-    : ""
-}
+` : ""}
 
-${
-  allowedCategories.includes("ux_writing")
-    ? `
+${allowedCategories.includes("ux_writing") ? `
 SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Scan ALL text content thoroughly
 - Check EVERY button label, heading, paragraph, placeholder
 - Look for typos, spelling errors, grammatical mistakes
 - Be comprehensive - catch ALL text issues
-`
-    : ""
-}`;
-
-      const dsPromptSection = dsContext
-        ? `
-═══ DESIGN SYSTEM CONTEXT ═══
-This product uses a Design System. When giving feedback, reference it explicitly.
-
-Available DS components (${(dsContext.componentNames || []).length} total): ${(dsContext.componentNames || []).slice(0, 80).join(", ")}
-Available color tokens: ${(dsContext.colorNames || []).slice(0, 40).join(", ")}
-Available text styles: ${(dsContext.textStyleNames || []).slice(0, 20).join(", ")}
-
-USE THIS TO:
-1. Flag when a UI element appears to be a custom/one-off component that should instead use a DS component. E.g. "This button appears to be a custom frame — use the DS 'Button/Primary' component instead."
-2. Flag when spacing, color, or typography appears to deviate from DS tokens. E.g. "This text uses #333333 directly — use the DS color token 'Neutral/800' instead."
-3. Positively note correct DS usage when relevant so the designer knows what's right.
-4. If a component name in the design matches a DS component name, treat it as correct usage — do not flag it.
-Use category "design_system" for all DS-related feedback items.
-`
-        : "";
+` : ""}`;
 
       const analysisPrompt = isCustom
-        ? `${baseContext}\n\n${dsPromptSection}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
-        : `${baseContext}\n\n${dsPromptSection}\n\n${prompt}\n${formatInstructions}`;
+        ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
+        : `${baseContext}\n\n${prompt}\n${formatInstructions}`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
       console.log(`Chunk ${chunkIdx + 1} prompt tokens: ~${promptTokens}`);
@@ -405,7 +358,7 @@ Use category "design_system" for all DS-related feedback items.
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 64000,
+          max_tokens: 16000,
           temperature: 0,
         }),
       });
@@ -415,32 +368,28 @@ Use category "design_system" for all DS-related feedback items.
         console.error(`AI API error on chunk ${chunkIdx + 1}:`, errorText);
 
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try {
-            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed");
-          } catch (e) {
-            /* ignore */
-          }
+          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed"); } catch (e) { /* ignore */ }
         }
 
         if (aiResponse.status === 400 && isChunked) {
           console.warn(`Chunk ${chunkIdx + 1} hit token limit, skipping...`);
           continue;
         }
-
+        
         if (aiResponse.status === 429) {
-          return new Response(JSON.stringify({ error: "AI rate limit exceeded. Please try again in a moment." }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({ error: "AI rate limit exceeded. Please try again in a moment." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
-
+        
         if (aiResponse.status === 402) {
           return new Response(
             JSON.stringify({ error: "AI usage limit reached. Please check your Lovable workspace." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-
+        
         throw new Error(`AI analysis failed: ${aiResponse.status}`);
       }
 
@@ -459,7 +408,7 @@ Use category "design_system" for all DS-related feedback items.
         else if (cleanContent.startsWith("```")) cleanContent = cleanContent.slice(3);
         if (cleanContent.endsWith("```")) cleanContent = cleanContent.slice(0, -3);
         cleanContent = cleanContent.trim();
-
+        
         const chunkFeedback: FeedbackItem[] = JSON.parse(cleanContent);
         if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
 
@@ -467,22 +416,12 @@ Use category "design_system" for all DS-related feedback items.
         console.log(`Chunk ${chunkIdx + 1}: got ${chunkFeedback.length} feedback items`);
 
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try {
-            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "completed", {
-              count: chunkFeedback.length,
-            });
-          } catch (e) {
-            /* ignore */
-          }
+          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "completed", { count: chunkFeedback.length }); } catch (e) { /* ignore */ }
         }
       } catch (parseError) {
         console.error(`Failed to parse chunk ${chunkIdx + 1}:`, parseError);
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try {
-            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "parse_error");
-          } catch (e) {
-            /* ignore */
-          }
+          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "parse_error"); } catch (e) { /* ignore */ }
         }
         if (!isChunked) throw new Error("Failed to parse AI analysis results");
         continue;
@@ -500,8 +439,8 @@ Use category "design_system" for all DS-related feedback items.
     }
 
     const categoryCount: Record<string, number> = {};
-    allFeedback.forEach((item) => {
-      const cat = item.category || "general";
+    allFeedback.forEach(item => {
+      const cat = item.category || 'general';
       categoryCount[cat] = (categoryCount[cat] || 0) + 1;
     });
 
@@ -519,10 +458,10 @@ Use category "design_system" for all DS-related feedback items.
         await fetch(`${SUPABASE_URL}/rest/v1/plugin_usage`, {
           method: "POST",
           headers: {
-            apikey: SUPABASE_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
             "Content-Type": "application/json",
-            Prefer: "return=minimal",
+            "Prefer": "return=minimal",
           },
           body: JSON.stringify({
             user_name: fileName || "unknown",
@@ -538,21 +477,23 @@ Use category "design_system" for all DS-related feedback items.
 
     const summary = {
       total: feedback.length,
-      high: feedback.filter((f) => f.severity === "high").length,
-      medium: feedback.filter((f) => f.severity === "medium").length,
-      low: feedback.filter((f) => f.severity === "low").length,
+      high: feedback.filter(f => f.severity === "high").length,
+      medium: feedback.filter(f => f.severity === "medium").length,
+      low: feedback.filter(f => f.severity === "low").length,
       byCategory: categoryCount,
     };
 
-    return new Response(JSON.stringify({ success: true, feedback, summary }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: true, feedback, summary }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
   } catch (error: unknown) {
     console.error("Error in analyze-plugin:", error);
     const errorMessage = error instanceof Error ? error.message : "Analysis failed";
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
