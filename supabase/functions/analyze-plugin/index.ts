@@ -773,7 +773,7 @@ DS RULES:
       const analysisPrompt = `
 ═══ DESIGN DATA${chunkLabel} ═══
 File: ${fileName} | Page: ${pageName}
-REMINDER: "text" field = what the USER SEES. "name" field = internal layer label (IGNORE for content analysis).
+IMPORTANT: Layer names, frame names, section names, and component names have been REMOVED from this data. They are internal designer labels and do NOT represent what users see. Only the "text" field shows actual visible content. Do NOT infer or guess content from node types or IDs.
 
 Node hierarchy (use these exact IDs in nodeId field):
 ${designContext}
