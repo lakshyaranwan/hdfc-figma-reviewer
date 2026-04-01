@@ -1128,6 +1128,55 @@ figma.ui.onmessage = async (msg: any) => {
     figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
   }
 
+  if (msg.type === 'request-gradient-export') {
+    // UI requests an export for gradient sampling
+    const textNode = figma.getNodeById(msg.textNodeId) as SceneNode | null;
+    const gradientParent = figma.getNodeById(msg.gradientParentId) as SceneNode | null;
+    if (!textNode || !gradientParent) {
+      figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: 'Node not found' });
+      return;
+    }
+
+    try {
+      // Hide text node temporarily so we only sample background
+      const origVisible = textNode.visible;
+      textNode.visible = false;
+
+      let imageBytes: Uint8Array;
+      try {
+        imageBytes = await (gradientParent as any).exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 0.25 } });
+      } finally {
+        textNode.visible = origVisible;
+      }
+
+      const parentBB = (gradientParent as any).absoluteBoundingBox;
+      const textBB = (textNode as any).absoluteBoundingBox;
+      if (!parentBB || !textBB) {
+        figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: 'No bounding box' });
+        return;
+      }
+
+      const scale = 0.25;
+      const cropX = Math.max(0, Math.round((textBB.x - parentBB.x) * scale));
+      const cropY = Math.max(0, Math.round((textBB.y - parentBB.y) * scale));
+      const cropW = Math.max(1, Math.round(textBB.width * scale));
+      const cropH = Math.max(1, Math.round(textBB.height * scale));
+
+      figma.ui.postMessage({
+        type: 'gradient-sample-result',
+        textNodeId: msg.textNodeId,
+        imageBytes: Array.from(imageBytes),
+        cropX, cropY, cropW, cropH,
+        fgColor: msg.fgColor,
+        nodeName: msg.nodeName,
+        text: msg.text,
+        fontSize: msg.fontSize,
+      });
+    } catch (e) {
+      figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: (e as Error).message });
+    }
+  }
+
   if (msg.type === 'get-selection-for-a11y-ai') {
     const selection = figma.currentPage.selection;
     if (selection.length === 0) {
