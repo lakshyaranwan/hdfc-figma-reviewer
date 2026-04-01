@@ -719,10 +719,11 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
-      // Match analyze-figma: scale items per category by chunk count
+      // Scale items per category — ensure enough coverage
+      const minPerCategory = 4;
       const itemsPerCategory = isChunked 
-        ? Math.max(3, Math.floor(8 / chunks.length))
-        : Math.floor(80 / allowedCategories.length);
+        ? Math.max(minPerCategory, Math.floor(10 / chunks.length))
+        : Math.max(minPerCategory, Math.floor(60 / allowedCategories.length));
 
       const designContext = JSON.stringify(chunk, null, 2);
       const textContent = extractTextContent(chunk);
