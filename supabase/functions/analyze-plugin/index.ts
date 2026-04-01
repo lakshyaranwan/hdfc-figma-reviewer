@@ -599,6 +599,7 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const colorContent = extractColorContext(chunk);
       const semanticContext = extractSemanticContext(chunk);
       const pageSemantics = computePageSemantics(chunk);
+      const crossScreenFacts = buildCrossScreenFacts(chunk);
 
       // Debug: log semantic analysis results
       const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
@@ -606,6 +607,8 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       console.log(`Red/danger nodes found in chunk: ${redNodes.length}`);
       if (redNodes.length > 0) console.log(`Red nodes: ${redNodes.map((n: any) => `${n.id}(${n.type},fill:${n.fills[0]?.hex})`).join(', ')}`);
       console.log(`Page-level clashes found: ${pageSemantics ? pageSemantics.split('🚨').length - 1 : 0}`);
+      console.log(`Cross-screen inconsistencies: ${crossScreenFacts ? crossScreenFacts.split('INCONSISTENCY').length - 1 : 0}`);
+      if (crossScreenFacts) console.log(`CROSS-SCREEN:\n${crossScreenFacts}`);
       if (pageSemantics) console.log(`CLASHES:\n${pageSemantics}`);
 
       const dsPromptSection = dsContext ? `
