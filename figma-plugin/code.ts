@@ -688,12 +688,26 @@ async function applySuggestionToNode(nodeId: string | undefined, location: strin
 // Handle messages from UI
 figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'get-selection') {
-    const data = getSelectionData();
-    if (data.nodes) cacheNodeNames(data.nodes);
-    figma.ui.postMessage({
-      type: 'selection-data',
-      data,
-    });
+    try {
+      const data = getSelectionData();
+      if (data.nodes) cacheNodeNames(data.nodes);
+      figma.ui.postMessage({
+        type: 'selection-data',
+        data: data,
+      });
+    } catch (err: any) {
+      console.error('Error getting selection:', err);
+      figma.ui.postMessage({
+        type: 'selection-data',
+        data: {
+          hasSelection: false,
+          nodes: [],
+          pageName: figma.currentPage.name,
+          fileName: figma.root.name,
+          error: err.message || 'Failed to read selection',
+        },
+      });
+    }
   }
 
   if (msg.type === 'analyze') {
