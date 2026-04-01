@@ -539,7 +539,10 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const pageSemantics = computePageSemantics(chunk);
 
       // Debug: log semantic analysis results
+      const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
       console.log(`Semantic context entries: ${semanticContext.split('⚠️').length - 1}`);
+      console.log(`Red/danger nodes found in chunk: ${redNodes.length}`);
+      if (redNodes.length > 0) console.log(`Red nodes: ${redNodes.map((n: any) => `${n.id}(${n.type},fill:${n.fills[0]?.hex})`).join(', ')}`);
       console.log(`Page-level clashes found: ${pageSemantics ? pageSemantics.split('🚨').length - 1 : 0}`);
       if (pageSemantics) console.log(`CLASHES:\n${pageSemantics}`);
 
