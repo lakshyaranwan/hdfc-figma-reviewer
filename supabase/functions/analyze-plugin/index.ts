@@ -726,7 +726,12 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
         ? Math.max(minPerCategory, Math.floor(10 / chunks.length))
         : Math.max(minPerCategory, Math.floor(60 / allowedCategories.length));
 
-      const designContext = JSON.stringify(chunk, null, 2);
+      // Strip "name" field from data sent to AI — layer names are misleading and cause false flags
+      const chunkForAI = chunk.map((node: any) => {
+        const { name, _boilerplate, _salience, ...rest } = node;
+        return rest;
+      });
+      const designContext = JSON.stringify(chunkForAI, null, 2);
       const textContent = extractTextContent(chunk);
       const colorContent = extractColorContext(chunk);
       const semanticContext = extractSemanticContext(chunk);
