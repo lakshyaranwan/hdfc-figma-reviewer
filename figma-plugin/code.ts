@@ -78,17 +78,29 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
   if ('width' in node) baseData.width = Math.round(node.width);
   if ('height' in node) baseData.height = Math.round(node.height);
 
-  // Only include visual details for shallow nodes (top 4 levels)
-  if (depth < 4) {
-    if ('fills' in node && node.fills !== figma.mixed) {
-      baseData.fills = (node.fills as readonly Paint[]).map(fill => ({
-        type: fill.type,
-        visible: fill.visible,
-        opacity: fill.opacity,
-        color: 'color' in fill ? fill.color : undefined,
-      }));
+  // Extract fills for ALL depths — needed for semantic clash detection (red banner on success page etc.)
+  // Previously limited to depth < 4, which caused colored containers deeper in the tree to lose their fill data entirely
+  if ('fills' in node && node.fills !== figma.mixed) {
+    const fills = (node.fills as readonly Paint[]).filter(f => f.visible !== false);
+    if (fills.length > 0) {
+      baseData.fills = fills.map(fill => {
+        const r = 'color' in fill && fill.color ? Math.round(fill.color.r * 255) : 0;
+        const g = 'color' in fill && fill.color ? Math.round(fill.color.g * 255) : 0;
+        const b = 'color' in fill && fill.color ? Math.round(fill.color.b * 255) : 0;
+        const hex = 'color' in fill && fill.color ? `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}` : undefined;
+        return {
+          type: fill.type,
+          visible: fill.visible,
+          opacity: fill.opacity,
+          color: 'color' in fill ? fill.color : undefined,
+          hex,
+        };
+      });
     }
+  }
 
+  // Only include strokes, effects, and other visual details for shallow nodes (top 4 levels) to control payload size
+  if (depth < 4) {
     if ('strokes' in node) {
       baseData.strokes = (node.strokes as readonly Paint[]).map(stroke => ({
         type: stroke.type,
