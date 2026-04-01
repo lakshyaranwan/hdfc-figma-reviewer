@@ -68,7 +68,7 @@ function repairTruncatedJSON(raw: string): any[] {
 }
 
 
-function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
+function flattenDesignData(nodes: any[], maxDepth = 12): any[] {
   const flat: any[] = [];
 
   function traverse(node: any, path: string, depth: number, parentId?: string) {
@@ -77,16 +77,31 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.opacity !== undefined && node.opacity === 0) return;
 
     // Use visible text content as path label for readability — not the layer name
-    const displayLabel = node.characters?.trim() || node.name || node.type || "unknown";
+    const displayLabel = node.characters?.trim() || node.type || "unknown";
     const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
+
+    // Collect visible child IDs BEFORE recursion so the AI knows containment
+    const childNodes = node.children || node.nodes;
+    const visibleChildIds: string[] = [];
+    if (Array.isArray(childNodes)) {
+      for (const child of childNodes) {
+        if (child && child.visible !== false && !(child.opacity !== undefined && child.opacity === 0)) {
+          visibleChildIds.push(child.id);
+        }
+      }
+    }
 
     const simplified: any = {
       id: node.id,
-      // name intentionally omitted — layer names cause false flags
       type: node.type,
       path: currentPath,
       parentId: parentId || null,
     };
+
+    // Include child IDs so the AI understands containment (what's inside what)
+    if (visibleChildIds.length > 0) {
+      simplified.childIds = visibleChildIds;
+    }
 
     // Include text content
     if (node.characters) simplified.text = node.characters;
@@ -94,7 +109,6 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     // Include key style properties only (not full nested style objects)
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => {
-        // Use pre-computed hex from plugin if available, otherwise compute from color object
         let hex = f.hex;
         if (!hex && f.color) {
           hex = `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}`;
@@ -108,22 +122,15 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     }
     if (node.fontSize) simplified.fontSize = node.fontSize;
     if (node.fontName) simplified.fontName = node.fontName;
-    // DS style IDs commented out — design system analysis disabled for now
-    // if (node.textStyleId) simplified.textStyleId = node.textStyleId;
-    // if (node.textStyleName) simplified.textStyleName = node.textStyleName;
-    // if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
-    // if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
     if (node.cornerRadius) simplified.cornerRadius = node.cornerRadius;
     if (node.opacity !== undefined && node.opacity !== 1) simplified.opacity = node.opacity;
-    if (node.constraints) simplified.constraints = node.constraints;
     if (node.layoutMode) simplified.layoutMode = node.layoutMode;
     if (node.itemSpacing) simplified.itemSpacing = node.itemSpacing;
     if (node.paddingLeft || node.paddingTop || node.paddingRight || node.paddingBottom) {
       simplified.padding = { l: node.paddingLeft, t: node.paddingTop, r: node.paddingRight, b: node.paddingBottom };
     }
 
-    // Include position — prefer absolute position for accurate spatial reasoning
-    // absX/absY are absolute canvas coordinates; x/y are relative to parent (misleading for spatial grouping)
+    // Prefer absolute position for accurate spatial reasoning
     if (node.absX !== undefined) {
       simplified.x = Math.round(node.absX);
       simplified.y = Math.round(node.absY);
@@ -142,9 +149,8 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     flat.push(simplified);
 
     // Recurse into children
-    const children = node.children || node.nodes;
-    if (Array.isArray(children)) {
-      for (const child of children) {
+    if (Array.isArray(childNodes)) {
+      for (const child of childNodes) {
         traverse(child, currentPath, depth + 1, node.id);
       }
     }
@@ -155,6 +161,64 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   }
 
   return flat;
+}
+
+// Build a containment summary: for each container that has text descendants,
+// show a tree of "SECTION contains: text1, text2, text3..."
+// This is the KEY context the AI needs to stop saying "no summary" when there IS one.
+function buildContainmentSummary(flatNodes: any[]): string {
+  const nodeById = new Map<string, any>();
+  const childrenOf = new Map<string, any[]>();
+  for (const node of flatNodes) {
+    nodeById.set(node.id, node);
+    if (node.parentId) {
+      if (!childrenOf.has(node.parentId)) childrenOf.set(node.parentId, []);
+      childrenOf.get(node.parentId)!.push(node);
+    }
+  }
+
+  // Recursively collect all text from descendants
+  function collectAllText(nodeId: string, maxDepth = 10): string[] {
+    if (maxDepth <= 0) return [];
+    const texts: string[] = [];
+    const children = childrenOf.get(nodeId) || [];
+    for (const child of children) {
+      if (child.text) texts.push(child.text);
+      texts.push(...collectAllText(child.id, maxDepth - 1));
+    }
+    return texts;
+  }
+
+  const summaries: string[] = [];
+  
+  // Find containers with significant text content (sections, cards, etc.)
+  for (const node of flatNodes) {
+    if (node.type === 'TEXT') continue;
+    const children = childrenOf.get(node.id);
+    if (!children || children.length === 0) continue;
+    
+    const allText = collectAllText(node.id);
+    if (allText.length < 2) continue; // skip containers with little content
+    
+    // Only show containers that are big enough to be meaningful sections
+    const area = (node.size?.w || 0) * (node.size?.h || 0);
+    if (area < 5000) continue;
+    
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    const textPreview = allText.slice(0, 15).map(t => `"${t}"`).join(', ');
+    const moreCount = allText.length > 15 ? ` (+${allText.length - 15} more)` : '';
+    summaries.push(`[${topFrame}] Container id:${node.id} (${node.size?.w}x${node.size?.h}) contains ${allText.length} text elements: ${textPreview}${moreCount}`);
+  }
+
+  // Limit to top 50 most content-rich containers
+  return summaries
+    .sort((a, b) => {
+      const countA = parseInt(a.match(/contains (\d+)/)?.[1] || '0');
+      const countB = parseInt(b.match(/contains (\d+)/)?.[1] || '0');
+      return countB - countA;
+    })
+    .slice(0, 50)
+    .join('\n');
 }
 
 // Classify nodes as boilerplate (footer/header/nav/legal) vs primary content
@@ -820,13 +884,20 @@ LOW = Polish. Only a designer would notice. Spacing, alignment, border radius.
 ABSOLUTE NEVER-FLAG LIST:
 - Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
 - NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
-- NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word. "Bill & Recharges" is a COMPLETE phrase, NOT truncated. You CANNOT see rendered layout — only text content.
+- NEVER flag "missing summary" or "lacks summary/details" when the CONTAINMENT MAP shows a container with multiple text elements inside it. A section heading with 5+ text children IS a summary — it is NOT empty.
+- NEVER flag "missing content below heading" — check the CONTAINMENT MAP. If the heading's parent container has child text nodes, the content EXISTS.
+- NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word.
 - NEVER flag "incomplete sentence" for marketing slogans, taglines, or promotional text.
 - NEVER invent problems that aren't evidenced in the data. If you're unsure, skip it.
-- NEVER flag "missing CTA" or "no call to action" if the screen contains ANY button text like "Confirm", "Submit", "Proceed", "Continue", "Done", "Pay", "Send", "Transfer", "Edit", "Cancel", etc. Check the SPATIAL LAYOUT — the button may be at the bottom of the screen.
-- NEVER flag "ambiguous instruction" or "missing options" for a label/heading when there are interactive elements (radio buttons, checkboxes, dropdowns, toggles, input fields) in the same or adjacent spatial section. Check the SPATIAL LAYOUT to see what's near the label.
+- NEVER flag "missing CTA" or "no call to action" if the screen contains ANY button text like "Confirm", "Submit", "Proceed", "Continue", "Done", "Pay", "Send", "Transfer", "Edit", "Cancel", etc. Check the SPATIAL LAYOUT and CONTAINMENT MAP.
+- NEVER flag "ambiguous instruction" or "missing options" for a label/heading when there are interactive elements (radio buttons, checkboxes, dropdowns, toggles, input fields) in the same or adjacent spatial section.
 - NEVER flag "missing explanation" for section headings — headings are meant to be short. The content below them IS the explanation.
-- Before flagging ANY "missing X" issue, check the ENTIRE screen's spatial layout to verify X is truly absent. Search ALL sections, not just the one near the node you're looking at.
+- Before flagging ANY "missing X" issue, you MUST: (1) check the CONTAINMENT MAP to see if X exists as child text, (2) check the SPATIAL LAYOUT to see if X exists nearby, (3) check ALL VISIBLE TEXT to see if X appears anywhere on the screen. Only flag if ALL THREE checks confirm it's truly absent.
+
+MANDATORY PRE-FLIGHT CHECK: Before outputting ANY issue with words like "missing", "lacks", "no summary", "no confirmation", "no content", "empty", or "placeholder":
+→ Search the CONTAINMENT MAP for the parent container — does it have text children? If yes, DO NOT FLAG.
+→ Search ALL VISIBLE TEXT for related keywords — do they exist on the screen? If yes, DO NOT FLAG.
+Violations of this rule make your entire review INVALID.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
@@ -856,6 +927,8 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const pageSemantics = computePageSemantics(chunk);
       const crossScreenFacts = buildCrossScreenFacts(chunk);
       const spatialLayout = buildSpatialLayoutSummary(chunk);
+      const containmentSummary = buildContainmentSummary(chunk);
+      console.log(`Containment summary lines: ${containmentSummary.split('\n').length}`);
 
       // Debug: log semantic analysis results
       const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
@@ -883,6 +956,10 @@ This shows elements grouped by their vertical position on screen. Elements in th
 Use this to understand context: if a label says "Transfer" and radio buttons "Now" / "Later" are in the same section or the next section, that means the radio buttons ARE the transfer options — do NOT flag as "missing instructions".
 If a screen has a "Confirm" or "Submit" button anywhere, the entire screen HAS a CTA — do NOT flag "missing CTA".
 ${spatialLayout}
+
+═══ 🔑 CONTAINMENT MAP (what's INSIDE each section — READ THIS BEFORE CLAIMING ANYTHING IS MISSING) ═══
+Each line shows a container and ALL the text elements nested inside it. If a container has text inside it, that content EXISTS — do NOT claim it is missing, empty, or lacks detail.
+${containmentSummary}
 
 ═══ ALL VISIBLE TEXT (sorted top-to-bottom per screen) ═══
 These are the ACTUAL words displayed on screen. Read them carefully for typos, placeholders, truncation.
