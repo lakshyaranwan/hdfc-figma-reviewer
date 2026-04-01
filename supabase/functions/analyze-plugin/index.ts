@@ -366,35 +366,36 @@ CRITICAL NODE ID INSTRUCTIONS:
 
       const formatInstructions = `
 For each issue found, provide:
-- A clear, actionable title (NO technical IDs or brackets)
-- Detailed description with specific actionable suggestions
+- A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
+- Detailed description of the issue AND specific actionable suggestions on how to fix it (NO technical IDs in the description)
 - Severity (low, medium, high)
-- The EXACT node ID from the design data
-- Component/frame name (user-friendly name only)
+- The EXACT node ID from the structure above for the specific element this feedback applies to
+- Component/frame name (user-friendly name only, NO technical IDs)
 - A concrete suggestion field with the fix
 
-CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
+CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
+Only use these exact category values: ${categoryOptions}
 
-FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
-- Focus on REAL, meaningful issues
+CRITICAL BALANCE REQUIREMENT: Provide feedback distributed across ALL requested categories.
+- Provide ${itemsPerCategory} feedback items for EACH category requested
 - Do NOT skip any category
 
-Format as JSON array:
+Format your response as a JSON array:
 [{
   "category": ${categoryOptions},
   "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description (clean, no IDs)",
+  "description": "Detailed description with specific suggestions (clean, no IDs)",
   "suggestion": "Specific actionable fix",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name",
-  "nodeId": "exact_node_id"
+  "nodeId": "exact_node_id_from_structure"
 }]
 
 CRITICAL: 
-- NEVER include technical IDs in title or description
-- Always include nodeId with exact ID from design data
-- Location must be user-friendly names only
+- NEVER include technical IDs like [123:456] in title or description
+- Always include the nodeId field with the exact ID from the design structure
+- For the location field, use ONLY user-friendly, descriptive names
+- For EACH issue, include specific, actionable suggestions
 
 ${ignoreChrome ? `
 IGNORE CHROME ELEMENTS:
