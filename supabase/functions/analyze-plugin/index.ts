@@ -536,6 +536,12 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const textContent = extractTextContent(chunk);
       const colorContent = extractColorContext(chunk);
       const semanticContext = extractSemanticContext(chunk);
+      const pageSemantics = computePageSemantics(chunk);
+
+      // Debug: log semantic analysis results
+      console.log(`Semantic context entries: ${semanticContext.split('⚠️').length - 1}`);
+      console.log(`Page-level clashes found: ${pageSemantics ? pageSemantics.split('🚨').length - 1 : 0}`);
+      if (pageSemantics) console.log(`CLASHES:\n${pageSemantics}`);
 
       const dsPromptSection = dsContext ? `
 ═══ DESIGN SYSTEM CONTEXT ═══
