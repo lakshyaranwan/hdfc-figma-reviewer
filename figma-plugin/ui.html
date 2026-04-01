@@ -2426,6 +2426,43 @@
       document.querySelector('.filter-controls').style.display = '';
       document.querySelector('.results-title').textContent = 'Analysis Results';
     });
+
+    // ========== ANNOTATION TOOL ==========
+    let annotationBarOpen = false;
+
+    function toggleAnnotationBar() {
+      annotationBarOpen = !annotationBarOpen;
+      const fields = document.getElementById('annotationFields');
+      const chevron = document.getElementById('annotationChevron');
+      fields.style.display = annotationBarOpen ? 'block' : 'none';
+      chevron.style.transform = annotationBarOpen ? 'rotate(180deg)' : 'rotate(0)';
+    }
+
+    function generateAnnotation() {
+      const interaction = document.getElementById('annotInteraction').value.trim();
+      const role = document.getElementById('annotRole').value.trim();
+      const label = document.getElementById('annotLabel').value.trim();
+
+      if (!interaction && !role && !label) {
+        showToast('Fill in at least one field', 'error');
+        return;
+      }
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'create-annotation',
+          interaction,
+          role,
+          label
+        }
+      }, '*');
+
+      // Clear fields after generating
+      document.getElementById('annotInteraction').value = '';
+      document.getElementById('annotRole').value = '';
+      document.getElementById('annotLabel').value = '';
+      showToast('Annotation placed on canvas!', 'success');
+    }
   </script>
 </body>
 </html>
