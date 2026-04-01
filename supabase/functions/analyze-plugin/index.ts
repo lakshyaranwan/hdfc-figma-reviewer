@@ -568,6 +568,18 @@ NEVER include technical IDs like [123:456] in title or description fields.
       }
     }
 
+    // Deduplicate by title (case-insensitive) and sort high → medium → low
+    const seen = new Set<string>();
+    const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    allFeedback = allFeedback
+      .filter(item => {
+        const key = (item.title || '').toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
+
     const categoryCount: Record<string, number> = {};
     allFeedback.forEach(item => {
       const cat = item.category || 'general';
