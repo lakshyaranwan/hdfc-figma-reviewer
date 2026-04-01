@@ -108,11 +108,11 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     }
     if (node.fontSize) simplified.fontSize = node.fontSize;
     if (node.fontName) simplified.fontName = node.fontName;
-    // Pass through bound DS style IDs — used to detect already-linked styles
-    if (node.textStyleId) simplified.textStyleId = node.textStyleId;
-    if (node.textStyleName) simplified.textStyleName = node.textStyleName;
-    if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
-    if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
+    // DS style IDs commented out — design system analysis disabled for now
+    // if (node.textStyleId) simplified.textStyleId = node.textStyleId;
+    // if (node.textStyleName) simplified.textStyleName = node.textStyleName;
+    // if (node.fillStyleId) simplified.fillStyleId = node.fillStyleId;
+    // if (node.fillStyleName) simplified.fillStyleName = node.fillStyleName;
     if (node.cornerRadius) simplified.cornerRadius = node.cornerRadius;
     if (node.opacity !== undefined && node.opacity !== 1) simplified.opacity = node.opacity;
     if (node.constraints) simplified.constraints = node.constraints;
