@@ -219,6 +219,72 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    // Fetch selected AI model from settings (same as analyze-figma)
+    let selectedModel = "google/gemini-2.5-flash"; // default
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const settingsResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_model&select=value`,
+          {
+            headers: {
+              "apikey": SUPABASE_SERVICE_ROLE_KEY,
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+          }
+        );
+        
+        if (settingsResponse.ok) {
+          const settings = await settingsResponse.json();
+          if (settings && settings.length > 0 && settings[0].value) {
+            selectedModel = settings[0].value;
+            console.log("Using selected model:", selectedModel);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching model setting:", error);
+      }
+    }
+
+    // Store usage info helper (same as analyze-figma)
+    const storeUsageInfo = async (status: string, headers: Headers, error?: any) => {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+      try {
+        const usage: any = {
+          model: selectedModel,
+          lastUsed: new Date().toISOString(),
+          status,
+        };
+        const remaining = headers.get("x-ratelimit-remaining-tokens");
+        const limit = headers.get("x-ratelimit-limit-tokens");
+        const resetTime = headers.get("x-ratelimit-reset-tokens");
+        if (remaining) usage.remaining = parseInt(remaining);
+        if (limit) usage.limit = parseInt(limit);
+        if (resetTime) usage.resetTime = resetTime;
+        if (error) {
+          const match = error.match(/Limit (\d+), Used (\d+)/);
+          if (match) {
+            usage.limit = parseInt(match[1]);
+            usage.remaining = parseInt(match[1]) - parseInt(match[2]);
+          }
+        }
+        await fetch(`${SUPABASE_URL}/rest/v1/app_settings`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates",
+          },
+          body: JSON.stringify({
+            key: `model_usage_${selectedModel}`,
+            value: JSON.stringify(usage),
+          }),
+        });
+      } catch (e) {
+        console.error("Error storing usage info:", e);
+      }
+    };
+
     if (!designData || designData.length === 0) {
       throw new Error("No design data provided. Please select a frame in Figma.");
     }
@@ -266,20 +332,9 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = dsContext
-      ? `You are an expert UX/UI designer and design systems specialist, acting as a senior design manager and reviewer.
-You have deep knowledge of the attached Design System — you know every component, token, and pattern.
-Your job: give thorough, specific feedback that actively references the DS. Every piece of feedback should either flag a DS deviation, confirm a correct usage, or provide DS-guided recommendations.
-CRITICAL: You MUST respond with ONLY a valid JSON array, no other text.
-Do not include markdown code blocks, explanations, or any text outside the JSON array.
-Start your response with [ and end with ].`
-      : `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
-You provide thorough, quality feedback - focus on real issues that matter.
-CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
-Do not include markdown code blocks, explanations, or any text outside the JSON array.
-Start your response with [ and end with ].`;
+    const systemPrompt = "You are an expert UX/UI designer providing professional design feedback." + (dsContext ? " You are also a design systems specialist with deep knowledge of the attached Design System — you know every component, token, and pattern. Every piece of feedback should either flag a DS deviation, confirm correct usage, or provide DS-guided recommendations." : "") + " CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].";
 
-    // Process each chunk
+    console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
     let allFeedback: FeedbackItem[] = [];
 
     for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
@@ -287,56 +342,60 @@ Start your response with [ and end with ].`;
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
-      const itemsPerCategory = isChunked
-        ? Math.max(3, Math.floor(10 / chunks.length))
-        : 10;
+      // Match analyze-figma: scale items per category by chunk count
+      const itemsPerCategory = isChunked 
+        ? Math.max(3, Math.floor(8 / chunks.length))
+        : Math.floor(80 / allowedCategories.length);
 
       const designContext = JSON.stringify(chunk, null, 2);
 
-      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
+      const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs. Analyze the following design data and provide detailed feedback.
 
-Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
+Design Structure${chunkLabel} (node hierarchy with IDs - USE THESE EXACT IDs):
 ${designContext}
 
 File: ${fileName}
 Page: ${pageName}
 
 CRITICAL NODE ID INSTRUCTIONS:
-- You MUST use the EXACT node IDs from the design data above
+- You MUST use the EXACT node IDs from the list above
 - Choose the MOST SPECIFIC node ID for each piece of feedback
-- Include the nodeId field for every feedback item`;
+- For a button issue, use the button's node ID, NOT its parent frame
+- For a text issue, use the text layer's node ID, NOT the containing group
+- The more specific the node, the better the comment placement will be`;
 
       const formatInstructions = `
 For each issue found, provide:
-- A clear, actionable title (NO technical IDs or brackets)
-- Detailed description with specific actionable suggestions
+- A clear, actionable title (NO technical IDs or brackets - keep it human-readable)
+- Detailed description of the issue AND specific actionable suggestions on how to fix it (NO technical IDs in the description)
 - Severity (low, medium, high)
-- The EXACT node ID from the design data
-- Component/frame name (user-friendly name only)
+- The EXACT node ID from the structure above for the specific element this feedback applies to
+- Component/frame name (user-friendly name only, NO technical IDs)
 - A concrete suggestion field with the fix
 
-CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
+CRITICAL CATEGORY RESTRICTION: You MUST ONLY provide feedback for these categories: ${allowedCategories.join(", ")}
+Only use these exact category values: ${categoryOptions}
 
-FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
-- Focus on REAL, meaningful issues
+CRITICAL BALANCE REQUIREMENT: Provide feedback distributed across ALL requested categories.
+- Provide ${itemsPerCategory} feedback items for EACH category requested
 - Do NOT skip any category
 
-Format as JSON array:
+Format your response as a JSON array:
 [{
   "category": ${categoryOptions},
   "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description (clean, no IDs)",
+  "description": "Detailed description with specific suggestions (clean, no IDs)",
   "suggestion": "Specific actionable fix",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name",
-  "nodeId": "exact_node_id"
+  "nodeId": "exact_node_id_from_structure"
 }]
 
 CRITICAL: 
-- NEVER include technical IDs in title or description
-- Always include nodeId with exact ID from design data
-- Location must be user-friendly names only
+- NEVER include technical IDs like [123:456] in title or description
+- Always include the nodeId field with the exact ID from the design structure
+- For the location field, use ONLY user-friendly, descriptive names
+- For EACH issue, include specific, actionable suggestions
 
 ${ignoreChrome ? `
 IGNORE CHROME ELEMENTS:
@@ -455,19 +514,23 @@ Use category "design_system" ONLY for structural component substitution issues. 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: selectedModel,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
           max_tokens: 16000,
-          temperature: 0,
         }),
       });
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
         console.error(`AI API error on chunk ${chunkIdx + 1}:`, errorText);
+        await storeUsageInfo(
+          aiResponse.status === 429 ? "rate_limited" : "error",
+          aiResponse.headers,
+          errorText
+        );
 
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
           try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed"); } catch (e) { /* ignore */ }
@@ -495,6 +558,7 @@ Use category "design_system" ONLY for structural component substitution issues. 
         throw new Error(`AI analysis failed: ${aiResponse.status}`);
       }
 
+      await storeUsageInfo("available", aiResponse.headers);
       const aiData = await aiResponse.json();
       const content = aiData.choices?.[0]?.message?.content;
 
