@@ -1390,17 +1390,18 @@
     
     <div id="analysisSection">
       <!-- Design System Panel -->
+      <!-- HIDDEN: DS Library panel - commented out for now -->
+      <!--
       <div class="ds-panel" id="dsPanel">
-        <div class="ds-panel-header" id="dsPanelHeader" onclick="toggleDsPanel()">
-          <span style="font-size:15px;">🎨</span>
-          <span class="ds-panel-title">
-            Design System Library
-            <span class="ds-badge" id="dsBadge">Not connected</span>
-          </span>
+        <div class="ds-panel-header" id="dsPanelHeader" onclick="toggleDSPanel()">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;">🗂️</span>
+            <span style="font-size:12px;font-weight:600;color:var(--text-primary);" id="dsPanelTitle">Design System Library</span>
+            <span id="dsPanelBadge" class="ds-badge" style="display:none;"></span>
+          </div>
           <span style="font-size:11px;color:var(--text-muted);" id="dsChevron">▼</span>
         </div>
         <div class="ds-panel-body" id="dsPanelBody">
-          <!-- Connected state -->
           <div id="dsConnectedState" style="display:none;">
             <div class="ds-status-row">
               <div class="ds-status-dot" id="dsStatusDot" style="background:var(--success);"></div>
@@ -1415,7 +1416,6 @@
               <button class="ds-btn ds-btn-danger" onclick="disconnectDS()">Disconnect</button>
             </div>
           </div>
-          <!-- Setup state — enter DS file URL/key + PAT -->
           <div id="dsSetupState">
             <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6;">
               Connect to your Design System file to fetch <strong>all components, variants, and color/text styles</strong> across all pages.
@@ -1440,6 +1440,7 @@
           </div>
         </div>
       </div>
+      -->
 
       <!-- Global ignore chrome toggle -->
       <div id="ignoreChromeRow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
