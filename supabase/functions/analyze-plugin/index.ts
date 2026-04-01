@@ -539,17 +539,30 @@ serve(async (req) => {
 
     // Step 1: Flatten deeply nested design data into simplified flat nodes
     const flatNodes = flattenDesignData(designData);
+    // Step 1b: Classify boilerplate and compute salience scores
+    classifyBoilerplate(flatNodes);
     console.log("Flattened to", flatNodes.length, "nodes");
+    
     // Debug: check how many nodes have fills at all
     const nodesWithFills = flatNodes.filter((n: any) => n.fills && n.fills.length > 0);
     const nodesWithHex = flatNodes.filter((n: any) => n.fills?.some((f: any) => f.hex));
+    const boilerplateCount = flatNodes.filter((n: any) => n._boilerplate).length;
     console.log(`Nodes with fills: ${nodesWithFills.length}, with hex: ${nodesWithHex.length}`);
-    // Sample a few fills for debugging
+    console.log(`Boilerplate nodes: ${boilerplateCount}`);
+    
+    // Log ALL colored container hex values (not just first 5) for debugging
     if (nodesWithHex.length > 0) {
-      const sample = nodesWithHex.slice(0, 5).map((n: any) => `${n.id}(${n.type}):${n.fills[0].hex}`);
-      console.log(`Fill samples: ${sample.join(', ')}`);
+      // Show largest containers with color first (most likely to be banners)
+      const coloredContainers = nodesWithHex
+        .filter((n: any) => n.type !== 'TEXT')
+        .sort((a: any, b: any) => ((b.size?.w || 0) * (b.size?.h || 0)) - ((a.size?.w || 0) * (a.size?.h || 0)));
+      const sample = coloredContainers.slice(0, 10).map((n: any) => {
+        const hex = n.fills[0]?.hex;
+        const classification = hex ? classifyColor(hex) : '';
+        return `${n.id}(${n.type},${n.size?.w}x${n.size?.h}):${hex}${classification ? ' ' + classification : ''}`;
+      });
+      console.log(`Top colored containers: ${sample.join(', ')}`);
     } else if (nodesWithFills.length > 0) {
-      // Fills exist but no hex — log what we do have
       const sample = nodesWithFills.slice(0, 3).map((n: any) => `${n.id}(${n.type}):${JSON.stringify(n.fills[0])}`);
       console.log(`Fills WITHOUT hex: ${sample.join(', ')}`);
     }
