@@ -729,7 +729,17 @@ ${crossScreenFacts}
 ` : ''}
 ${dsPromptSection}
 
-${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
+${isCustom ? `User's specific request: ${prompt}\n` : ''}
+═══ CONTENT PRIORITY (CRITICAL — READ THIS) ═══
+Focus your review on the PRIMARY CONTENT AREA of each screen — the main body, banners, cards, forms, CTAs, and key messages that users interact with.
+DO NOT waste feedback on these BOILERPLATE/CHROME areas:
+- Footers, headers, navigation bars, tab bars, status bars, app bars
+- Legal text, copyright notices, "Terms & Conditions", "Privacy Policy" links
+- Social media icons, help/contact links
+- Any element whose layer name contains: footer, header, nav, menu, legal, copyright, tab-bar, status-bar
+These are structural chrome — they are NOT interesting for design review. Skip them entirely.
+If a node is tagged _boilerplate:true in the data, IGNORE it completely.
+Prioritize nodes with high _salience scores — these are the visually prominent elements users will notice first.
 
 ═══ PASS 1: STAKEHOLDER GLANCE (HIGH + MEDIUM) ═══
 Scan ALL screens. For each screen, check these categories. Flag every violation with evidence.
