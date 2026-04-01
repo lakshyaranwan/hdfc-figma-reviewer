@@ -1114,7 +1114,37 @@
       💬 Feedback
     </button>
   </div>
-  
+
+  <!-- Annotation Tool - Collapsible -->
+  <div id="annotationBar" style="background: var(--hdfc-dark); border-top: 1px solid rgba(255,255,255,0.1);">
+    <div id="annotationToggle" onclick="toggleAnnotationBar()" style="display:flex;align-items:center;justify-content:space-between;padding:8px 24px;cursor:pointer;user-select:none;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:14px;">📝</span>
+        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);">Annotate</span>
+      </div>
+      <span id="annotationChevron" style="font-size:10px;color:rgba(255,255,255,0.5);transition:transform 0.2s;">▼</span>
+    </div>
+    <div id="annotationFields" style="display:none;padding:0 24px 16px;animation:slideDown 0.2s ease;">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div>
+          <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Interaction</label>
+          <input type="text" id="annotInteraction" placeholder="e.g. Whole field is focused as a single element" style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--hdfc-primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Role / State</label>
+          <input type="text" id="annotRole" placeholder="e.g. Input Field" style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--hdfc-primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Label</label>
+          <input type="text" id="annotLabel" placeholder="e.g. Enter Payee Name or UPI ID or Mobile No." style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--hdfc-primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+        </div>
+        <button onclick="generateAnnotation()" style="margin-top:4px;padding:10px;background:var(--hdfc-primary);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          <span>📝</span> Generate Annotation
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Feedback Modal -->
   <div class="modal-overlay" id="feedbackModal">
     <div class="modal">
