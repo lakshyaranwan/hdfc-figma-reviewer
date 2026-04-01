@@ -343,6 +343,7 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 - Scan ALL text content thoroughly
 - Check EVERY button label, heading, paragraph, placeholder
 - Look for typos, spelling errors, grammatical mistakes
+- Identify inconsistent terminology
 - Be comprehensive - catch ALL text issues
 ` : ""}`;
 
