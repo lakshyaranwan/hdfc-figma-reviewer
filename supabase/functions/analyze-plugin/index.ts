@@ -101,27 +101,46 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 }
 
 // Extract all visible text grouped by top-level frame
+// IMPORTANT: Only show the actual displayed text (characters), NOT layer names.
 function extractTextContent(flatNodes: any[]): string {
-  const grouped: Record<string, string[]> = {};
+  const grouped: Record<string, { text: string; id: string; y: number }[]> = {};
   for (const node of flatNodes) {
     if (!node.text) continue;
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = [];
-    grouped[topFrame].push(`"${node.text}" (id:${node.id}, name:${node.name || '-'})`);
+    grouped[topFrame].push({ text: node.text, id: node.id, y: node.y ?? 0 });
   }
+  // Sort by y-position within each frame so AI reads top-to-bottom
   return Object.entries(grouped)
-    .map(([frame, texts]) => `[${frame}]\n${texts.join('\n')}`)
+    .map(([frame, items]) => {
+      items.sort((a, b) => a.y - b.y);
+      return `[${frame}]\n${items.map(i => `"${i.text}" (id:${i.id})`).join('\n')}`;
+    })
     .join('\n\n');
 }
 
 // Extract semantic context: pair container fills with their child text content
-function extractSemanticContext(flatNodes: any[]): string {
-  // Build a map of node ID → node for quick lookup
-  const nodeMap = new Map<string, any>();
-  for (const node of flatNodes) nodeMap.set(node.id, node);
+// Also classify the fill colour semantically (red=danger, green=success, etc.)
+function classifyColor(hex: string): string {
+  if (!hex) return '';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  // Red-ish (danger/error)
+  if (r > 180 && g < 100 && b < 100) return '🔴 RED/DANGER';
+  if (r > 200 && g < 80) return '🔴 RED/DANGER';
+  // Orange-ish (warning)
+  if (r > 200 && g > 100 && g < 180 && b < 80) return '🟠 ORANGE/WARNING';
+  // Green-ish (success)
+  if (g > 150 && r < 150 && b < 150) return '🟢 GREEN/SUCCESS';
+  // Blue-ish (info)
+  if (b > 180 && r < 120 && g < 180) return '🔵 BLUE/INFO';
+  // Yellow-ish (caution)
+  if (r > 200 && g > 200 && b < 100) return '🟡 YELLOW/CAUTION';
+  return '';
+}
 
-  // For every non-text node with fills, find text children by path prefix
-  const semanticPairs: string[] = [];
+function extractSemanticContext(flatNodes: any[]): string {
   const grouped: Record<string, string[]> = {};
 
   for (const node of flatNodes) {
@@ -130,7 +149,7 @@ function extractSemanticContext(flatNodes: any[]): string {
     const hex = node.fills[0]?.hex;
     if (!hex) continue;
 
-    // Find all text nodes that are children of this container (path starts with this node's path)
+    // Find all text nodes that are children of this container
     const childTexts: string[] = [];
     for (const candidate of flatNodes) {
       if (candidate.type !== 'TEXT' || !candidate.text) continue;
@@ -140,9 +159,10 @@ function extractSemanticContext(flatNodes: any[]): string {
     }
     if (childTexts.length === 0) continue;
 
+    const colorLabel = classifyColor(hex);
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = [];
-    grouped[topFrame].push(`Container "${node.name || node.type}" (id:${node.id}) fill:${hex} → text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
+    grouped[topFrame].push(`Container (id:${node.id}) fill:${hex}${colorLabel ? ' ← ' + colorLabel : ''} → text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
   }
 
   return Object.entries(grouped)
@@ -400,29 +420,36 @@ serve(async (req) => {
 
     const systemPrompt = `You are a senior product designer doing design QA. You review like a stakeholder would — you catch the things that would be embarrassing in a demo or confusing to a real user.
 
-CRITICAL RULES:
-1. Every issue MUST cite a specific node ID, text string, or hex colour from the data. No theoretical issues.
-2. ONE issue per node ID. NEVER report the same nodeId twice. If a node has multiple problems, combine them into one item.
-3. ONE issue per unique problem. If the same text appears in multiple places, report it ONCE and list all locations in the description.
-4. Spread your attention EVENLY across ALL screens/frames in the data. Do NOT fixate on one screen.
+CRITICAL DATA RULES:
+1. The "text" field contains the ACTUAL VISIBLE TEXT displayed to users. The "name" field is an internal layer label created by designers — it is OFTEN WRONG, OUTDATED, or PLACEHOLDER. ALWAYS judge by "text" content. NEVER trust "name" for visible content analysis.
+2. Every issue MUST cite a specific text string, hex colour, or node ID from the data. No theoretical issues.
+3. ONE issue per node ID. NEVER report the same nodeId twice.
+4. ONE issue per unique problem. If the same text appears in multiple places, report it ONCE.
+5. Spread attention EVENLY across ALL screens/frames. Do NOT fixate on one screen.
 
 WORKFLOW — CROSS-SCREEN COMPARISON:
-Before writing any issues, mentally enumerate every top-level frame (screen) in the data. Then:
-Step 1: Compare screens as a FLOW — do they tell a coherent story? Are transitions logical?
-Step 2: Compare ACROSS screens — are the same elements styled consistently? Same terminology?
+Before writing issues, enumerate every top-level frame (screen). Then:
+Step 1: Compare screens as a FLOW — coherent story? Logical transitions?
+Step 2: Compare ACROSS screens — consistent styling? Same terminology?
 Step 3: Review EACH screen individually for internal problems.
 
 TWO-PASS STRATEGY:
-PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70% of output): Things a non-designer would spot.
+PASS 1 — STAKEHOLDER GLANCE (HIGH + MEDIUM, ≥70%): Things a non-designer would spot.
 PASS 2 — DESIGNER POLISH (LOW, ≤30%): Pixel-level refinements.
 
-Severity definitions:
-HIGH = Broken, embarrassing, or actively misleading. A stakeholder would call this out. Examples: red banner saying "Success", placeholder text, wrong colour for context, typos, truncated text like "Transfera" instead of "Transfer".
-MEDIUM = Confusing or inconsistent across screens. A user would hesitate. Examples: same action called different names, inconsistent button styles, unclear CTA labels.
-LOW = Polish. Only a designer would notice. Examples: spacing difference, border radius inconsistency, alignment offset.
+🚨 SEMANTIC CONTEXT IS YOUR MOST IMPORTANT SIGNAL:
+The SEMANTIC CONTEXT section pairs each coloured container with the text inside it. Entries tagged with 🔴 RED/DANGER, 🟢 GREEN/SUCCESS etc. tell you the colour meaning.
+LOOK FOR CLASHES: Red container + positive text ("Success", "Congratulations") = CRITICAL HIGH.
+Green container + negative text ("Error", "Failed") = CRITICAL HIGH.
+READ THIS SECTION LINE BY LINE BEFORE ANYTHING ELSE.
 
-NEVER FLAG (undetectable from static data):
-Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets.
+Severity definitions:
+HIGH = Broken, embarrassing, or actively misleading. Examples: red banner saying "Success", placeholder text, colour-meaning clashes, typos, truncated words.
+MEDIUM = Confusing or inconsistent across screens. Examples: same action called different names, inconsistent button styles.
+LOW = Polish. Only a designer would notice. Examples: spacing, border radius, alignment.
+
+NEVER FLAG:
+Hover/focus/active states, animations, loading states, API data, scroll behaviour, keyboard nav, performance, touch targets. NEVER flag "missing confirmation" when a clear confirmation/success message already exists in the text.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
@@ -469,18 +496,22 @@ DS RULES:
       const analysisPrompt = `
 ═══ DESIGN DATA${chunkLabel} ═══
 File: ${fileName} | Page: ${pageName}
+REMINDER: "text" field = what the USER SEES. "name" field = internal layer label (IGNORE for content analysis).
 
 Node hierarchy (use these exact IDs in nodeId field):
 ${designContext}
 
-═══ ALL VISIBLE TEXT (with node IDs) ═══
+═══ ALL VISIBLE TEXT (sorted top-to-bottom per screen) ═══
+These are the ACTUAL words displayed on screen. Read them carefully for typos, placeholders, truncation.
 ${textContent}
 
 ═══ ALL FILL COLOURS (with node IDs) ═══
 ${colorContent}
 
-═══ SEMANTIC CONTEXT (container fill → child text pairings) ═══
-Use this to detect colour-meaning clashes. Each line shows a container's fill colour and the text inside it.
+═══ 🚨 SEMANTIC CONTEXT — READ THIS FIRST (container fill → child text pairings) ═══
+Each line pairs a container's background colour with the text displayed inside it.
+Entries tagged 🔴 RED/DANGER + positive text = CRITICAL CLASH. Flag as HIGH immediately.
+Entries tagged 🟢 GREEN/SUCCESS + negative text = CRITICAL CLASH. Flag as HIGH immediately.
 ${semanticContext}
 
 ${dsPromptSection}
