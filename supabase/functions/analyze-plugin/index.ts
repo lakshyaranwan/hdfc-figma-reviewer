@@ -771,6 +771,10 @@ ABSOLUTE NEVER-FLAG LIST:
 - NEVER flag text as "truncated" or "insufficient space" unless you see an actual ellipsis character (…) or the word is clearly misspelled/cut off mid-word. "Bill & Recharges" is a COMPLETE phrase, NOT truncated. You CANNOT see rendered layout — only text content.
 - NEVER flag "incomplete sentence" for marketing slogans, taglines, or promotional text.
 - NEVER invent problems that aren't evidenced in the data. If you're unsure, skip it.
+- NEVER flag "missing CTA" or "no call to action" if the screen contains ANY button text like "Confirm", "Submit", "Proceed", "Continue", "Done", "Pay", "Send", "Transfer", "Edit", "Cancel", etc. Check the SPATIAL LAYOUT — the button may be at the bottom of the screen.
+- NEVER flag "ambiguous instruction" or "missing options" for a label/heading when there are interactive elements (radio buttons, checkboxes, dropdowns, toggles, input fields) in the same or adjacent spatial section. Check the SPATIAL LAYOUT to see what's near the label.
+- NEVER flag "missing explanation" for section headings — headings are meant to be short. The content below them IS the explanation.
+- Before flagging ANY "missing X" issue, check the ENTIRE screen's spatial layout to verify X is truly absent. Search ALL sections, not just the one near the node you're looking at.
 
 Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
 
