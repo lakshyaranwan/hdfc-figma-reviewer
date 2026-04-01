@@ -277,7 +277,7 @@ CRITICAL: You MUST respond with ONLY a valid JSON array. No markdown, no explana
         `Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`
       );
 
-      const itemsPerCategory = isChunked ? Math.max(3, Math.floor(10 / chunks.length)) : 10;
+      const maxItems = isChunked ? Math.max(5, Math.floor(15 / chunks.length)) : 15;
       const designContext = JSON.stringify(chunk, null, 2);
 
       // ─── BASE REVIEW PROMPT — restored original high-quality structure ───
