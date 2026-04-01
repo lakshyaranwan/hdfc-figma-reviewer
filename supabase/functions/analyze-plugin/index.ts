@@ -262,9 +262,10 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
+- You MUST provide EXACTLY ${itemsPerCategory} issues for EACH category (${allowedCategories.length} categories = ${itemsPerCategory * allowedCategories.length} total items minimum)
 - Focus on REAL, meaningful issues
 - Do NOT skip any category
+- If you cannot find ${itemsPerCategory} real issues for a category, provide as many as you can but aim for ${itemsPerCategory}
 
 Format as JSON array:
 [{
