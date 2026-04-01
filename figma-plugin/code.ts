@@ -1683,7 +1683,6 @@ figma.ui.onmessage = async (msg: any) => {
     _extractedNodeCount = 0;
     const nodes: DesignNode[] = [];
     for (const node of selection) {
-      if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
       const nodeData = extractNodeData(node, 0);
       if (nodeData) nodes.push(nodeData);
     }
