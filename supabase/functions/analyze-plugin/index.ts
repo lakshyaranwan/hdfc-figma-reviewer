@@ -586,6 +586,10 @@ Entries tagged 🔴 RED/DANGER + positive text = CRITICAL CLASH. Flag as HIGH im
 Entries tagged 🟢 GREEN/SUCCESS + negative text = CRITICAL CLASH. Flag as HIGH immediately.
 ${semanticContext}
 
+${pageSemantics ? `═══ 🚨🚨🚨 PRE-COMPUTED SEMANTIC CLASHES — YOU MUST FLAG THESE ═══
+The following clashes have been AUTOMATICALLY DETECTED. Each one MUST appear in your output as a HIGH severity issue. If you omit any of these, your review is INCOMPLETE and WRONG.
+${pageSemantics}
+` : ''}
 ${dsPromptSection}
 
 ${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
