@@ -48,7 +48,11 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     // Include key style properties only (not full nested style objects)
     if (node.fills && Array.isArray(node.fills) && node.fills.length > 0) {
       simplified.fills = node.fills.map((f: any) => {
-        const hex = f.color ? `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}` : undefined;
+        // Use pre-computed hex from plugin if available, otherwise compute from color object
+        let hex = f.hex;
+        if (!hex && f.color) {
+          hex = `#${Math.round(f.color.r*255).toString(16).padStart(2,'0')}${Math.round(f.color.g*255).toString(16).padStart(2,'0')}${Math.round(f.color.b*255).toString(16).padStart(2,'0')}`;
+        }
         return {
           type: f.type,
           color: f.color ? `rgba(${Math.round(f.color.r*255)},${Math.round(f.color.g*255)},${Math.round(f.color.b*255)},${f.color.a ?? 1})` : undefined,
@@ -248,6 +252,64 @@ function extractColorContext(flatNodes: any[]): string {
     .join('\n\n');
 }
 
+// Build cross-screen comparison facts: find terminology inconsistencies and label-value pairs
+function buildCrossScreenFacts(flatNodes: any[]): string {
+  // Group text by frame
+  const frameTexts: Record<string, { text: string; id: string; y: number }[]> = {};
+  for (const node of flatNodes) {
+    if (!node.text) continue;
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!frameTexts[topFrame]) frameTexts[topFrame] = [];
+    frameTexts[topFrame].push({ text: node.text, id: node.id, y: node.y ?? 0 });
+  }
+
+  const facts: string[] = [];
+
+  // Find label-value pairs across screens (e.g. "Transfer Mode" → "NEFT" on one screen, "Within HDFC" on another)
+  const labelPatterns = [
+    /transfer\s*mode/i, /payment\s*method/i, /payment\s*mode/i, /transfer\s*type/i,
+    /amount/i, /from/i, /to\s*$/i,
+  ];
+
+  const frames = Object.keys(frameTexts);
+  if (frames.length > 1) {
+    // For each frame, find label→value pairs (label followed by value in y-order)
+    const frameLabelValues: Record<string, Record<string, string>> = {};
+    for (const [frame, nodes] of Object.entries(frameTexts)) {
+      const sorted = [...nodes].sort((a, b) => a.y - b.y);
+      frameLabelValues[frame] = {};
+      for (let i = 0; i < sorted.length - 1; i++) {
+        for (const pat of labelPatterns) {
+          if (pat.test(sorted[i].text)) {
+            frameLabelValues[frame][sorted[i].text.trim()] = sorted[i + 1].text.trim();
+          }
+        }
+      }
+    }
+
+    // Compare across frames
+    const allLabels = new Set<string>();
+    for (const lvs of Object.values(frameLabelValues)) {
+      for (const label of Object.keys(lvs)) allLabels.add(label);
+    }
+
+    for (const label of allLabels) {
+      const values: { frame: string; value: string }[] = [];
+      for (const [frame, lvs] of Object.entries(frameLabelValues)) {
+        if (lvs[label]) values.push({ frame, value: lvs[label] });
+      }
+      if (values.length > 1) {
+        const uniqueValues = [...new Set(values.map(v => v.value))];
+        if (uniqueValues.length > 1) {
+          facts.push(`INCONSISTENCY: "${label}" has different values across screens: ${values.map(v => `"${v.value}" on [${v.frame}]`).join(' vs ')}`);
+        }
+      }
+    }
+  }
+
+  return facts.length > 0 ? facts.join('\n') : '';
+}
+
 // Chunk flat nodes by estimated token size
 function chunkByTokens(nodes: any[], maxTokensPerChunk: number): any[][] {
   const chunks: any[][] = [];
@@ -440,6 +502,19 @@ serve(async (req) => {
     // Step 1: Flatten deeply nested design data into simplified flat nodes
     const flatNodes = flattenDesignData(designData);
     console.log("Flattened to", flatNodes.length, "nodes");
+    // Debug: check how many nodes have fills at all
+    const nodesWithFills = flatNodes.filter((n: any) => n.fills && n.fills.length > 0);
+    const nodesWithHex = flatNodes.filter((n: any) => n.fills?.some((f: any) => f.hex));
+    console.log(`Nodes with fills: ${nodesWithFills.length}, with hex: ${nodesWithHex.length}`);
+    // Sample a few fills for debugging
+    if (nodesWithHex.length > 0) {
+      const sample = nodesWithHex.slice(0, 5).map((n: any) => `${n.id}(${n.type}):${n.fills[0].hex}`);
+      console.log(`Fill samples: ${sample.join(', ')}`);
+    } else if (nodesWithFills.length > 0) {
+      // Fills exist but no hex — log what we do have
+      const sample = nodesWithFills.slice(0, 3).map((n: any) => `${n.id}(${n.type}):${JSON.stringify(n.fills[0])}`);
+      console.log(`Fills WITHOUT hex: ${sample.join(', ')}`);
+    }
     console.log("Estimated total tokens:", estimateTokens(JSON.stringify(flatNodes)));
 
     // Step 2: Chunk by actual token size (not node count)
@@ -537,6 +612,7 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const colorContent = extractColorContext(chunk);
       const semanticContext = extractSemanticContext(chunk);
       const pageSemantics = computePageSemantics(chunk);
+      const crossScreenFacts = buildCrossScreenFacts(chunk);
 
       // Debug: log semantic analysis results
       const redNodes = chunk.filter((n: any) => n.fills?.some((f: any) => f.hex && classifyColor(f.hex).includes('RED')));
@@ -544,6 +620,8 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       console.log(`Red/danger nodes found in chunk: ${redNodes.length}`);
       if (redNodes.length > 0) console.log(`Red nodes: ${redNodes.map((n: any) => `${n.id}(${n.type},fill:${n.fills[0]?.hex})`).join(', ')}`);
       console.log(`Page-level clashes found: ${pageSemantics ? pageSemantics.split('🚨').length - 1 : 0}`);
+      console.log(`Cross-screen inconsistencies: ${crossScreenFacts ? crossScreenFacts.split('INCONSISTENCY').length - 1 : 0}`);
+      if (crossScreenFacts) console.log(`CROSS-SCREEN:\n${crossScreenFacts}`);
       if (pageSemantics) console.log(`CLASHES:\n${pageSemantics}`);
 
       const dsPromptSection = dsContext ? `
@@ -592,6 +670,11 @@ ${semanticContext}
 ${pageSemantics ? `═══ 🚨🚨🚨 PRE-COMPUTED SEMANTIC CLASHES — YOU MUST FLAG THESE ═══
 The following clashes have been AUTOMATICALLY DETECTED. Each one MUST appear in your output as a HIGH severity issue. If you omit any of these, your review is INCOMPLETE and WRONG.
 ${pageSemantics}
+` : ''}
+${crossScreenFacts ? `═══ 🔍 PRE-COMPUTED CROSS-SCREEN INCONSISTENCIES ═══
+The following inconsistencies have been AUTOMATICALLY DETECTED by comparing label-value pairs across screens.
+Each one should be flagged as a "consistency" issue (MEDIUM or HIGH severity).
+${crossScreenFacts}
 ` : ''}
 ${dsPromptSection}
 
