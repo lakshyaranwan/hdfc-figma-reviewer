@@ -332,18 +332,7 @@ serve(async (req) => {
 
     const categoryOptions = allowedCategories.map((c: string) => `"${c}"`).join(" | ");
 
-    const systemPrompt = dsContext
-      ? `You are an expert UX/UI designer and design systems specialist, acting as a senior design manager and reviewer.
-You have deep knowledge of the attached Design System — you know every component, token, and pattern.
-Your job: give thorough, specific feedback that actively references the DS. Every piece of feedback should either flag a DS deviation, confirm a correct usage, or provide DS-guided recommendations.
-CRITICAL: You MUST respond with ONLY a valid JSON array, no other text.
-Do not include markdown code blocks, explanations, or any text outside the JSON array.
-Start your response with [ and end with ].`
-      : `You are an expert UX/UI designer, acting as a manager and reviewer for a designer who lacks attention to detail.
-You provide thorough, quality feedback - focus on real issues that matter.
-CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. 
-Do not include markdown code blocks, explanations, or any text outside the JSON array.
-Start your response with [ and end with ].`;
+    const systemPrompt = "You are an expert UX/UI designer providing professional design feedback." + (dsContext ? " You are also a design systems specialist with deep knowledge of the attached Design System — you know every component, token, and pattern. Every piece of feedback should either flag a DS deviation, confirm correct usage, or provide DS-guided recommendations." : "") + " CRITICAL: You MUST respond with ONLY a valid JSON array, no other text. Do not include markdown code blocks, explanations, or any text outside the JSON array. Start your response with [ and end with ].";
 
     // Process each chunk
     let allFeedback: FeedbackItem[] = [];
