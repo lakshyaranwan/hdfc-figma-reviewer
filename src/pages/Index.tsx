@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisForm } from "@/components/AnalysisForm";
 import { FeedbackDisplay } from "@/components/FeedbackDisplay";
-import { Settings, Key } from "lucide-react";
+import { Settings, Key, BarChart3 } from "lucide-react";
 import hdfcLogo from "@/assets/hdfc-logo.png";
 
 export type FeedbackItem = {
@@ -29,6 +29,7 @@ const Index = () => {
   useEffect(() => {
     fetchKeyStatus();
 
+    // Set up realtime subscription
     const channel = supabase
       .channel('header-keys-status')
       .on(
@@ -59,6 +60,7 @@ const Index = () => {
       
       setTotalKeys(data?.length || 0);
 
+      // Check if a key is selected
       const selectedKeyId = localStorage.getItem("hdfc_selected_api_key_id");
       if (selectedKeyId && data) {
         const selectedKey = data.find(k => k.id === selectedKeyId);
@@ -73,6 +75,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -97,6 +100,10 @@ const Index = () => {
                   No keys
                 </Badge>
               )}
+              <Button variant="ghost" size="sm" onClick={() => navigate("/usage")}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Usage
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
                 <Settings className="h-4 w-4 mr-2" />
                 Manage Keys
@@ -106,8 +113,10 @@ const Index = () => {
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="container mx-auto px-6 py-8 max-w-7xl">
         <div className="grid gap-6 lg:grid-cols-2">
+          {/* Analysis Form */}
           <div className="lg:sticky lg:top-24 h-fit">
             <Card className="p-6 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-shadow duration-200">
               <AnalysisForm 
@@ -119,6 +128,7 @@ const Index = () => {
             </Card>
           </div>
 
+          {/* Feedback Display */}
           <div>
             <FeedbackDisplay feedback={feedback} isAnalyzing={isAnalyzing} fileKey={fileKey} />
           </div>
