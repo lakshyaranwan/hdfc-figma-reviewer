@@ -658,6 +658,11 @@ ${pageSemantics ? `═══ 🚨🚨🚨 PRE-COMPUTED SEMANTIC CLASHES — YOU 
 The following clashes have been AUTOMATICALLY DETECTED. Each one MUST appear in your output as a HIGH severity issue. If you omit any of these, your review is INCOMPLETE and WRONG.
 ${pageSemantics}
 ` : ''}
+${crossScreenFacts ? `═══ 🔍 PRE-COMPUTED CROSS-SCREEN INCONSISTENCIES ═══
+The following inconsistencies have been AUTOMATICALLY DETECTED by comparing label-value pairs across screens.
+Each one should be flagged as a "consistency" issue (MEDIUM or HIGH severity).
+${crossScreenFacts}
+` : ''}
 ${dsPromptSection}
 
 ${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
