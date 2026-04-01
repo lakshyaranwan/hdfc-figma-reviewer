@@ -488,67 +488,45 @@ ${dsPromptSection}
 ${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
 
 ═══ PASS 1: STAKEHOLDER GLANCE (HIGH + MEDIUM) ═══
-Scan the data for these issues FIRST. These are embarrassing, confusing, or broken. Flag every violation you find.
+Scan ALL screens. For each screen, check these categories. Flag every violation with evidence.
 
-COLOUR-CONTEXT CLASHES
-1. Red or orange fill on a container whose child text says "success", "confirmed", "approved", "completed", "congratulations", or any positive outcome
-2. Green fill on a container whose child text says "error", "failed", "declined", "rejected", "warning", or any negative outcome
-3. High-contrast bold colour on elements named or labelled "disabled", "inactive", or "unavailable"
-4. Muted/grey colour on a primary CTA or urgent action
-5. Warning colour (amber/orange) on purely informational or neutral content
-6. The same semantic role (primary CTA, error, warning, success) rendered in different colours across different screens
+TYPOS & TEXT ISSUES (check EVERY text node):
+1. Spelling errors, grammatical errors, truncated words (e.g. "Transfera" instead of "Transfer", "Confrim" instead of "Confirm")
+2. Placeholder/dev text: trailing digits ("Send Money2"), "lorem ipsum", "copy of", "untitled", "label", "text here", "heading"
+3. Inconsistent terminology across screens: same action called different names (e.g. "Send" vs "Transfer")
+4. Inconsistent capitalisation: some buttons Title Case, others ALL CAPS, others sentence case
+5. Question marks in CTA labels, exclamation marks in error messages
 
-TEXT-CONTEXT CLASHES
-7. Any text that looks like a dev/design default still in place: trailing digits ("Send Money 2", "Card 3"), "copy of", "untitled", "lorem ipsum", "placeholder", "label", "title", "text here", "item 1", "heading", "body text", "subtitle"
-8. Any spelling or grammatical error in visible text
-9. Inconsistent terminology: the same action or concept called different things across screens (e.g. "Send" vs "Transfer", "Cancel" vs "Back" for the same action)
-10. Inconsistent capitalisation style for the same type of element (e.g. some buttons Title Case, others ALL CAPS, others sentence case)
-11. Positive/celebratory text ("Congratulations", "Success", "Well done") inside error-styled or warning-styled containers
-12. Negative text ("Failed", "Error", "Declined") inside success-styled or positive-styled containers
-13. Urgent language ("Immediately", "Critical", "Urgent") in low-emphasis muted styling
-14. Question marks in button labels — CTAs should be declarative, not questioning
-15. Exclamation marks in error messages — feels aggressive to users
+COLOUR-CONTEXT CLASHES (cross-reference SEMANTIC CONTEXT section):
+6. Red/orange container with positive text ("success", "confirmed", "approved", "congratulations")
+7. Green container with negative text ("error", "failed", "declined", "warning")
+8. Same semantic role (primary CTA, error, success) in DIFFERENT colours across screens
+9. Celebratory text inside error-styled containers, or error text inside success-styled containers
 
-ICON-CONTEXT CLASHES
-16. A node named or shaped like a delete/trash icon next to text saying "Save", "Confirm", or "Submit"
-17. A checkmark/success icon in an error or warning context
-18. A warning triangle icon in a success or confirmation context
-19. A lock icon on elements labelled as public, open, or shared
+COMPONENT & NAMING:
+10. Default names still present: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+"
+11. Same UI pattern (card, button, list item) built differently across screens instead of shared component
 
-STATE & STORYTELLING CLASHES
-20. An empty state screen with no guidance, onboarding text, or call to action
-21. A confirmation screen with no summary of what was confirmed
-22. A form with a submit CTA but no visible required-field indicators or validation hints
-23. Screens in a flow where the visual hierarchy (heading sizes, colours) changes dramatically and inconsistently
-24. Progress indicators that skip steps or show inconsistent state across screens
-25. A modal or overlay with no visible dismiss/close action
+UX FLOW (compare screens as a journey):
+12. Destructive/irreversible action with no confirmation step
+13. Dead-end screens: no navigation, back button, or next action
+14. Empty state with no guidance or call to action
+15. Success/confirmation screen missing summary of what was confirmed
+16. Progress indicators that skip steps or show inconsistent state
 
-COMPONENT & NAMING
-26. Any frame or component whose name matches default patterns: "Frame \\d+", "Group \\d+", "Rectangle \\d+", "Vector \\d+", "Image \\d+"
-27. The same UI pattern (card, list item, header, button) implemented with different structures across screens instead of using a shared component
-28. A component named "disabled" or "inactive" that uses full-opacity high-contrast fills
-29. A component named "primary" that is visually subordinate to its siblings
-30. A component named "error" or "destructive" using green or blue fills
+═══ PASS 2: DESIGNER POLISH (LOW) ═══
+17. Inconsistent spacing between same type of element across screens
+18. Alignment issues, border radius inconsistencies, padding mismatches
 
-UX FLOW
-31. A destructive or irreversible action with no confirmation step visible in the data
-32. A primary CTA whose label does not clearly describe the outcome ("Submit", "OK", "Continue" with no context)
-33. Any screen that appears to be a dead end — no visible navigation, back button, or exit action
-34. Truncated or cut-off text that appears incomplete based on the bounding box
-
-═══ PASS 2: DESIGNER POLISH (LOW only) ═══
-Only after completing Pass 1, fill remaining slots with these. These are refinements, not blockers.
-
-35. Inconsistent spacing between the same type of element across screens
-36. Elements slightly misaligned relative to their siblings based on bounding box data
-37. Minor border radius inconsistencies across similar components
-38. Inconsistent padding values in similar containers
-39. Minor font size or weight variations in elements that should match
+═══ DEDUPLICATION RULES ═══
+- If the SAME text problem appears on the SAME nodeId, report it ONCE only.
+- If the same issue type appears on DIFFERENT screens, you may report each instance but with DIFFERENT nodeIds.
+- Prefer DIVERSE issues over MANY instances of the same problem.
 
 ═══ OUTPUT FORMAT ═══
 CRITICAL CATEGORY RESTRICTION: Only use these category values: ${categoryOptions}
 Aim for ${itemsPerCategory} items per category, distributed across ALL requested categories.
-At least 70% of items MUST be HIGH or MEDIUM severity (Pass 1). LOW severity items (Pass 2) fill the remainder.
+At least 70% of items MUST be HIGH or MEDIUM severity.
 
 Use the MOST SPECIFIC node ID for each issue (the text layer, not the parent frame).
 NEVER include technical IDs like [123:456] in title or description fields.
@@ -556,12 +534,12 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
 
 [{
   "category": ${categoryOptions},
-  "title": "Human-readable issue title",
-  "description": "What is wrong, citing the specific evidence (text/colour/name) from the data",
+  "title": "Human-readable issue title (unique — no two items should have the same title)",
+  "description": "What is wrong, citing specific evidence. If same issue in multiple places, list all locations here.",
   "suggestion": "Specific actionable fix",
   "severity": "low" | "medium" | "high",
   "location": "User-friendly component name",
-  "nodeId": "exact_node_id_from_structure"
+  "nodeId": "exact_node_id_from_structure (UNIQUE — never reuse a nodeId)"
 }]`;
 
       const promptTokens = estimateTokens(analysisPrompt + systemPrompt);
