@@ -4,6 +4,7 @@
     "lib": ["ES2017"],
     "strict": false,
     "skipLibCheck": true,
+    "noEmit": false,
     "types": ["@figma/plugin-typings"]
   },
   "include": ["code.ts"]
