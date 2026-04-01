@@ -142,6 +142,28 @@ function classifyColor(hex: string): string {
 }
 
 function extractSemanticContext(flatNodes: any[]): string {
+  // Build a parent→children index using parentId for reliable lookups
+  const nodeById = new Map<string, any>();
+  const childrenOf = new Map<string, any[]>();
+  for (const node of flatNodes) {
+    nodeById.set(node.id, node);
+    if (node.parentId) {
+      if (!childrenOf.has(node.parentId)) childrenOf.set(node.parentId, []);
+      childrenOf.get(node.parentId)!.push(node);
+    }
+  }
+
+  // Recursively collect all text descendants of a node
+  function collectTextDescendants(nodeId: string): string[] {
+    const texts: string[] = [];
+    const children = childrenOf.get(nodeId) || [];
+    for (const child of children) {
+      if (child.type === 'TEXT' && child.text) texts.push(child.text);
+      texts.push(...collectTextDescendants(child.id));
+    }
+    return texts;
+  }
+
   const grouped: Record<string, string[]> = {};
 
   for (const node of flatNodes) {
@@ -150,20 +172,16 @@ function extractSemanticContext(flatNodes: any[]): string {
     const hex = node.fills[0]?.hex;
     if (!hex) continue;
 
-    // Find all text nodes that are children of this container
-    const childTexts: string[] = [];
-    for (const candidate of flatNodes) {
-      if (candidate.type !== 'TEXT' || !candidate.text) continue;
-      if (candidate.path?.startsWith(node.path + ' > ')) {
-        childTexts.push(candidate.text);
-      }
-    }
+    const childTexts = collectTextDescendants(node.id);
     if (childTexts.length === 0) continue;
 
     const colorLabel = classifyColor(hex);
+    // Only include semantically meaningful colours (not white/black/grey backgrounds)
+    if (!colorLabel) continue;
+
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = [];
-    grouped[topFrame].push(`Container (id:${node.id}) fill:${hex}${colorLabel ? ' ← ' + colorLabel : ''} → text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
+    grouped[topFrame].push(`⚠️ Container (id:${node.id}) fill:${hex} ${colorLabel} contains text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
   }
 
   return Object.entries(grouped)
