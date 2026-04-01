@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertCircle, CheckCircle, Lightbulb, Loader2, Target, MessageSquare, ChevronDown } from "lucide-react";
 import { FeedbackItem } from "@/pages/Index";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -62,52 +62,6 @@ const severityConfig = {
   low: { label: "Low", color: "bg-muted text-muted-foreground" },
   medium: { label: "Medium", color: "bg-warning/20 text-warning-foreground" },
   high: { label: "High", color: "bg-destructive/20 text-destructive" },
-};
-
-const FeedbackCard = ({ item, category }: { item: FeedbackItem; category: string }) => {
-  const [expanded, setExpanded] = useState(false);
-  
-  return (
-    <Card 
-      className="p-4 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-all duration-200 border-l-4 cursor-pointer"
-      style={{
-        borderLeftColor: `hsl(var(--${category === 'ux' ? 'primary' : category === 'ui' ? 'warning' : category === 'consistency' ? 'destructive' : 'accent'}))`
-      }}
-      onClick={() => setExpanded(!expanded)}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-2">
-          {expanded ? (
-            <ChevronDown className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-          ) : (
-            <ChevronRight className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-          )}
-          <h4 className="font-medium text-foreground leading-tight">
-            {item.title.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
-          </h4>
-        </div>
-        <Badge 
-          variant="secondary" 
-          className={severityConfig[item.severity].color}
-        >
-          {severityConfig[item.severity].label}
-        </Badge>
-      </div>
-      
-      {expanded && (
-        <>
-          <p className="text-sm text-muted-foreground leading-relaxed mt-2 ml-6">
-            {item.description.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
-          </p>
-          {item.location && !item.location.match(/[0-9]+:[0-9]+/) && (
-            <div className="text-xs text-muted-foreground mt-2 pt-2 ml-6 border-t border-border">
-              Location: {item.location}
-            </div>
-          )}
-        </>
-      )}
-    </Card>
-  );
 };
 
 export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisplayProps) => {
@@ -332,7 +286,35 @@ export const FeedbackDisplay = ({ feedback, isAnalyzing, fileKey }: FeedbackDisp
               <CollapsibleContent>
                 <div className="p-4 pt-0 space-y-3">
                   {items.map((item) => (
-                    <FeedbackCard key={item.id} item={item} category={category} />
+                    <Card 
+                      key={item.id} 
+                      className="p-4 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-all duration-200 border-l-4"
+                      style={{
+                        borderLeftColor: `hsl(var(--${category === 'ux' ? 'primary' : category === 'ui' ? 'warning' : category === 'consistency' ? 'destructive' : 'accent'}))`
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-2">
+                        <h4 className="font-medium text-foreground leading-tight">
+                          {item.title.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
+                        </h4>
+                        <Badge 
+                          variant="secondary" 
+                          className={severityConfig[item.severity].color}
+                        >
+                          {severityConfig[item.severity].label}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+                        {item.description.replace(/\[[\d:;]+\]/g, '').replace(/\([\d:;]+\)/g, '').trim()}
+                      </p>
+
+                      {item.location && !item.location.match(/[0-9]+:[0-9]+/) && (
+                        <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
+                          Location: {item.location}
+                        </div>
+                      )}
+                    </Card>
                   ))}
                 </div>
               </CollapsibleContent>
