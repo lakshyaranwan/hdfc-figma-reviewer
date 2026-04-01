@@ -397,13 +397,14 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "openai/gpt-5-mini",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
           max_tokens: 64000,
           temperature: 0,
+          seed: 42,
         }),
       });
 
@@ -438,6 +439,11 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
       }
 
       const aiData = await aiResponse.json();
+      const finishReason = aiData.choices?.[0]?.finish_reason;
+      console.log(`Chunk ${chunkIdx + 1} finish_reason: ${finishReason}`);
+      if (finishReason === 'length') {
+        console.warn(`⚠️ Chunk ${chunkIdx + 1} was TRUNCATED (finish_reason=length) — output may be incomplete`);
+      }
       const content = aiData.choices?.[0]?.message?.content;
 
       if (!content) {
