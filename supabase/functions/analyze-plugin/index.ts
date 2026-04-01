@@ -21,7 +21,53 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-// Flatten deeply nested design data into a flat array of simplified nodes
+// Robustly repair truncated JSON arrays of objects
+function repairTruncatedJSON(raw: string): any[] {
+  // Strategy 1: Find all complete JSON objects using brace counting
+  const objects: any[] = [];
+  let i = raw.indexOf('[');
+  if (i === -1) i = 0; else i++;
+
+  while (i < raw.length) {
+    // Find next object start
+    const objStart = raw.indexOf('{', i);
+    if (objStart === -1) break;
+
+    // Find matching close brace via counting
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let objEnd = -1;
+
+    for (let j = objStart; j < raw.length; j++) {
+      const ch = raw[j];
+      if (escaped) { escaped = false; continue; }
+      if (ch === '\\') { escaped = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      if (ch === '}') { depth--; if (depth === 0) { objEnd = j; break; } }
+    }
+
+    if (objEnd === -1) break; // incomplete object, skip
+
+    const objStr = raw.slice(objStart, objEnd + 1);
+    try {
+      objects.push(JSON.parse(objStr));
+    } catch (_e) {
+      // skip malformed object
+    }
+    i = objEnd + 1;
+  }
+
+  if (objects.length === 0) {
+    throw new Error("Could not extract any complete JSON objects from truncated response");
+  }
+
+  return objects;
+}
+
+
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
@@ -1031,19 +1077,7 @@ Every issue MUST cite the specific text string, hex colour, or node name that pr
           chunkFeedback = JSON.parse(cleanContent);
         } catch (_initialParseError) {
           console.warn(`Chunk ${chunkIdx + 1}: JSON truncated, attempting repair...`);
-          // Try closing the JSON array gracefully
-          let repaired = cleanContent;
-          // Remove trailing incomplete object/string
-          repaired = repaired.replace(/,\s*\{[^}]*$/, '');   // remove last incomplete object
-          repaired = repaired.replace(/,\s*"[^"]*$/, '');     // remove trailing incomplete string
-          if (!repaired.endsWith(']')) {
-            // Close any open object then close array
-            const openBraces = (repaired.match(/\{/g) || []).length;
-            const closeBraces = (repaired.match(/\}/g) || []).length;
-            for (let i = 0; i < openBraces - closeBraces; i++) repaired += '}';
-            repaired += ']';
-          }
-          chunkFeedback = JSON.parse(repaired);
+          chunkFeedback = repairTruncatedJSON(cleanContent);
           console.log(`Chunk ${chunkIdx + 1}: repair succeeded with ${chunkFeedback.length} items`);
         }
         if (!Array.isArray(chunkFeedback)) throw new Error("Response is not an array");
