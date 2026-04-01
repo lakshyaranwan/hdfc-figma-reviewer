@@ -295,64 +295,36 @@ CRITICAL NODE ID INSTRUCTIONS:
 - Include the nodeId field for every feedback item`;
 
       const formatInstructions = `
-For each issue found, provide:
-- A clear, actionable title (NO technical IDs or brackets)
-- Detailed description with specific actionable suggestions
-- Severity (low, medium, high)
-- The EXACT node ID from the design data
-- Component/frame name (user-friendly name only)
-- A concrete suggestion field with the fix
+REVIEW PRIORITIES (in order):
+1. TYPOS & SPELLING — Read every text node character by character. Flag misspellings, wrong casing, grammatical errors.
+2. BROKEN LAYOUTS — Overlapping elements, clipped text, elements outside their parent bounds, zero-size containers.
+3. COLOUR PROBLEMS — Check fills[].hex values. Flag obviously wrong colours, poor contrast (light text on light bg), jarring colour combinations.
+4. HIERARCHY FAILURES — Compare fontSize values across text nodes. Headings smaller than body text, inconsistent heading sizes.
+5. MISSING INTERACTIVE STATES — Buttons without hover/pressed states, inputs without focus states, missing disabled states.
+6. UX PROBLEMS — Confusing navigation, unclear CTAs, missing feedback, poor information architecture.
+7. ALIGNMENT & SPACING — Only flag OBVIOUS misalignment (>8px off), not minor 1-2px differences.
 
-CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
+CRITICAL RULES:
+- Return AT MOST ${maxItems} issues total, ranked by severity (high first)
+- ZERO DUPLICATES — each issue must be about a DIFFERENT problem on a DIFFERENT element
+- If two elements have the same problem, combine them into ONE issue listing both
+- NEVER fabricate issues — every issue must reference specific data (exact text, hex value, fontSize) from the nodes above
+- Before flagging "missing label": check ALL child nodes in that subtree first
+- Do NOT flag subjective style preferences, minor spacing differences, or hypothetical issues
+- Only use these categories: ${categoryOptions}
 
-FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
-- Focus on GLARING, significant issues first — broken layouts, wrong colours, obvious typos, major hierarchy problems, missing states, poor contrast
-- Do NOT flag minor nitpicks, slight spacing differences, or subjective style preferences
-- Prioritise issues that would embarrass the designer in a stakeholder review
-- Read EVERY text field character by character for typos and casing issues
-- Check fills[].hex values for obvious colour problems (wrong brand colours, poor contrast, jarring combinations)
-- Compare fontSize values across text nodes for clear hierarchy violations
-
-Format as JSON array:
+${ignoreChrome ? `IGNORE CHROME: Skip status bars, app bars, headers, nav bars, footers, tab bars. Only review actual page content.
+` : ""}
+FORMAT — respond with ONLY this JSON array:
 [{
   "category": ${categoryOptions},
-  "title": "Issue title (clean, no IDs)",
-  "description": "Detailed description with the actual text/hex/size value from the data (clean, no IDs)",
-  "suggestion": "Specific actionable fix",
-  "severity": "low" | "medium" | "high",
-  "location": "User-friendly component name",
-  "nodeId": "exact_node_id"
-}]
-
-CRITICAL: 
-- NEVER include technical IDs in title or description
-- Always include nodeId with exact ID from design data
-- Location must be user-friendly names only
-- NEVER fabricate issues — only flag what is directly observable in the data
-- Before flagging a missing label: check every child node in that subtree first
-
-${ignoreChrome ? `
-IGNORE CHROME ELEMENTS:
-- Do NOT provide any feedback on: status bars, app bars, headers, top navigation bars, bottom navigation bars, footers, navigation drawers, tab bars at the bottom/top of the screen, or any other structural chrome/shell elements.
-- Only focus on the actual content area of the screen — the unique, page-specific content that the designer controls.
-- If an issue exists exclusively in a header, footer, or nav bar, skip it entirely.
-` : ""}
-
-${allowedCategories.includes("consistency") ? `
-SPECIAL INSTRUCTIONS FOR CONSISTENCY REVIEW:
-- Compare ALL elements for inconsistent patterns
-- Look for text variations, inconsistent styles, spacing
-- Flag ALL instances of inconsistency
-` : ""}
-
-${allowedCategories.includes("ux_writing") ? `
-SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
-- Scan ALL text content thoroughly
-- Check EVERY button label, heading, paragraph, placeholder
-- Look for typos, spelling errors, grammatical mistakes
-- Be comprehensive - catch ALL text issues
-` : ""}`;
+  "title": "Clear issue title (no technical IDs)",
+  "description": "What's wrong — include the actual text/hex/size value you found in the data",
+  "suggestion": "Specific fix",
+  "severity": "high" | "medium" | "low",
+  "location": "Component or frame name",
+  "nodeId": "exact_node_id_from_data"
+}]`;
 
       const baseReviewPrompt = isCustom
         ? `${baseContext}\n\nUser's specific request: ${prompt}\n${formatInstructions}`
