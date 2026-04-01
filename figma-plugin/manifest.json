@@ -8,14 +8,7 @@
   "enableProposedApi": false,
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": [
-      "https://api.figma.com",
-      "https://lvhtpmtmxxfeomyqvnuq.supabase.co"
-    ],
-    "devAllowedDomains": [
-      "https://api.figma.com",
-      "https://lvhtpmtmxxfeomyqvnuq.supabase.co"
-    ],
-    "reasoning": "Required to fetch the DS file from Figma REST API and communicate with the AI analysis backend"
+    "allowedDomains": ["https://lvhtpmtmxxfeomyqvnuq.supabase.co"],
+    "reasoning": "Required to communicate with the AI analysis backend"
   }
 }

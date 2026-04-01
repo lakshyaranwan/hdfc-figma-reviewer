@@ -547,48 +547,31 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
 });
 
 function extractCanvasData(document: any) {
-  const nodes: any[] = [];
+  const nodes: Array<{
+    id: string;
+    name: string;
+    type: string;
+    path: string;
+    text?: string;
+  }> = [];
 
   function traverse(node: any, path: string = "") {
     if (!node) return;
     if (node.visible === false) return;
 
-    // Use visible text as path label (not just the layer name)
-    const displayLabel = (node.type === "TEXT" && node.characters)
-      ? node.characters.trim().slice(0, 40)
-      : (node.name || node.type || "?");
-    const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
+    const currentPath = path ? `${path} > ${node.name}` : node.name;
 
     if (node.type && node.id) {
       const nodeData: any = {
         id: node.id,
-        name: node.name,   // layer name — treat as hint only
+        name: node.name,
         type: node.type,
         path: currentPath,
       };
 
-      // TEXT: include visible content
       if (node.type === "TEXT" && node.characters) {
-        nodeData.textContent = node.characters;
+        nodeData.text = node.characters;
       }
-      if (node.fontSize) nodeData.fontSize = node.fontSize;
-
-      // Position and size (enables spatial reasoning)
-      if (node.absoluteBoundingBox) {
-        nodeData.x = Math.round(node.absoluteBoundingBox.x);
-        nodeData.y = Math.round(node.absoluteBoundingBox.y);
-        nodeData.w = Math.round(node.absoluteBoundingBox.width);
-        nodeData.h = Math.round(node.absoluteBoundingBox.height);
-      }
-
-      // Visual interactivity signals
-      if (node.cornerRadius) nodeData.cornerRadius = node.cornerRadius;
-      if (Array.isArray(node.fills) && node.fills.length > 0) {
-        nodeData.fillTypes = node.fills
-          .filter((f: any) => f.visible !== false)
-          .map((f: any) => f.type);
-      }
-      if (node.layoutMode && node.layoutMode !== "NONE") nodeData.layoutMode = node.layoutMode;
 
       nodes.push(nodeData);
     }
@@ -600,9 +583,12 @@ function extractCanvasData(document: any) {
 
   traverse(document);
 
-  // Use token-based chunking upstream — return all nodes (no artificial slice)
+  const textNodes = nodes.filter(n => n.type === "TEXT" && n.text);
+  const otherNodes = nodes.filter(n => n.type !== "TEXT" || !n.text);
+  const prioritizedNodes = [...textNodes, ...otherNodes].slice(0, 300);
+
   return {
     name: document.name,
-    nodes,
+    nodes: prioritizedNodes,
   };
 }
