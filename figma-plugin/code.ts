@@ -36,14 +36,26 @@ interface DesignNode {
   opacity?: number;
 }
 
-// Track extracted node count to cap payload size
+// Track extracted node count (no hard cap — chunking handles large payloads)
 let _extractedNodeCount = 0;
-const MAX_EXTRACTED_NODES = 500;
+const MAX_RECURSION_DEPTH = 12;
+
+// Count total visible nodes in a subtree (for reporting)
+function countVisibleNodes(node: SceneNode): number {
+  if (!node.visible) return 0;
+  if ('opacity' in node && node.opacity === 0) return 0;
+  let count = 1;
+  if ('children' in node) {
+    for (const child of (node as FrameNode).children) {
+      count += countVisibleNodes(child);
+    }
+  }
+  return count;
+}
 
 // Extract design data from a node recursively
 function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null {
-  if (depth > 8) return null; // Limit depth
-  if (_extractedNodeCount >= MAX_EXTRACTED_NODES) return null; // Cap total nodes
+  if (depth > MAX_RECURSION_DEPTH) return null;
   
   // Skip hidden layers/elements
   if (!node.visible) return null;
@@ -166,10 +178,9 @@ function extractNodeData(node: SceneNode, depth: number = 0): DesignNode | null 
   }
 
   // Children
-  if ('children' in node && _extractedNodeCount < MAX_EXTRACTED_NODES) {
+  if ('children' in node) {
     const children: DesignNode[] = [];
     for (const child of node.children) {
-      if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
       const childData = extractNodeData(child, depth + 1);
       if (childData) children.push(childData);
     }
@@ -193,18 +204,27 @@ function getSelectionData() {
   }
 
   // Reset node counter before extraction
+  // Count total visible nodes across all selected frames
+  let totalVisibleNodes = 0;
+  for (const node of selection) {
+    totalVisibleNodes += countVisibleNodes(node);
+  }
+
   _extractedNodeCount = 0;
   
   const nodes: DesignNode[] = [];
   for (const node of selection) {
-    if (_extractedNodeCount >= MAX_EXTRACTED_NODES) break;
     const nodeData = extractNodeData(node);
     if (nodeData) nodes.push(nodeData);
   }
 
+  console.log(`Extracted ${_extractedNodeCount} of ${totalVisibleNodes} visible nodes`);
+
   return {
     hasSelection: true,
     selectionCount: selection.length,
+    extractedNodeCount: _extractedNodeCount,
+    totalVisibleNodes,
     nodes,
     pageName: figma.currentPage.name,
     fileName: figma.root.name,
@@ -1470,6 +1490,7 @@ figma.ui.onmessage = async (msg: any) => {
     const selectionData = getSelectionData();
     if (selectionData.nodes) cacheNodeNames(selectionData.nodes);
     _analysisRootIds = figma.currentPage.selection.map(n => n.id);
+    figma.notify(`📊 Extracting ${selectionData.extractedNodeCount} nodes from ${selectionData.selectionCount} selected frame(s)…`);
     figma.ui.postMessage({
       type: 'analyze-data',
       data: selectionData,
