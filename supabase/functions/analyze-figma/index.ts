@@ -443,7 +443,6 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
             { role: "user", content: analysisPrompt },
           ],
           max_tokens: 16000,
-          temperature: 0,
         }),
       });
 
