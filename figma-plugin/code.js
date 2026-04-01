@@ -36,7 +36,7 @@ function extractNodeData(node, depth = 0) {
         type: node.type,
         visible: node.visible,
     };
-    // Position and size
+    // Position and size (relative)
     if ('x' in node)
         baseData.x = Math.round(node.x);
     if ('y' in node)
@@ -45,6 +45,19 @@ function extractNodeData(node, depth = 0) {
         baseData.width = Math.round(node.width);
     if ('height' in node)
         baseData.height = Math.round(node.height);
+    // Absolute position — critical for spatial grouping across nested containers
+    if ('absoluteTransform' in node && node.absoluteTransform) {
+        const transform = node.absoluteTransform;
+        baseData.absX = Math.round(transform[0][2]);
+        baseData.absY = Math.round(transform[1][2]);
+    }
+    else if ('absoluteBoundingBox' in node) {
+        const box = node.absoluteBoundingBox;
+        if (box) {
+            baseData.absX = Math.round(box.x);
+            baseData.absY = Math.round(box.y);
+        }
+    }
     // Extract fills for ALL depths — needed for semantic clash detection (red banner on success page etc.)
     // Previously limited to depth < 4, which caused colored containers deeper in the tree to lose their fill data entirely
     if ('fills' in node && node.fills !== figma.mixed) {
