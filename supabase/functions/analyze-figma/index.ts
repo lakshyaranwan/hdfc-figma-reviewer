@@ -616,7 +616,7 @@ function extractCanvasData(document: any) {
     if (node.type && node.id) {
       const nodeData: any = {
         id: node.id,
-        name: node.name,   // layer name — treat as hint only
+        // name intentionally omitted — layer names cause false flags
         type: node.type,
         path: currentPath,
       };
