@@ -643,7 +643,7 @@
     .feedback-item {
       background: var(--white);
       border-radius: var(--radius-sm);
-      padding: 12px 16px;
+      padding: 16px;
       margin-bottom: 10px;
       border-left: 4px solid var(--border);
       cursor: pointer;
@@ -678,46 +678,21 @@
     .feedback-title {
       font-weight: 600;
       font-size: 13px;
+      margin-bottom: 6px;
       color: var(--text-primary);
       line-height: 1.4;
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .feedback-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
     
     .feedback-desc {
       font-size: 12px;
       color: var(--text-secondary);
       line-height: 1.6;
-      display: none;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .feedback-desc.expanded {
-      display: block;
-    }
-    .feedback-expand-btn {
-      font-size: 11px;
-      color: var(--hdfc-primary);
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px 0 0;
-      font-weight: 500;
-    }
-    .feedback-expand-btn:hover {
-      text-decoration: underline;
     }
     
     .feedback-meta {
       display: flex;
-      gap: 6px;
-      margin-top: 6px;
+      gap: 8px;
+      margin-top: 12px;
       font-size: 11px;
       flex-wrap: wrap;
       align-items: center;
@@ -762,7 +737,7 @@
     .feedback-actions {
       display: flex;
       gap: 8px;
-      flex-shrink: 0;
+      margin-top: 14px;
     }
     
     /* Error */
@@ -1065,32 +1040,6 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
-    /* Accessibility Results */
-    .a11y-item {
-      background: var(--white);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin-bottom: 8px;
-      border-left: 4px solid var(--success);
-      box-shadow: var(--shadow-sm);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .a11y-item:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateX(4px);
-    }
-    .a11y-item.fail { border-left-color: var(--error); background: linear-gradient(135deg, #FEF2F2 0%, var(--white) 100%); }
-    .a11y-item.pass { border-left-color: var(--success); background: linear-gradient(135deg, #ECFDF5 0%, var(--white) 100%); }
-    .a11y-ratio { font-weight: 700; font-size: 15px; }
-    .a11y-ratio.fail { color: var(--error); }
-    .a11y-ratio.pass { color: var(--success); }
-    .a11y-colors { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-    .a11y-swatch { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border); }
-    .a11y-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .a11y-stat { text-align: center; padding: 14px; background: var(--white); border-radius: var(--radius-sm); border: 1px solid var(--border); }
-    .a11y-stat-val { font-size: 22px; font-weight: 700; }
-    .a11y-stat-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; }
   </style>
 </head>
 <body>
@@ -1157,27 +1106,9 @@
     </div>
     
     <div id="analysisSection">
-      <!-- Global ignore chrome toggle -->
-      <div id="ignoreChromeRow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:14px;">🙈</span>
-          <div>
-            <div style="font-size:12px;font-weight:600;color:var(--text-primary);">Ignore headers, footers & nav bars</div>
-            <div style="font-size:11px;color:var(--text-muted);">Skip structural chrome — focus on content areas</div>
-          </div>
-        </div>
-        <label style="position:relative;display:inline-block;width:38px;height:22px;cursor:pointer;flex-shrink:0;">
-          <input type="checkbox" id="ignoreChromeToggle" checked style="opacity:0;width:0;height:0;">
-          <span id="ignoreChromeSlider" style="position:absolute;inset:0;background:var(--hdfc-primary);border-radius:22px;transition:background 0.2s;">
-            <span style="position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:white;border-radius:50%;transition:transform 0.2s;transform:translateX(16px);display:block;" id="ignoreChromeKnob"></span>
-          </span>
-        </label>
-      </div>
-
       <div class="tabs">
         <button class="tab active" data-tab="categories">Quick Review</button>
-        <!-- <button class="tab" data-tab="custom">Custom Prompt</button> -->
-        <button class="tab" data-tab="accessibility">♿ A11y</button>
+        <button class="tab" data-tab="custom">Custom Prompt</button>
       </div>
       
       <div class="tab-content active" id="categoriesTab">
@@ -1212,55 +1143,6 @@
           <input type="checkbox" id="includeSuggestions" checked>
           <label for="includeSuggestions">Include improvement suggestions</label>
         </div>
-      </div>
-      
-      <div class="tab-content" id="accessibilityTab">
-        <div class="section-title">Choose what to check</div>
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckText" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🔤</span> Text Contrast
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 4.5:1 for all text</div>
-            </div>
-          </label>
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckIcon" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🎨</span> Icon / Non-Text Contrast
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 3:1 for icons & UI components</div>
-            </div>
-          </label>
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckAria" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🏷️</span> ARIA Labels
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">AI generates descriptive labels for all interactive elements & writes them to the file</div>
-            </div>
-          </label>
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckFocus" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🔢</span> Focus Order
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">AI maps keyboard navigation order matching natural reading flow & annotates in the file</div>
-            </div>
-          </label>
-        </div>
-        <!-- Per-check status chips -->
-        <div id="a11yStatusChips" style="display:none; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
-
-        <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
-          <span>♿</span>
-          <span>Run Accessibility Check</span>
-        </button>
       </div>
       
       <button class="btn btn-primary" id="analyzeBtn" disabled>
@@ -1319,21 +1201,6 @@
     let currentSort = 'priority';
     let appliedItems = new Set();
     let collapsedCategories = new Set();
-
-    // ── Ignore-chrome toggle wiring ──────────────────────────────────────────
-    const _ignoreChromeToggle = document.getElementById('ignoreChromeToggle');
-    const _ignoreChromeKnob   = document.getElementById('ignoreChromeKnob');
-    const _ignoreChromeSlider = document.getElementById('ignoreChromeSlider');
-
-    function getIgnoreChrome() { return _ignoreChromeToggle.checked; }
-
-    _ignoreChromeToggle.addEventListener('change', () => {
-      const on = _ignoreChromeToggle.checked;
-      _ignoreChromeKnob.style.transform  = on ? 'translateX(16px)' : 'translateX(0)';
-      _ignoreChromeSlider.style.background = on ? 'var(--hdfc-primary)' : 'var(--border)';
-    });
-    // Initialise knob position (default: checked = ignore ON)
-    _ignoreChromeKnob.style.transform = 'translateX(16px)';
     
     // Category config
     const categoryConfig = {
@@ -1354,9 +1221,6 @@
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
-        // Hide analyze button on a11y tab (it has its own button)
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        analyzeBtn.style.display = tab.dataset.tab === 'accessibility' ? 'none' : 'flex';
       });
     });
     
@@ -1408,18 +1272,6 @@
         } else {
           showToast('Failed to apply: ' + msg.error, 'error');
         }
-      }
-      
-      if (msg.type === 'accessibility-results') {
-        _origAccessibilityResults(msg.issues, msg.error);
-      }
-
-      if (msg.type === 'selection-for-a11y-ai') {
-        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus);
-      }
-
-      if (msg.type === 'a11y-ai-annotate-done') {
-        showToast(msg.message || 'Annotations written to Figma!', 'success');
       }
     };
     
@@ -1587,8 +1439,7 @@
             categories: promptData.categories,
             isCustom: promptData.isCustom,
             fileName: data.fileName,
-            pageName: data.pageName,
-            ignoreChrome: getIgnoreChrome()
+            pageName: data.pageName
           })
         });
         
@@ -1738,28 +1589,26 @@
       } else {
         collapsedCategories.add(cat);
       }
-      // Toggle DOM directly instead of full re-render
-      const headers = document.querySelectorAll('.category-header');
-      headers.forEach(header => {
-        if (header.getAttribute('onclick')?.includes(`'${cat}'`)) {
-          header.classList.toggle('collapsed');
-          const content = header.nextElementSibling;
-          if (content) content.classList.toggle('hidden');
-        }
-      });
+      displayResults();
     }
     
     function renderFeedbackItem(item) {
       const severity = (item.severity || 'low').toLowerCase();
       const isApplied = appliedItems.has(item.id || item.title);
       const itemId = item.id || item.title;
-      const uniqueId = 'desc-' + Math.random().toString(36).substr(2, 9);
       
       return `
         <div class="feedback-item ${severity}" onclick="focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
-        <div class="feedback-header">
           <div class="feedback-title">${item.title || 'Issue'}</div>
+          <div class="feedback-desc">${item.description || ''}</div>
+          <div class="feedback-meta">
+            <span class="feedback-severity ${severity}">${severity}</span>
+            ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
+          </div>
           <div class="feedback-actions">
+            <button class="btn btn-small btn-focus" onclick="event.stopPropagation(); focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
+              🔍 Focus
+            </button>
             ${item.suggestion ? `
               <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}" 
                 onclick="event.stopPropagation(); applySuggestion('${itemId.replace(/'/g, "\\'")}', '${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}', '${(item.suggestion || item.description || '').replace(/'/g, "\\'")}', '${(item.title || '').replace(/'/g, "\\'")}')"
@@ -1769,33 +1618,10 @@
             ` : ''}
           </div>
         </div>
-          ${item.description ? `
-            <div class="feedback-desc" id="${uniqueId}">${item.description}</div>
-            <button class="feedback-expand-btn" onclick="event.stopPropagation(); toggleDesc('${uniqueId}', this)">Show more ▾</button>
-          ` : ''}
-          <div class="feedback-meta">
-            <span class="feedback-severity ${severity}">${severity}</span>
-            ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
-          </div>
-        </div>
       `;
     }
     
-    function toggleDesc(id, btn) {
-      const el = document.getElementById(id);
-      if (el.classList.contains('expanded')) {
-        el.classList.remove('expanded');
-        btn.textContent = 'Show more ▾';
-      } else {
-        el.classList.add('expanded');
-        btn.textContent = 'Show less ▴';
-      }
-    }
-    
-    let _focusDebounce = null;
     function focusNode(nodeId, location) {
-      if (_focusDebounce) return; // prevent rapid clicks
-      _focusDebounce = setTimeout(() => { _focusDebounce = null; }, 300);
       parent.postMessage({ 
         pluginMessage: { 
           type: 'focus-node', 
@@ -1896,506 +1722,6 @@
     
     // Initial UI
     updateSelectionUI();
-    
-    // ========== ACCESSIBILITY ==========
-
-    // Per-check status tracking: 'idle' | 'running' | 'done' | 'error'
-    let a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
-
-    function setCheckStatus(key, status, extra) {
-      a11yCheckStatus[key] = status;
-      renderCheckStatusChips();
-    }
-
-    function renderCheckStatusChips() {
-      const container = document.getElementById('a11yStatusChips');
-      if (!container) return;
-
-      const checks = [
-        { key: 'text',         label: '🔤 Text Contrast' },
-        { key: 'icon',         label: '🎨 Icon Contrast' },
-        { key: 'aria',         label: '🏷️ ARIA Labels' },
-        { key: 'focus_order',  label: '🔢 Focus Order' },
-      ];
-
-      const activeChecks = checks.filter(c => a11yCheckStatus[c.key] !== 'idle');
-      if (activeChecks.length === 0) { container.innerHTML = ''; return; }
-
-      const statusColors = {
-        running: '#E8EDFF',
-        done:    '#ECFDF5',
-        error:   '#FEF2F2',
-      };
-      const statusBorders = {
-        running: '#1C3FCA',
-        done:    '#10B981',
-        error:   '#EF4444',
-      };
-      const statusText = {
-        running: 'Processing…',
-        done:    'Done ✓',
-        error:   'Error ✗',
-      };
-
-      container.innerHTML = activeChecks.map(c => {
-        const s = a11yCheckStatus[c.key];
-        const bg   = statusColors[s]  || 'var(--white)';
-        const bdr  = statusBorders[s] || 'var(--border)';
-        const stxt = statusText[s]    || '';
-        const pulse = s === 'running' ? 'animation:pulse 1.2s ease-in-out infinite;' : '';
-        return `
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:${bg};border:1px solid ${bdr};border-radius:8px;${pulse}">
-            <span style="font-size:12px;font-weight:600;color:var(--text-primary);">${c.label}</span>
-            <span style="font-size:11px;color:${bdr};font-weight:500;">${stxt}</span>
-            ${s === 'running' ? `<span style="width:14px;height:14px;border:2px solid ${bdr};border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite;flex-shrink:0;"></span>` : ''}
-          </div>
-        `;
-      }).join('');
-    }
-
-    async function runAccessibilityCheck() {
-      if (!selectionData || !selectionData.hasSelection) {
-        showError('Please select a frame first');
-        return;
-      }
-      const checkText = document.getElementById('a11yCheckText').checked;
-      const checkIcon = document.getElementById('a11yCheckIcon').checked;
-      const checkAria = document.getElementById('a11yCheckAria').checked;
-      const checkFocus = document.getElementById('a11yCheckFocus').checked;
-      if (!checkText && !checkIcon && !checkAria && !checkFocus) {
-        showToast('Select at least one check type', 'error');
-        return;
-      }
-
-      // Reset statuses
-      a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
-      if (checkText) setCheckStatus('text', 'running');
-      if (checkIcon) setCheckStatus('icon', 'running');
-      if (checkAria) setCheckStatus('aria', 'running');
-      if (checkFocus) setCheckStatus('focus_order', 'running');
-
-      const btn = document.getElementById('a11yRunBtn');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;"></span><span>Checking...</span>';
-
-      // Show status chips area
-      const chipsEl = document.getElementById('a11yStatusChips');
-      if (chipsEl) chipsEl.style.display = 'flex';
-
-      // Run contrast checks (local, via plugin code) — instant
-      if (checkText || checkIcon) {
-        parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
-      }
-
-      // Run AI checks in parallel
-      if (checkAria || checkFocus) {
-        parent.postMessage({ pluginMessage: { type: 'get-selection-for-a11y-ai', checkAria, checkFocus } }, '*');
-      }
-    }
-
-    let a11yIssues = [];
-    let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
-    let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
-    let a11yCollapsed = new Set(); // collapsed a11y groups
-    let a11yAIResults = { aria: null, focus_order: null }; // AI check results
-
-    // ====== AI ACCESSIBILITY CHECK (parallel) ======
-    async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
-      const promises = [];
-
-      const runCheck = async (checkType) => {
-        const label = checkType === 'aria' ? 'ARIA Labels' : 'Focus Order';
-        try {
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-a11y`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-              designData: data.nodes,
-              checkType,
-              fileName: data.fileName,
-              pageName: data.pageName,
-              ignoreChrome: getIgnoreChrome()
-            })
-          });
-
-          if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.error || `AI check failed (${response.status})`);
-          }
-
-          const result = await response.json();
-          const resultKey = checkType === 'focus_order' ? 'focus_order' : 'aria';
-          a11yAIResults[resultKey] = result.results;
-
-          // Write annotations to Figma
-          parent.postMessage({
-            pluginMessage: {
-              type: 'write-a11y-annotations',
-              checkType,
-              results: result.results
-            }
-          }, '*');
-
-          setCheckStatus(checkType, 'done');
-          displayAIAccessibilityResults();
-          showToast(`✅ ${label} done — ${result.results.length} elements`, 'success');
-        } catch (error) {
-          setCheckStatus(checkType, 'error');
-          showToast(`❌ ${label}: ${error.message || 'failed'}`, 'error');
-        }
-      };
-
-      if (checkAria)  promises.push(runCheck('aria'));
-      if (checkFocus) promises.push(runCheck('focus_order'));
-
-      // Fire both in parallel
-      await Promise.all(promises);
-
-      // Re-enable button when all AI checks are done
-      if (!document.getElementById('a11yCheckText').checked && !document.getElementById('a11yCheckIcon').checked) {
-        const btn = document.getElementById('a11yRunBtn');
-        btn.disabled = false;
-        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
-      }
-    }
-
-    // ====== Contrast usage tracking ======
-    async function trackContrastUsage(fileName, nodeCount) {
-      try {
-        await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ userName: fileName || 'unknown', feedback: `contrast_check nodes:${nodeCount}`, feedbackType: 'usage_track' })
-        });
-      } catch (_) {}
-      // Also call plugin_usage directly
-      try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ _trackOnly: true, action: 'a11y_contrast', fileName: fileName || 'unknown', nodeCount })
-        });
-      } catch (_) {}
-    }
-
-    // Handle contrast results arriving from plugin code
-    function onContrastResultsReceived(issues) {
-      const checkText = document.getElementById('a11yCheckText').checked;
-      const checkIcon = document.getElementById('a11yCheckIcon').checked;
-      if (checkText) setCheckStatus('text', 'done');
-      if (checkIcon) setCheckStatus('icon', 'done');
-
-      // Re-enable button if no AI checks are pending
-      const aria  = a11yCheckStatus.aria;
-      const focus = a11yCheckStatus.focus_order;
-      if (aria !== 'running' && focus !== 'running') {
-        const btn = document.getElementById('a11yRunBtn');
-        btn.disabled = false;
-        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
-      }
-
-      // Track usage
-      if (selectionData && selectionData.nodes) {
-        trackContrastUsage(selectionData.fileName, issues.length).catch(() => {});
-      }
-    }
-
-    // Intercept accessibility-results message to update status
-    const _origAccessibilityResults = (issues, error) => {
-      onContrastResultsReceived(issues || []);
-      displayAccessibilityResults(issues, error);
-    };
-
-    function displayAIAccessibilityResults() {
-      const feedbackList = document.getElementById('feedbackList');
-      const resultsEl = document.getElementById('results');
-      const summaryStats = document.getElementById('summaryStats');
-      const analysisSection = document.getElementById('analysisSection');
-
-      analysisSection.style.display = 'none';
-      document.querySelector('.results-title').textContent = `🤖 AI Accessibility — Results`;
-      document.querySelector('.sort-controls').style.display = 'none';
-      document.querySelector('.filter-controls').style.display = 'none';
-
-      const ariaResults = a11yAIResults.aria;
-      const focusResults = a11yAIResults.focus_order;
-      const totalCount = (ariaResults ? ariaResults.length : 0) + (focusResults ? focusResults.length : 0);
-
-      summaryStats.innerHTML = `
-        <div style="grid-column: 1/-1; padding: 14px 16px; background: var(--hdfc-light); border-radius: var(--radius-sm); border: 1px solid rgba(28,63,202,0.15);">
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hdfc-primary);">
-            <span style="font-size: 18px;">🤖</span>
-            <span>${totalCount} elements annotated in Figma</span>
-          </div>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">AI has generated accessibility metadata and written it directly into your Figma file.</div>
-        </div>
-      `;
-
-      const roleIcons = { button: '🔘', tab: '📑', navigation: '🧭', listitem: '📋', img: '🖼️', input: '✏️', status: '🏷️', link: '🔗', heading: '📰', checkbox: '☑️', radiobutton: '🔵', combobox: '📂', menuitem: '📌' };
-      let html = '';
-
-      // ---- ARIA LABELS SECTION ----
-      if (ariaResults && ariaResults.length > 0) {
-        const grouped = {};
-        ariaResults.forEach(r => {
-          const role = r.role || 'other';
-          if (!grouped[role]) grouped[role] = [];
-          grouped[role].push(r);
-        });
-
-        html += `
-          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px;">
-            <span style="font-size: 16px;">🏷️</span>
-            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">ARIA Labels</span>
-            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${ariaResults.length} elements</span>
-          </div>
-        `;
-
-        Object.entries(grouped).sort((a, b) => b[1].length - a[1].length).forEach(([role, items]) => {
-          html += `
-            <div class="category-section">
-              <div class="category-header" onclick="this.classList.toggle('collapsed'); this.nextElementSibling.classList.toggle('hidden');">
-                <span class="category-title">
-                  <span class="category-icon">${roleIcons[role] || '🏷️'}</span>
-                  <span style="text-transform: capitalize;">${role}</span>
-                </span>
-                <span class="category-count">${items.length}</span>
-              </div>
-              <div class="category-content">
-                ${items.map(r => `
-                  <div class="a11y-item pass" style="cursor:pointer;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
-                    <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">${r.nodeName || 'Unknown'}</div>
-                    <div style="font-size: 12px; color: var(--hdfc-primary); font-style: italic; margin-bottom: 4px;">"${r.ariaLabel}"</div>
-                    ${r.context ? `<div style="font-size: 11px; color: var(--text-muted);">${r.context}</div>` : ''}
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `;
-        });
-      }
-
-      // ---- FOCUS ORDER SECTION ----
-      if (focusResults && focusResults.length > 0) {
-        const sorted = [...focusResults].sort((a, b) => (a.focusIndex || 0) - (b.focusIndex || 0));
-
-        html += `
-          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px; margin-top: ${ariaResults && ariaResults.length > 0 ? '20px' : '0'};">
-            <span style="font-size: 16px;">🔢</span>
-            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">Focus Order</span>
-            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${sorted.length} elements</span>
-          </div>
-        `;
-
-        html += sorted.map(r => `
-          <div class="a11y-item pass" style="cursor:pointer; display: flex; align-items: flex-start; gap: 12px;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
-            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--hdfc-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">${r.focusIndex}</div>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 2px;">${r.nodeName || 'Unknown'}</div>
-              <div style="font-size: 12px; color: var(--hdfc-primary); margin-bottom: 2px;">${r.ariaLabel || ''}</div>
-              <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
-                <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--hdfc-light); color: var(--hdfc-primary); font-weight: 600; text-transform: capitalize;">${r.role || ''}</span>
-                ${r.rationale ? `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">${r.rationale}</span>` : ''}
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-
-      feedbackList.innerHTML = html;
-      resultsEl.classList.add('active');
-    }
-
-    function displayAccessibilityResults(issues, error) {
-      const btn = document.getElementById('a11yRunBtn');
-      btn.disabled = false;
-      btn.innerHTML = '<span>♿</span><span>Run Contrast Check</span>';
-      
-      if (error) {
-        showError(error);
-        return;
-      }
-      
-      a11yIssues = issues;
-      renderA11yResults();
-    }
-    
-    function setA11ySort(sort) {
-      a11ySort = sort;
-      renderA11yResults();
-    }
-    
-    function setA11yFilter(filter) {
-      a11yFilter = filter;
-      renderA11yResults();
-    }
-    
-    function renderA11yResults() {
-      const issues = a11yIssues;
-      const analysisSection = document.getElementById('analysisSection');
-      const resultsEl = document.getElementById('results');
-      const feedbackList = document.getElementById('feedbackList');
-      const summaryStats = document.getElementById('summaryStats');
-      
-      analysisSection.style.display = 'none';
-      
-      const textCount = issues.filter(i => i.type === 'text_contrast').length;
-      const iconCount = issues.filter(i => i.type === 'icon_contrast').length;
-      const failCount = issues.filter(i => !i.pass).length;
-      const passCount = issues.filter(i => i.pass).length;
-      
-      summaryStats.innerHTML = `
-        <div style="grid-column: 1/-1;">
-          <div class="a11y-summary" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='all'?1:0.5};" onclick="setA11yFilter('all')">
-              <div class="a11y-stat-val">${issues.length}</div>
-              <div class="a11y-stat-label">All</div>
-            </div>
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='fail'?1:0.5};" onclick="setA11yFilter('fail')">
-              <div class="a11y-stat-val" style="color: var(--error);">${failCount}</div>
-              <div class="a11y-stat-label">Fail</div>
-            </div>
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='pass'?1:0.5};" onclick="setA11yFilter('pass')">
-              <div class="a11y-stat-val" style="color: var(--success);">${passCount}</div>
-              <div class="a11y-stat-label">Pass</div>
-            </div>
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='text'?1:0.5};" onclick="setA11yFilter('text')">
-              <div class="a11y-stat-val" style="color: var(--hdfc-primary);">${textCount}</div>
-              <div class="a11y-stat-label">Text</div>
-            </div>
-          </div>
-          <div style="display: flex; gap: 4px; background: var(--white); padding: 3px; border-radius: 6px; border: 1px solid var(--border);">
-            <button class="sort-btn ${a11ySort==='type'?'active':''}" onclick="setA11ySort('type')" style="${a11ySort==='type'?'background:var(--hdfc-primary);color:white;':''}">Group by Type</button>
-            <button class="sort-btn ${a11ySort==='ratio'?'active':''}" onclick="setA11ySort('ratio')" style="${a11ySort==='ratio'?'background:var(--hdfc-primary);color:white;':''}">By Ratio</button>
-            <button class="sort-btn ${a11ySort==='status'?'active':''}" onclick="setA11ySort('status')" style="${a11ySort==='status'?'background:var(--hdfc-primary);color:white;':''}">By Status</button>
-          </div>
-        </div>
-      `;
-      
-      document.querySelector('.results-title').textContent = 'Contrast Check Results';
-      document.querySelector('.sort-controls').style.display = 'none';
-      document.querySelector('.filter-controls').style.display = 'none';
-      
-      // Filter
-      let filtered = [...issues];
-      if (a11yFilter === 'fail') filtered = filtered.filter(i => !i.pass);
-      else if (a11yFilter === 'pass') filtered = filtered.filter(i => i.pass);
-      else if (a11yFilter === 'text') filtered = filtered.filter(i => i.type === 'text_contrast');
-      else if (a11yFilter === 'icon') filtered = filtered.filter(i => i.type === 'icon_contrast');
-      
-      if (filtered.length === 0) {
-        feedbackList.innerHTML = `
-          <div class="success-message">
-            <div class="success-icon">✓</div>
-            <div class="success-title">${issues.length === 0 ? 'No elements found' : 'No matching issues'}</div>
-            <div class="success-subtitle">${issues.length === 0 ? 'No checkable layers found in the selection.' : 'Try a different filter.'}</div>
-          </div>
-        `;
-        resultsEl.classList.add('active');
-        return;
-      }
-      
-      if (a11ySort === 'type') {
-        // Group by text vs icon
-        const textIssues = filtered.filter(i => i.type === 'text_contrast');
-        const iconIssues = filtered.filter(i => i.type === 'icon_contrast');
-        textIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
-        iconIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
-        
-        let html = '';
-        if (textIssues.length > 0) {
-          const textFails = textIssues.filter(i => !i.pass).length;
-          const textCollapsed = a11yCollapsed.has('text');
-          html += `<div class="category-section">
-            <div class="category-header ${textCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('text')">
-              <span class="category-title">
-                <span class="category-icon">🔤</span>
-                <span>Text Contrast</span>
-                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${textIssues.length} items${textFails > 0 ? ', <span style=color:var(--error)>' + textFails + ' fail</span>' : ''}</span>
-              </span>
-              <span class="chevron ${textCollapsed ? 'collapsed' : ''}">▼</span>
-            </div>
-            <div class="category-content ${textCollapsed ? 'hidden' : ''}">
-              ${textIssues.map(renderA11yItem).join('')}
-            </div>
-          </div>`;
-        }
-        if (iconIssues.length > 0) {
-          const iconFails = iconIssues.filter(i => !i.pass).length;
-          const iconCollapsed = a11yCollapsed.has('icon');
-          html += `<div class="category-section">
-            <div class="category-header ${iconCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('icon')">
-              <span class="category-title">
-                <span class="category-icon">🎨</span>
-                <span>Icon Contrast</span>
-                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${iconIssues.length} items${iconFails > 0 ? ', <span style=color:var(--error)>' + iconFails + ' fail</span>' : ''}</span>
-              </span>
-              <span class="chevron ${iconCollapsed ? 'collapsed' : ''}">▼</span>
-            </div>
-            <div class="category-content ${iconCollapsed ? 'hidden' : ''}">
-              ${iconIssues.map(renderA11yItem).join('')}
-            </div>
-          </div>`;
-        }
-        feedbackList.innerHTML = html;
-      } else if (a11ySort === 'ratio') {
-        filtered.sort((a, b) => a.ratio - b.ratio);
-        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
-      } else {
-        // status: fails first
-        filtered.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
-        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
-      }
-      
-      resultsEl.classList.add('active');
-    }
-    
-    function renderA11yItem(issue) {
-      return `
-        <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div style="flex: 1; min-width: 0;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
-                <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
-            </div>
-            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
-              <div class="a11y-ratio ${issue.pass ? 'pass' : 'fail'}">${issue.ratio}:1</div>
-              <div style="font-size: 10px; color: var(--text-muted);">need ${issue.required}:1</div>
-            </div>
-          </div>
-          <div class="a11y-colors">
-            <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
-            <span style="font-size: 11px; color: var(--text-muted);">on</span>
-            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
-            <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
-            <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
-          </div>
-        </div>
-      `;
-    }
-    
-    function toggleA11yGroup(group) {
-      if (a11yCollapsed.has(group)) {
-        a11yCollapsed.delete(group);
-      } else {
-        a11yCollapsed.add(group);
-      }
-      renderA11yResults();
-    }
-    
-    // Override newAnalysisBtn to restore a11y UI state
-    const _origNewAnalysis = document.getElementById('newAnalysisBtn').onclick;
-    document.getElementById('newAnalysisBtn').addEventListener('click', () => {
-      document.querySelector('.sort-controls').style.display = '';
-      document.querySelector('.filter-controls').style.display = '';
-      document.querySelector('.results-title').textContent = 'Analysis Results';
-    });
   </script>
 </body>
 </html>
