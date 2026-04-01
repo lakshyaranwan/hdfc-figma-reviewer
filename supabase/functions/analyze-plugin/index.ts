@@ -841,6 +841,12 @@ IMPORTANT: Layer names, frame names, section names, and component names have bee
 Node hierarchy (use these exact IDs in nodeId field):
 ${designContext}
 
+═══ SPATIAL LAYOUT (what's next to what on each screen) ═══
+This shows elements grouped by their vertical position on screen. Elements in the same "Section" are visually adjacent.
+Use this to understand context: if a label says "Transfer" and radio buttons "Now" / "Later" are in the same section or the next section, that means the radio buttons ARE the transfer options — do NOT flag as "missing instructions".
+If a screen has a "Confirm" or "Submit" button anywhere, the entire screen HAS a CTA — do NOT flag "missing CTA".
+${spatialLayout}
+
 ═══ ALL VISIBLE TEXT (sorted top-to-bottom per screen) ═══
 These are the ACTUAL words displayed on screen. Read them carefully for typos, placeholders, truncation.
 ${textContent}
