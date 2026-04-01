@@ -439,6 +439,11 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
       }
 
       const aiData = await aiResponse.json();
+      const finishReason = aiData.choices?.[0]?.finish_reason;
+      console.log(`Chunk ${chunkIdx + 1} finish_reason: ${finishReason}`);
+      if (finishReason === 'length') {
+        console.warn(`⚠️ Chunk ${chunkIdx + 1} was TRUNCATED (finish_reason=length) — output may be incomplete`);
+      }
       const content = aiData.choices?.[0]?.message?.content;
 
       if (!content) {
