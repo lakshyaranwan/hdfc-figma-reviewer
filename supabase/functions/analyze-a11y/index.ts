@@ -6,15 +6,21 @@ const corsHeaders = {
 };
 
 // Track usage in plugin_usage table
-async function trackUsage(supabaseUrl: string, serviceRoleKey: string, action: string, nodeCount: number, fileName: string) {
+async function trackUsage(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  action: string,
+  nodeCount: number,
+  fileName: string,
+) {
   try {
     await fetch(`${supabaseUrl}/rest/v1/plugin_usage`, {
       method: "POST",
       headers: {
-        "apikey": serviceRoleKey,
-        "Authorization": `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
         "Content-Type": "application/json",
-        "Prefer": "return=minimal",
+        Prefer: "return=minimal",
       },
       body: JSON.stringify({
         user_name: fileName || "unknown",
@@ -40,7 +46,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.opacity !== undefined && node.opacity === 0) return;
 
     // Use actual text content as path label — NOT the layer name
-    const displayLabel = node.characters?.trim() || node.allText?.split(' · ')[0] || node.name || node.type || "?";
+    const displayLabel = node.characters?.trim() || node.allText?.split(" · ")[0] || node.name || node.type || "?";
     const currentPath = path ? `${path} > ${displayLabel}` : displayLabel;
 
     const n: any = {
@@ -55,14 +61,14 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     if (node.characters) n.textContent = node.characters.trim();
 
     // ALL TEXT — pre-aggregated readable text from entire subtree (use this for labels!)
-    if (node.allText)    n.allText = node.allText;
+    if (node.allText) n.allText = node.allText;
 
-    if (node.fontSize)   n.fontSize = node.fontSize;
+    if (node.fontSize) n.fontSize = node.fontSize;
 
     // Spatial data — used for reading order
     if (node.x !== undefined) n.x = Math.round(node.x);
     if (node.y !== undefined) n.y = Math.round(node.y);
-    if (node.width  !== undefined) n.w = Math.round(node.width);
+    if (node.width !== undefined) n.w = Math.round(node.width);
     if (node.height !== undefined) n.h = Math.round(node.height);
 
     if (node.layoutMode) n.layoutMode = node.layoutMode;
@@ -74,11 +80,11 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
     }
 
     // Structural interactivity signals (set by Figma plugin pre-pass)
-    if (node._isComponent)           n.isComponent = true;
-    if (node._inRepeatingGroup)      n.inRepeatingGroup = true;
+    if (node._isComponent) n.isComponent = true;
+    if (node._inRepeatingGroup) n.inRepeatingGroup = true;
     if (node._repeatingSiblingCount) n.repeatingSiblingCount = node._repeatingSiblingCount;
-    if (node._isLeaf)                n.isLeaf = true;
-    if (node._isIconButton)          n.isIconButton = true;   // icon-only, no text
+    if (node._isLeaf) n.isLeaf = true;
+    if (node._isIconButton) n.isIconButton = true; // icon-only, no text
 
     flat.push(n);
 
@@ -94,27 +100,23 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
 
 // Pre-compute a spatial overview with allText included so the AI sees real content
 function buildSpatialSummary(flatNodes: any[]): string {
-  const withPos = flatNodes.filter(n => n.x !== undefined && n.y !== undefined);
+  const withPos = flatNodes.filter((n) => n.x !== undefined && n.y !== undefined);
   if (withPos.length === 0) return "";
 
-  const sorted = withPos
-    .sort((a, b) => a.y - b.y || a.x - b.x)
-    .slice(0, 100);
+  const sorted = withPos.sort((a, b) => a.y - b.y || a.x - b.x).slice(0, 100);
 
-  const lines = sorted.map(n => {
+  const lines = sorted.map((n) => {
     // Prefer allText → textContent → [TYPE]  — never the layerName
-    const label = n.allText
-      ? `"${n.allText.slice(0, 60)}"`
-      : n.textContent
-        ? `"${n.textContent}"`
-        : `[${n.type}]`;
+    const label = n.allText ? `"${n.allText.slice(0, 60)}"` : n.textContent ? `"${n.textContent}"` : `[${n.type}]`;
     const flags = [
       n.isComponent ? "COMPONENT" : "",
       n.inRepeatingGroup ? `REPEATING×${n.repeatingSiblingCount}` : "",
       n.isLeaf ? "LEAF" : "",
       n.isIconButton ? "ICON_BTN" : "",
       n.cornerRadius ? `r=${n.cornerRadius}` : "",
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     return `  [y=${n.y} x=${n.x} ${n.w}×${n.h}] ${label} type=${n.type}${flags ? " " + flags : ""}`;
   });
   return `FULL SPATIAL MAP — sorted by visual position (TOP→BOTTOM, LEFT→RIGHT).\nIMPORTANT: 'label' is the VISIBLE TEXT (allText or textContent), NOT the layer name. Use it directly for ariaLabel.\n${lines.join("\n")}`;
@@ -133,9 +135,10 @@ function findRepeatingGroups(flatNodes: any[]): string {
   const summaries: string[] = [];
   for (const [size, members] of Object.entries(groups)) {
     if (members.length < 3) continue;
-    const sortedMembers = [...members].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-    const sample = sortedMembers.slice(0, 6)
-      .map(m => m.allText || m.textContent || m.layerName)
+    const sortedMembers = [...members].sort((a, b) => a.y - b.y || a.x - b.x);
+    const sample = sortedMembers
+      .slice(0, 6)
+      .map((m) => m.allText || m.textContent || m.layerName)
       .join(", ");
     summaries.push(`  - ${members.length} elements of size ${size} (visible content: ${sample}...)`);
   }
@@ -146,19 +149,19 @@ function findRepeatingGroups(flatNodes: any[]): string {
 
 // Visual zone detector
 function buildVisualZones(flatNodes: any[]): string {
-  const withPos = flatNodes.filter(n => n.x !== undefined && n.y !== undefined && n.w && n.h);
+  const withPos = flatNodes.filter((n) => n.x !== undefined && n.y !== undefined && n.w && n.h);
   if (withPos.length === 0) return "";
 
-  const allYs = withPos.map(n => n.y + n.h);
+  const allYs = withPos.map((n) => n.y + n.h);
   const maxY = Math.max(...allYs);
-  const minY = Math.min(...withPos.map(n => n.y));
+  const minY = Math.min(...withPos.map((n) => n.y));
 
-  const topZoneCutoff    = minY + (maxY - minY) * 0.12;
-  const bottomZoneCutoff = maxY - (maxY - minY) * 0.10;
+  const topZoneCutoff = minY + (maxY - minY) * 0.12;
+  const bottomZoneCutoff = maxY - (maxY - minY) * 0.1;
 
-  const top    = withPos.filter(n => (n.y + n.h) <= topZoneCutoff);
-  const bottom = withPos.filter(n => n.y >= bottomZoneCutoff);
-  const content = withPos.filter(n => n.y > topZoneCutoff && (n.y + n.h) < bottomZoneCutoff);
+  const top = withPos.filter((n) => n.y + n.h <= topZoneCutoff);
+  const bottom = withPos.filter((n) => n.y >= bottomZoneCutoff);
+  const content = withPos.filter((n) => n.y > topZoneCutoff && n.y + n.h < bottomZoneCutoff);
 
   return [
     `VISUAL ZONES:`,
@@ -184,15 +187,16 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-    if (!designData || designData.length === 0) throw new Error("No design data provided. Please select a frame in Figma.");
+    if (!designData || designData.length === 0)
+      throw new Error("No design data provided. Please select a frame in Figma.");
     if (!["aria", "focus_order"].includes(checkType)) throw new Error(`Unknown checkType: ${checkType}`);
 
     const flatNodes = flattenDesignData(designData);
     console.log(`Flattened to ${flatNodes.length} nodes`);
 
-    const spatialSummary  = buildSpatialSummary(flatNodes);
+    const spatialSummary = buildSpatialSummary(flatNodes);
     const repeatingGroups = findRepeatingGroups(flatNodes);
-    const visualZones     = buildVisualZones(flatNodes);
+    const visualZones = buildVisualZones(flatNodes);
 
     // Build parent-context map (closest ancestor text content, closest first)
     const parentContextMap: Record<string, string[]> = {};
@@ -201,14 +205,16 @@ serve(async (req) => {
         if (n.id) parentContextMap[n.id] = [...ancestors];
         const childAncestors = n.textContent
           ? [n.textContent, ...ancestors]
-          : (n.allText ? [n.allText, ...ancestors] : ancestors);
+          : n.allText
+            ? [n.allText, ...ancestors]
+            : ancestors;
         if (n.children) buildParentContext(n.children, childAncestors);
       }
     }
     buildParentContext(designData);
 
     // Enrich flat nodes with parent context
-    const enrichedNodes = flatNodes.map(n => ({
+    const enrichedNodes = flatNodes.map((n) => ({
       ...n,
       parentContext: (parentContextMap[n.id] || []).slice(0, 3),
     }));
@@ -216,11 +222,13 @@ serve(async (req) => {
     const designContext = JSON.stringify(enrichedNodes, null, 2);
 
     // ── Chrome ignore instruction ─────────────────────────────────────────────
-    const ignoreChromeInstruction = ignoreChrome ? `
+    const ignoreChromeInstruction = ignoreChrome
+      ? `
 IGNORE CHROME / STRUCTURAL ELEMENTS:
 - Do NOT annotate or include: status bars, app bars, top headers, bottom nav bars, tab bars, footers, navigation drawers, or any shell/chrome.
 - Only process the content area — the unique, screen-specific elements the designer controls.
-` : "";
+`
+      : "";
 
     // ── Shared interactivity decision rules ───────────────────────────────────
     const interactivityRules = `
@@ -237,19 +245,21 @@ HOW TO DECIDE IF AN ELEMENT IS INTERACTIVE:
 10. isLeaf=true inside a card with action siblings → listitem / interactive card row`;
 
     // ── DS context injection ──────────────────────────────────────────────────
-    const dsPromptSection = dsContext ? `
+    const dsPromptSection = dsContext
+      ? `
 ═══ DESIGN SYSTEM CONTEXT ═══
 This screen uses a Design System. Use this to produce better ARIA labels and focus annotations.
 
-Known icon component names from DS: ${(dsContext.iconNames || []).slice(0, 60).join(', ')}
-Known component names: ${(dsContext.componentNames || []).slice(0, 60).join(', ')}
+Known icon component names from DS: ${(dsContext.iconNames || []).slice(0, 60).join(", ")}
+Known component names: ${(dsContext.componentNames || []).slice(0, 60).join(", ")}
 
 RULES:
 1. When you see a node whose layerName matches a known DS icon name (e.g. "Icons/Arrow/Left/24/Dark"), infer its semantic meaning from the name and use that as the ARIA label. E.g. "Icons/Arrow/Left/24/Dark" in a header → label: "Back".
 2. When you see "Icons/Notification/Bell/24" → label: "Notifications".
 3. Use the DS component name structure (e.g. "Button/Primary", "Card/Transaction") to better infer the role and purpose of unlabelled components.
 4. Do NOT use the DS component name as the literal ARIA label — infer the semantic meaning from context + name combined.
-` : '';
+`
+      : "";
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -333,7 +343,6 @@ Return a JSON array. Each item:
   "ariaLabel": "Full descriptive label — built from allText or textContent, NEVER from layerName",
   "context": "One sentence explaining the labelling choice (designer-facing)"
 }`;
-
     } else {
       // focus_order
       systemPrompt = `You are a senior accessibility engineer specialising in WCAG 2.1 focus management (SC 2.4.3) and screen reader UX.
@@ -457,16 +466,16 @@ Return a JSON array sorted by focusIndex (1-based, no gaps). Each item:
       const errorText = await aiResponse.text();
       console.error("AI API error:", errorText);
       if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "AI rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "AI rate limit exceeded. Please try again in a moment." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI usage limit reached. Please check your Lovable workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "AI usage limit reached. Please check your Lovable workspace." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       throw new Error(`AI analysis failed: ${aiResponse.status}`);
     }
@@ -503,19 +512,24 @@ Return a JSON array sorted by focusIndex (1-based, no gaps). Each item:
     console.log(`${checkType} analysis complete: ${results.length} items`);
 
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-      await trackUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, `a11y_${checkType}`, flatNodes.length, fileName || "unknown");
+      await trackUsage(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY,
+        `a11y_${checkType}`,
+        flatNodes.length,
+        fileName || "unknown",
+      );
     }
 
-    return new Response(
-      JSON.stringify({ success: true, results, checkType }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, results, checkType }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: unknown) {
     console.error("Error in analyze-a11y:", error);
     const msg = error instanceof Error ? error.message : "Analysis failed";
-    return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
