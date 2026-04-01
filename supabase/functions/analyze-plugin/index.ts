@@ -397,13 +397,14 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "openai/gpt-5-mini",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
           max_tokens: 64000,
           temperature: 0,
+          seed: 42,
         }),
       });
 
