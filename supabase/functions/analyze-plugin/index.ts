@@ -719,10 +719,11 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
-      // Match analyze-figma: scale items per category by chunk count
+      // Scale items per category — ensure enough coverage
+      const minPerCategory = 4;
       const itemsPerCategory = isChunked 
-        ? Math.max(3, Math.floor(8 / chunks.length))
-        : Math.floor(80 / allowedCategories.length);
+        ? Math.max(minPerCategory, Math.floor(10 / chunks.length))
+        : Math.max(minPerCategory, Math.floor(60 / allowedCategories.length));
 
       const designContext = JSON.stringify(chunk, null, 2);
       const textContent = extractTextContent(chunk);
@@ -849,8 +850,10 @@ UI ISSUES → category "ui":
 
 ═══ OUTPUT FORMAT ═══
 CRITICAL CATEGORY RESTRICTION: Only use these category values: ${categoryOptions}
-Aim for ${itemsPerCategory} items per category, distributed across ALL requested categories.
-At least 70% of items MUST be HIGH or MEDIUM severity.
+You MUST produce AT LEAST ${minPerCategory} items for EACH category. Target ${itemsPerCategory} per category.
+If you return fewer than ${minPerCategory} for any category, your review is INCOMPLETE — look harder.
+Every category MUST have at least one HIGH or MEDIUM severity issue.
+At least 70% of ALL items MUST be HIGH or MEDIUM severity.
 
 Use the MOST SPECIFIC node ID for each issue (the text layer, not the parent frame).
 NEVER include technical IDs like [123:456] in title or description fields.
