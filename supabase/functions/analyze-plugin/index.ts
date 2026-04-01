@@ -219,6 +219,72 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    // Fetch selected AI model from settings (same as analyze-figma)
+    let selectedModel = "google/gemini-2.5-flash"; // default
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const settingsResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/app_settings?key=eq.ai_model&select=value`,
+          {
+            headers: {
+              "apikey": SUPABASE_SERVICE_ROLE_KEY,
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+          }
+        );
+        
+        if (settingsResponse.ok) {
+          const settings = await settingsResponse.json();
+          if (settings && settings.length > 0 && settings[0].value) {
+            selectedModel = settings[0].value;
+            console.log("Using selected model:", selectedModel);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching model setting:", error);
+      }
+    }
+
+    // Store usage info helper (same as analyze-figma)
+    const storeUsageInfo = async (status: string, headers: Headers, error?: any) => {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+      try {
+        const usage: any = {
+          model: selectedModel,
+          lastUsed: new Date().toISOString(),
+          status,
+        };
+        const remaining = headers.get("x-ratelimit-remaining-tokens");
+        const limit = headers.get("x-ratelimit-limit-tokens");
+        const resetTime = headers.get("x-ratelimit-reset-tokens");
+        if (remaining) usage.remaining = parseInt(remaining);
+        if (limit) usage.limit = parseInt(limit);
+        if (resetTime) usage.resetTime = resetTime;
+        if (error) {
+          const match = error.match(/Limit (\d+), Used (\d+)/);
+          if (match) {
+            usage.limit = parseInt(match[1]);
+            usage.remaining = parseInt(match[1]) - parseInt(match[2]);
+          }
+        }
+        await fetch(`${SUPABASE_URL}/rest/v1/app_settings`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates",
+          },
+          body: JSON.stringify({
+            key: `model_usage_${selectedModel}`,
+            value: JSON.stringify(usage),
+          }),
+        });
+      } catch (e) {
+        console.error("Error storing usage info:", e);
+      }
+    };
+
     if (!designData || designData.length === 0) {
       throw new Error("No design data provided. Please select a frame in Figma.");
     }
