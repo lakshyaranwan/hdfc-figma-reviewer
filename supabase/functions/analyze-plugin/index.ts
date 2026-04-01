@@ -406,7 +406,7 @@ Use category "design_system" for all DS-related feedback items.
             { role: "user", content: analysisPrompt },
           ],
           max_tokens: 64000,
-          temperature: 0,
+          temperature: 0.4,
         }),
       });
 
