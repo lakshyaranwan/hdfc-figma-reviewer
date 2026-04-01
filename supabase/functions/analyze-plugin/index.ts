@@ -675,11 +675,12 @@ serve(async (req) => {
     const systemPrompt = `You are a senior product designer doing design QA. You review like a stakeholder would — you catch the things that would be embarrassing in a demo or confusing to a real user.
 
 CRITICAL DATA RULES:
-1. The "text" field contains the ACTUAL VISIBLE TEXT displayed to users. The "name" field is an internal layer label created by designers — it is OFTEN WRONG, OUTDATED, or PLACEHOLDER. ALWAYS judge by "text" content. NEVER trust "name" for visible content analysis.
-2. Every issue MUST cite a specific text string, hex colour, or node ID from the data. No theoretical issues.
+1. The "text" field is the ONLY source of truth for what the user sees on screen. THERE IS NO "name" FIELD — it has been removed. Do NOT reference layer names, frame names, section names, or component names in your analysis. They do not exist. Only "text" content matters.
+2. Every issue MUST cite a specific "text" string, hex colour, or node ID from the data. No theoretical issues.
 3. ONE issue per node ID. NEVER report the same nodeId twice.
 4. ONE issue per unique problem. If the same text appears in multiple places, report it ONCE.
 5. Spread attention EVENLY across ALL screens/frames. Do NOT fixate on one screen.
+6. NEVER flag or mention internal naming conventions, layer organization, or component structure. You CANNOT see these. You can ONLY see what the end user sees: text, colors, layout, and spacing.
 
 WORKFLOW — CROSS-SCREEN COMPARISON:
 Before writing issues, enumerate every top-level frame (screen). Then:
@@ -725,7 +726,12 @@ Return ONLY a valid JSON array. No markdown. Start with [ end with ].`;
         ? Math.max(minPerCategory, Math.floor(10 / chunks.length))
         : Math.max(minPerCategory, Math.floor(60 / allowedCategories.length));
 
-      const designContext = JSON.stringify(chunk, null, 2);
+      // Strip "name" field from data sent to AI — layer names are misleading and cause false flags
+      const chunkForAI = chunk.map((node: any) => {
+        const { name, _boilerplate, _salience, ...rest } = node;
+        return rest;
+      });
+      const designContext = JSON.stringify(chunkForAI, null, 2);
       const textContent = extractTextContent(chunk);
       const colorContent = extractColorContext(chunk);
       const semanticContext = extractSemanticContext(chunk);
@@ -767,7 +773,7 @@ DS RULES:
       const analysisPrompt = `
 ═══ DESIGN DATA${chunkLabel} ═══
 File: ${fileName} | Page: ${pageName}
-REMINDER: "text" field = what the USER SEES. "name" field = internal layer label (IGNORE for content analysis).
+IMPORTANT: Layer names, frame names, section names, and component names have been REMOVED from this data. They are internal designer labels and do NOT represent what users see. Only the "text" field shows actual visible content. Do NOT infer or guess content from node types or IDs.
 
 Node hierarchy (use these exact IDs in nodeId field):
 ${designContext}
