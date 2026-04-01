@@ -502,6 +502,19 @@ serve(async (req) => {
     // Step 1: Flatten deeply nested design data into simplified flat nodes
     const flatNodes = flattenDesignData(designData);
     console.log("Flattened to", flatNodes.length, "nodes");
+    // Debug: check how many nodes have fills at all
+    const nodesWithFills = flatNodes.filter((n: any) => n.fills && n.fills.length > 0);
+    const nodesWithHex = flatNodes.filter((n: any) => n.fills?.some((f: any) => f.hex));
+    console.log(`Nodes with fills: ${nodesWithFills.length}, with hex: ${nodesWithHex.length}`);
+    // Sample a few fills for debugging
+    if (nodesWithHex.length > 0) {
+      const sample = nodesWithHex.slice(0, 5).map((n: any) => `${n.id}(${n.type}):${n.fills[0].hex}`);
+      console.log(`Fill samples: ${sample.join(', ')}`);
+    } else if (nodesWithFills.length > 0) {
+      // Fills exist but no hex — log what we do have
+      const sample = nodesWithFills.slice(0, 3).map((n: any) => `${n.id}(${n.type}):${JSON.stringify(n.fills[0])}`);
+      console.log(`Fills WITHOUT hex: ${sample.join(', ')}`);
+    }
     console.log("Estimated total tokens:", estimateTokens(JSON.stringify(flatNodes)));
 
     // Step 2: Chunk by actual token size (not node count)
