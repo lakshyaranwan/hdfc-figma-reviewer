@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Figma plugin for analyzing designs",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && node -e \"const fs=require('fs');const code=fs.readFileSync('code.js','utf8');const m=code.match(/catch\\s*\\{/g);if(m){console.error('ERROR: bare catch {} found in code.js:',m.length,'instance(s)');process.exit(1);}else{console.log('✅ No bare catch {} in code.js');}\"" 
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.98.0",

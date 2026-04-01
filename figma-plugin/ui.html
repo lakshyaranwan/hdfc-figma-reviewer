@@ -643,7 +643,7 @@
     .feedback-item {
       background: var(--white);
       border-radius: var(--radius-sm);
-      padding: 16px;
+      padding: 12px 16px;
       margin-bottom: 10px;
       border-left: 4px solid var(--border);
       cursor: pointer;
@@ -678,21 +678,46 @@
     .feedback-title {
       font-weight: 600;
       font-size: 13px;
-      margin-bottom: 6px;
       color: var(--text-primary);
       line-height: 1.4;
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .feedback-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
     .feedback-desc {
       font-size: 12px;
       color: var(--text-secondary);
       line-height: 1.6;
+      display: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .feedback-desc.expanded {
+      display: block;
+    }
+    .feedback-expand-btn {
+      font-size: 11px;
+      color: var(--hdfc-primary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 0 0;
+      font-weight: 500;
+    }
+    .feedback-expand-btn:hover {
+      text-decoration: underline;
     }
     
     .feedback-meta {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: 6px;
+      margin-top: 6px;
       font-size: 11px;
       flex-wrap: wrap;
       align-items: center;
@@ -737,7 +762,7 @@
     .feedback-actions {
       display: flex;
       gap: 8px;
-      margin-top: 14px;
+      flex-shrink: 0;
     }
     
     /* Error */
@@ -1040,6 +1065,235 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+    /* ── Design System Panel ─────────────────────────────── */
+    .ds-panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .ds-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      background: var(--hdfc-surface);
+      border-bottom: 1px solid transparent;
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .ds-panel-header:hover { background: var(--hdfc-light); }
+    .ds-panel-header.open { border-bottom-color: var(--border); }
+    .ds-panel-title {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ds-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--hdfc-light);
+      color: var(--hdfc-primary);
+    }
+    .ds-badge.connected { background: #D1FAE5; color: var(--success); }
+    .ds-badge.stale     { background: #FEF3C7; color: #D97706; }
+    .ds-panel-body {
+      padding: 14px;
+      display: none;
+    }
+    .ds-panel-body.open { display: block; }
+    .ds-field { margin-bottom: 10px; }
+    .ds-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .ds-field input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--hdfc-surface);
+      transition: border-color 0.15s;
+    }
+    .ds-field input:focus { outline: none; border-color: var(--hdfc-primary); }
+    .ds-hint { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+    .ds-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .ds-btn {
+      flex: 1;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+    .ds-btn-primary { background: var(--hdfc-primary); color: var(--white); }
+    .ds-btn-primary:hover { background: var(--hdfc-dark); }
+    .ds-btn-secondary { background: var(--hdfc-light); color: var(--hdfc-primary); border: 1px solid var(--hdfc-primary); }
+    .ds-btn-secondary:hover { background: var(--hdfc-primary); color: var(--white); }
+    .ds-btn-danger { background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; }
+    .ds-btn-danger:hover { background: #DC2626; color: var(--white); }
+    .ds-status-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--hdfc-surface); border-radius: 6px; margin-bottom: 10px; }
+    .ds-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Annotation Bar (collapsible) ── */
+    .annot-bar {
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
+    }
+    .annot-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      color: #6b7280;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: left;
+      transition: color 0.15s;
+    }
+    .annot-toggle:hover { color: #9ca3af; }
+    .annot-toggle-chevron {
+      margin-left: auto;
+      transition: transform 0.2s;
+      color: #4b5563;
+    }
+    .annot-toggle-chevron.open { transform: rotate(180deg); }
+    .annot-body {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.22s ease, padding 0.22s ease;
+      padding: 0 14px;
+    }
+    .annot-body.open {
+      max-height: 200px;
+      padding: 0 14px 10px;
+    }
+    .annot-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .annot-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .annot-field label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+    }
+    .annot-field label .annot-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .annot-field label .dot-interaction { background: #a855f7; }
+    .annot-field label .dot-role        { background: #f97316; }
+    .annot-field label .dot-label       { background: #6366f1; }
+    .annot-field input {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 5px;
+      color: #f9fafb;
+      font-size: 11px;
+      padding: 5px 8px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .annot-field input::placeholder { color: #4b5563; }
+    .annot-field input:focus { border-color: #6366f1; }
+    .annot-bar-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .annot-generate-btn {
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .annot-generate-btn:hover:not(:disabled) { background: #4338ca; }
+    .annot-generate-btn:active:not(:disabled) { transform: scale(0.97); }
+    .annot-generate-btn:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+    .annot-clear-btn {
+      background: transparent;
+      color: #6b7280;
+      border: 1px solid #374151;
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .annot-clear-btn:hover { color: #f9fafb; border-color: #6b7280; }
+
+    /* Accessibility Results */
+    .a11y-item {
+      background: var(--white);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      border-left: 4px solid var(--success);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .a11y-item:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateX(4px);
+    }
+    .a11y-item.fail { border-left-color: var(--error); background: linear-gradient(135deg, #FEF2F2 0%, var(--white) 100%); }
+    .a11y-item.pass { border-left-color: var(--success); background: linear-gradient(135deg, #ECFDF5 0%, var(--white) 100%); }
+    .a11y-ratio { font-weight: 700; font-size: 15px; }
+    .a11y-ratio.fail { color: var(--error); }
+    .a11y-ratio.pass { color: var(--success); }
+    .a11y-colors { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .a11y-swatch { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border); }
+    .a11y-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .a11y-stat { text-align: center; padding: 14px; background: var(--white); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+    .a11y-stat-val { font-size: 22px; font-weight: 700; }
+    .a11y-stat-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; }
   </style>
 </head>
 <body>
@@ -1062,6 +1316,35 @@
     <button class="feedback-btn" onclick="openFeedbackModal()">
       💬 Feedback
     </button>
+  </div>
+
+  <!-- ── Annotation Bar (collapsible) ── -->
+  <div class="annot-bar" id="annotBar">
+    <button class="annot-toggle" id="annotToggle" onclick="toggleAnnotBar()">
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="4" x2="8.5" y2="4" stroke="currentColor" stroke-width="1.2"/><line x1="3.5" y1="6.5" x2="6.5" y2="6.5" stroke="currentColor" stroke-width="1.2"/></svg>
+      Annotate
+      <svg class="annot-toggle-chevron" id="annotChevron" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="annot-body" id="annotBody">
+      <div class="annot-fields">
+        <div class="annot-field">
+          <label><span class="annot-dot dot-interaction"></span>Interaction</label>
+          <input type="text" id="annotInteraction" placeholder="e.g. Whole field is…" oninput="checkAnnotFields()">
+        </div>
+        <div class="annot-field">
+          <label><span class="annot-dot dot-role"></span>Role / State</label>
+          <input type="text" id="annotRole" placeholder="e.g. Input Field" oninput="checkAnnotFields()">
+        </div>
+        <div class="annot-field">
+          <label><span class="annot-dot dot-label"></span>Label</label>
+          <input type="text" id="annotLabel" placeholder="e.g. Enter Name…" oninput="checkAnnotFields()">
+        </div>
+      </div>
+      <div class="annot-bar-footer">
+        <button class="annot-clear-btn" onclick="clearAnnotFields()" title="Clear fields">✕ Clear</button>
+        <button class="annot-generate-btn" id="annotGenerateBtn" onclick="generateAnnotation()" disabled>✦ Generate</button>
+      </div>
+    </div>
   </div>
   
   <!-- Feedback Modal -->
@@ -1106,9 +1389,79 @@
     </div>
     
     <div id="analysisSection">
+      <!-- Design System Panel -->
+      <div class="ds-panel" id="dsPanel">
+        <div class="ds-panel-header" id="dsPanelHeader" onclick="toggleDsPanel()">
+          <span style="font-size:15px;">🎨</span>
+          <span class="ds-panel-title">
+            Design System Library
+            <span class="ds-badge" id="dsBadge">Not connected</span>
+          </span>
+          <span style="font-size:11px;color:var(--text-muted);" id="dsChevron">▼</span>
+        </div>
+        <div class="ds-panel-body" id="dsPanelBody">
+          <!-- Connected state -->
+          <div id="dsConnectedState" style="display:none;">
+            <div class="ds-status-row">
+              <div class="ds-status-dot" id="dsStatusDot" style="background:var(--success);"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:var(--text-primary);" id="dsStatusLabel">Design system connected</div>
+                <div style="font-size:11px;color:var(--text-muted);" id="dsStatusSub"></div>
+              </div>
+            </div>
+            <div id="dsSummaryChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+            <div class="ds-actions">
+              <button class="ds-btn ds-btn-secondary" onclick="refreshDS()">🔄 Refresh DS</button>
+              <button class="ds-btn ds-btn-danger" onclick="disconnectDS()">Disconnect</button>
+            </div>
+          </div>
+          <!-- Setup state — enter DS file URL/key + PAT -->
+          <div id="dsSetupState">
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6;">
+              Connect to your Design System file to fetch <strong>all components, variants, and color/text styles</strong> across all pages.
+            </div>
+            <div class="ds-field">
+              <label>Figma DS File URL or Key</label>
+              <input type="text" id="dsFileKeyInput" class="form-input" placeholder="https://figma.com/design/XXXXX/… or just the file key">
+            </div>
+            <div class="ds-field">
+              <label>Personal Access Token</label>
+              <input type="password" id="dsPATInput" class="form-input" placeholder="figd_xxxx…">
+              <div class="ds-hint">🔒 Stored only in your plugin — never sent to any server</div>
+            </div>
+            <div class="ds-actions">
+              <button class="ds-btn ds-btn-primary" id="dsConnectBtn" onclick="saveAndLoadDS()">
+                🔗 Connect Design System
+              </button>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center;">
+              No DS file? <a href="#" style="color:var(--hdfc-primary);text-decoration:none;" onclick="loadFromCurrentFile();return false;">Load components used in this file instead</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Global ignore chrome toggle -->
+      <div id="ignoreChromeRow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:14px;">🙈</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text-primary);">Ignore headers, footers & nav bars</div>
+            <div style="font-size:11px;color:var(--text-muted);">Skip structural chrome — focus on content areas</div>
+          </div>
+        </div>
+        <label style="position:relative;display:inline-block;width:38px;height:22px;cursor:pointer;flex-shrink:0;">
+          <input type="checkbox" id="ignoreChromeToggle" checked style="opacity:0;width:0;height:0;">
+          <span id="ignoreChromeSlider" style="position:absolute;inset:0;background:var(--hdfc-primary);border-radius:22px;transition:background 0.2s;">
+            <span style="position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:white;border-radius:50%;transition:transform 0.2s;transform:translateX(16px);display:block;" id="ignoreChromeKnob"></span>
+          </span>
+        </label>
+      </div>
+
       <div class="tabs">
         <button class="tab active" data-tab="categories">Quick Review</button>
-        <button class="tab" data-tab="custom">Custom Prompt</button>
+        <!-- <button class="tab" data-tab="custom">Custom Prompt</button> -->
+        <button class="tab" data-tab="accessibility">♿ A11y</button>
       </div>
       
       <div class="tab-content active" id="categoriesTab">
@@ -1134,6 +1487,15 @@
             <input type="checkbox" value="high_level">
             <span>💡 High Level</span>
           </label>
+          <label class="category-chip" id="dsChip" style="display:none;">
+            <input type="checkbox" value="design_system" checked>
+            <span>🗂️ Design System</span>
+          </label>
+        </div>
+        <!-- DS active indicator for design review -->
+        <div id="reviewDsPill" style="display:none; align-items:center; gap:6px; padding:7px 12px; background:#D1FAE5; border-radius:8px; margin-top:8px; font-size:11px; font-weight:600; color:var(--success);">
+          <span>🗂️</span>
+          <span>DS active — review will flag deviations from your Design System</span>
         </div>
       </div>
       
@@ -1143,6 +1505,62 @@
           <input type="checkbox" id="includeSuggestions" checked>
           <label for="includeSuggestions">Include improvement suggestions</label>
         </div>
+      </div>
+      
+      <div class="tab-content" id="accessibilityTab">
+        <div class="section-title">Choose what to check</div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" id="a11yCheckText" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <span>🔤</span> Text Contrast
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 4.5:1 for all text</div>
+            </div>
+          </label>
+          <label id="iconContrastLabel" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: not-allowed; transition: all 0.2s; opacity: 0.5;" title="Connect a Design System to enable icon contrast checking">
+            <input type="checkbox" id="a11yCheckIcon" disabled style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <span>🎨</span> Icon Contrast
+                <span id="iconContrastDSBadge" style="font-size: 10px; padding: 2px 7px; border-radius: 10px; background: #FEF3C7; color: #D97706; font-weight: 600; border: 1px solid #FDE68A;">Requires DS</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="iconContrastSubtext">Connect your Design System above to check DS icon instances — 3:1 WCAG AA</div>
+            </div>
+          </label>
+          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" id="a11yCheckAria" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <span>🏷️</span> ARIA Labels
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">AI generates descriptive labels for all interactive elements & writes them to the file</div>
+            </div>
+          </label>
+          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" id="a11yCheckFocus" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                <span>🔢</span> Focus Order
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">AI maps keyboard navigation order matching natural reading flow & annotates in the file</div>
+            </div>
+          </label>
+        </div>
+        <!-- Per-check status chips -->
+        <div id="a11yStatusChips" style="display:none; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
+
+        <!-- DS active indicator -->
+        <div id="a11yDsPill" style="display:none; align-items:center; gap:6px; padding:7px 12px; background:#D1FAE5; border-radius:8px; margin-bottom:10px; font-size:11px; font-weight:600; color:var(--success);">
+          <span>🗂️</span>
+          <span id="a11yDsPillText">Design System active — ARIA labels & focus order will reference DS components</span>
+        </div>
+
+        <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
+          <span>♿</span>
+          <span>Run Accessibility Check</span>
+        </button>
       </div>
       
       <button class="btn btn-primary" id="analyzeBtn" disabled>
@@ -1201,6 +1619,63 @@
     let currentSort = 'priority';
     let appliedItems = new Set();
     let collapsedCategories = new Set();
+
+    // ── Annotation Bar ───────────────────────────────────────────────────────
+    function toggleAnnotBar() {
+      const body    = document.getElementById('annotBody');
+      const chevron = document.getElementById('annotChevron');
+      const open    = body.classList.toggle('open');
+      chevron.classList.toggle('open', open);
+    }
+
+    function checkAnnotFields() {
+      const interaction = document.getElementById('annotInteraction').value.trim();
+      const role        = document.getElementById('annotRole').value.trim();
+      const label       = document.getElementById('annotLabel').value.trim();
+      const btn         = document.getElementById('annotGenerateBtn');
+      btn.disabled      = !interaction && !role && !label;
+    }
+
+    function clearAnnotFields() {
+      document.getElementById('annotInteraction').value = '';
+      document.getElementById('annotRole').value        = '';
+      document.getElementById('annotLabel').value       = '';
+      checkAnnotFields();
+    }
+
+    function generateAnnotation() {
+      const interaction = document.getElementById('annotInteraction').value.trim();
+      const role        = document.getElementById('annotRole').value.trim();
+      const label       = document.getElementById('annotLabel').value.trim();
+
+      if (!interaction && !role && !label) {
+        showToast('Fill in at least one field before generating.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('annotGenerateBtn');
+      btn.disabled    = true;
+      btn.textContent = '⏳ Generating…';
+
+      parent.postMessage({
+        pluginMessage: { type: 'create-annotation', nodeId: null, nodeName: null, interaction, role, label }
+      }, '*');
+    }
+
+    // ── Ignore-chrome toggle wiring ──────────────────────────────────────────
+    const _ignoreChromeToggle = document.getElementById('ignoreChromeToggle');
+    const _ignoreChromeKnob   = document.getElementById('ignoreChromeKnob');
+    const _ignoreChromeSlider = document.getElementById('ignoreChromeSlider');
+
+    function getIgnoreChrome() { return _ignoreChromeToggle.checked; }
+
+    _ignoreChromeToggle.addEventListener('change', () => {
+      const on = _ignoreChromeToggle.checked;
+      _ignoreChromeKnob.style.transform  = on ? 'translateX(16px)' : 'translateX(0)';
+      _ignoreChromeSlider.style.background = on ? 'var(--hdfc-primary)' : 'var(--border)';
+    });
+    // Initialise knob position (default: checked = ignore ON)
+    _ignoreChromeKnob.style.transform = 'translateX(16px)';
     
     // Category config
     const categoryConfig = {
@@ -1221,6 +1696,9 @@
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
+        // Hide analyze button on a11y tab (it has its own button)
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        analyzeBtn.style.display = tab.dataset.tab === 'accessibility' ? 'none' : 'flex';
       });
     });
     
@@ -1253,8 +1731,32 @@
       
       if (msg.type === 'selection-data') {
         selectionData = msg.data;
+        window._dsContext = msg.dsContext || null; // store DS context for analysis
         updateSelectionUI();
         handleSelectionReceived(msg.data);
+        updateDsChipVisibility();
+        // Update annotation bar target
+        if (msg.data && msg.data.nodes && msg.data.nodes.length > 0) {
+          const firstNode = msg.data.nodes[0];
+          updateAnnotBar(firstNode.id, firstNode.name);
+        } else {
+          updateAnnotBar(null, null);
+        }
+      }
+
+      if (msg.type === 'annotation-done') {
+        const btn = document.getElementById('annotGenerateBtn');
+        if (btn) { btn.disabled = false; btn.textContent = '✦ Generate'; }
+        if (msg.success) {
+          showToast('✅ Annotations placed on canvas!', 'success');
+          clearAnnotFields();
+        } else {
+          showToast('❌ ' + (msg.error || 'Failed to create annotation'), 'error');
+        }
+      }
+
+      if (msg.type === 'selection-node-changed') {
+        updateAnnotBar(msg.nodeId, msg.nodeName);
       }
       
       if (msg.type === 'analyze-data') {
@@ -1273,7 +1775,204 @@
           showToast('Failed to apply: ' + msg.error, 'error');
         }
       }
+      
+      if (msg.type === 'accessibility-results') {
+        _origAccessibilityResults(msg.issues, msg.error);
+      }
+
+      if (msg.type === 'selection-for-a11y-ai') {
+        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus, msg.dsContext || null);
+      }
+
+      if (msg.type === 'a11y-ai-annotate-done') {
+        showToast(msg.message || 'Annotations written to Figma!', 'success');
+      }
+
+      if (msg.type === 'ds-config-status') {
+        if (msg.dsContext) window._dsContext = msg.dsContext;
+        else if (!msg.hasDS) window._dsContext = null;
+        updateDsUI(msg);
+        updateDsChipVisibility();
+      }
+
+      if (msg.type === 'ds-loaded') {
+        if (msg.dsContext) window._dsContext = msg.dsContext;
+        updateDsUI({ hasDS: true, stale: false, summary: msg.summary });
+        updateDsChipVisibility();
+        showToast('✅ Design system loaded! DS context now active for all reviews.', 'success');
+        const btn = document.getElementById('dsConnectBtn');
+        if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
+      }
+
+      if (msg.type === 'ds-stale') {
+        const badge = document.getElementById('dsBadge');
+        if (badge) { badge.textContent = 'Outdated — refresh?'; badge.className = 'ds-badge stale'; }
+      }
+
+
+      // ── Gradient background contrast: pixel-sample via canvas ──────────────
+      if (msg.type === 'gradient-contrast-check') {
+        sampleGradientAndComputeContrast(msg);
+      }
     };
+
+    // ── Design System Panel ──────────────────────────────────────────
+    function toggleDsPanel() {
+      const body    = document.getElementById('dsPanelBody');
+      const header  = document.getElementById('dsPanelHeader');
+      const chevron = document.getElementById('dsChevron');
+      const isOpen  = body.classList.contains('open');
+      body.classList.toggle('open', !isOpen);
+      header.classList.toggle('open', !isOpen);
+      chevron.textContent = isOpen ? '▼' : '▲';
+    }
+
+    function saveAndLoadDS() {
+      const rawInput = document.getElementById('dsFileKeyInput').value.trim();
+      const pat = document.getElementById('dsPATInput').value.trim();
+      if (!rawInput || !pat) {
+        showToast('Please enter both a file URL/key and a Personal Access Token.', 'error');
+        return;
+      }
+      const match = rawInput.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
+      const fileKey = match ? match[1] : rawInput;
+      const btn = document.getElementById('dsConnectBtn');
+      btn.disabled = true;
+      btn.textContent = 'Connecting…';
+      parent.postMessage({ pluginMessage: { type: 'save-ds-config', fileKey, pat } }, '*');
+    }
+
+    function loadFromCurrentFile() {
+      const btn = document.getElementById('dsConnectBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+      parent.postMessage({ pluginMessage: { type: 'load-ds-from-current-file' } }, '*');
+    }
+
+    function refreshDS() {
+      showToast('Refreshing design system…', '');
+      parent.postMessage({ pluginMessage: { type: 'refresh-ds-config' } }, '*');
+    }
+
+    function disconnectDS() {
+      parent.postMessage({ pluginMessage: { type: 'disconnect-ds' } }, '*');
+      window._dsContext = null;
+      updateDsUI({ hasDS: false });
+      updateDsChipVisibility();
+      const chips = document.getElementById('dsSummaryChips');
+      if (chips) chips.innerHTML = '';
+      showToast('Design system disconnected.', '');
+    }
+
+    // Show/hide DS chip in category list and DS pills whenever DS state changes
+    function updateDsChipVisibility() {
+      const hasDS = !!window._dsContext;
+
+      // Design review chip + pill
+      const dsChip = document.getElementById('dsChip');
+      const reviewDsPill = document.getElementById('reviewDsPill');
+      if (dsChip) dsChip.style.display = hasDS ? 'flex' : 'none';
+      if (reviewDsPill) reviewDsPill.style.display = hasDS ? 'flex' : 'none';
+
+      // A11y DS pill
+      const a11yDsPill = document.getElementById('a11yDsPill');
+      if (a11yDsPill) a11yDsPill.style.display = hasDS ? 'flex' : 'none';
+
+      // Icon contrast — only available when DS is connected (scans DS icon instances only)
+      const iconContrastLabel = document.getElementById('iconContrastLabel');
+      const iconContrastCheckbox = document.getElementById('a11yCheckIcon');
+      const iconContrastDSBadge = document.getElementById('iconContrastDSBadge');
+      const iconContrastSubtext = document.getElementById('iconContrastSubtext');
+      if (iconContrastLabel) {
+        iconContrastLabel.style.opacity = hasDS ? '1' : '0.5';
+        iconContrastLabel.style.cursor = hasDS ? 'pointer' : 'not-allowed';
+        if (!hasDS) {
+          iconContrastLabel.onmouseover = null;
+          iconContrastLabel.onmouseout = null;
+        } else {
+          iconContrastLabel.onmouseover = function() { this.style.borderColor = 'var(--hdfc-primary)'; };
+          iconContrastLabel.onmouseout = function() { this.style.borderColor = 'var(--border)'; };
+        }
+      }
+      if (iconContrastCheckbox) {
+        iconContrastCheckbox.disabled = !hasDS;
+        if (!hasDS) iconContrastCheckbox.checked = false;
+      }
+      if (iconContrastDSBadge) {
+        iconContrastDSBadge.style.display = hasDS ? 'none' : 'inline';
+      }
+      if (iconContrastSubtext) {
+        iconContrastSubtext.textContent = hasDS
+          ? 'Checks DS icon instances only — WCAG AA 3:1'
+          : 'Connect your Design System above to check DS icon instances — 3:1 WCAG AA';
+      }
+    }
+
+    function updateDsUI(msg) {
+      const badge          = document.getElementById('dsBadge');
+      const connectedState = document.getElementById('dsConnectedState');
+      const setupState     = document.getElementById('dsSetupState');
+      const statusLabel    = document.getElementById('dsStatusLabel');
+      const statusSub      = document.getElementById('dsStatusSub');
+      const statusDot      = document.getElementById('dsStatusDot');
+
+      if (msg.error) {
+        showToast('❌ ' + msg.error, 'error');
+        const btn = document.getElementById('dsConnectBtn');
+        if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect Design System'; }
+        return;
+      }
+
+      if (msg.hasDS) {
+        const summary = msg.summary;
+        const isCurrentFileOnly = summary && summary.libraryNames && summary.libraryNames.includes('This file only');
+        const compCount = summary ? (summary.componentNames ? summary.componentNames.length : 0) : 0;
+        const colorCount = summary ? (summary.colorNames ? summary.colorNames.length : 0) : 0;
+        const libCount = summary ? (summary.libraryNames ? summary.libraryNames.length : 0) : 0;
+
+        if (badge) { badge.textContent = msg.stale ? 'Outdated' : 'Connected'; badge.className = 'ds-badge ' + (msg.stale ? 'stale' : 'connected'); }
+        if (statusDot)   statusDot.style.background = msg.stale ? '#D97706' : 'var(--success)';
+        if (statusLabel) statusLabel.textContent     = msg.stale ? 'Cache may be outdated' : 'Design system connected';
+        if (statusSub) {
+          statusSub.textContent = summary
+            ? compCount + ' components · ' + colorCount + ' colors' + (isCurrentFileOnly ? ' (current file only)' : (libCount > 0 ? ' · ' + libCount + ' page' + (libCount === 1 ? '' : 's') : ''))
+            : 'Loaded from design system';
+        }
+        if (connectedState) connectedState.style.display = 'block';
+        if (setupState)     setupState.style.display     = 'none';
+        if (summary) renderDsLibraries(null, summary);
+      } else {
+        if (badge) { badge.textContent = 'Not connected'; badge.className = 'ds-badge'; }
+        if (connectedState) connectedState.style.display = 'none';
+        if (setupState)     setupState.style.display     = 'block';
+      }
+    }
+
+    function renderDsLibraries(libraries, summary) {
+      const chips = document.getElementById('dsSummaryChips');
+      if (!chips) return;
+
+      if (summary && summary.libraryNames && summary.libraryNames.length > 0) {
+        chips.innerHTML = summary.libraryNames.map(function(name) {
+          return '<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:var(--hdfc-light);width:100%;box-sizing:border-box;margin-bottom:2px;">' +
+            '<span style="font-size:11px;flex:1;font-weight:600;color:var(--hdfc-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</span>' +
+          '</div>';
+        }).join('');
+        return;
+      }
+
+      if (summary) {
+        var items = [];
+        if (summary.componentNames && summary.componentNames.length) items.push(summary.componentNames.length + ' components');
+        if (summary.colorNames && summary.colorNames.length)         items.push(summary.colorNames.length + ' color tokens');
+        if (summary.textStyleNames && summary.textStyleNames.length) items.push(summary.textStyleNames.length + ' text styles');
+        chips.innerHTML = items.map(function(label) {
+          return '<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:var(--hdfc-light);color:var(--hdfc-primary);font-weight:600;">' + label + '</span>';
+        }).join('');
+      }
+    }
+
+    // On plugin load — ask code.ts if DS is already configured
+    parent.postMessage({ pluginMessage: { type: 'get-ds-config' } }, '*');
     
     function showToast(message, type = '') {
       const toast = document.getElementById('toast');
@@ -1439,7 +2138,9 @@
             categories: promptData.categories,
             isCustom: promptData.isCustom,
             fileName: data.fileName,
-            pageName: data.pageName
+            pageName: data.pageName,
+            ignoreChrome: getIgnoreChrome(),
+            dsContext: window._dsContext || null
           })
         });
         
@@ -1589,26 +2290,28 @@
       } else {
         collapsedCategories.add(cat);
       }
-      displayResults();
+      // Toggle DOM directly instead of full re-render
+      const headers = document.querySelectorAll('.category-header');
+      headers.forEach(header => {
+        if (header.getAttribute('onclick')?.includes(`'${cat}'`)) {
+          header.classList.toggle('collapsed');
+          const content = header.nextElementSibling;
+          if (content) content.classList.toggle('hidden');
+        }
+      });
     }
     
     function renderFeedbackItem(item) {
       const severity = (item.severity || 'low').toLowerCase();
       const isApplied = appliedItems.has(item.id || item.title);
       const itemId = item.id || item.title;
+      const uniqueId = 'desc-' + Math.random().toString(36).substr(2, 9);
       
       return `
         <div class="feedback-item ${severity}" onclick="focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
+        <div class="feedback-header">
           <div class="feedback-title">${item.title || 'Issue'}</div>
-          <div class="feedback-desc">${item.description || ''}</div>
-          <div class="feedback-meta">
-            <span class="feedback-severity ${severity}">${severity}</span>
-            ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
-          </div>
           <div class="feedback-actions">
-            <button class="btn btn-small btn-focus" onclick="event.stopPropagation(); focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
-              🔍 Focus
-            </button>
             ${item.suggestion ? `
               <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}" 
                 onclick="event.stopPropagation(); applySuggestion('${itemId.replace(/'/g, "\\'")}', '${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}', '${(item.suggestion || item.description || '').replace(/'/g, "\\'")}', '${(item.title || '').replace(/'/g, "\\'")}')"
@@ -1618,10 +2321,33 @@
             ` : ''}
           </div>
         </div>
+          ${item.description ? `
+            <div class="feedback-desc" id="${uniqueId}">${item.description}</div>
+            <button class="feedback-expand-btn" onclick="event.stopPropagation(); toggleDesc('${uniqueId}', this)">Show more ▾</button>
+          ` : ''}
+          <div class="feedback-meta">
+            <span class="feedback-severity ${severity}">${severity}</span>
+            ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
+          </div>
+        </div>
       `;
     }
     
+    function toggleDesc(id, btn) {
+      const el = document.getElementById(id);
+      if (el.classList.contains('expanded')) {
+        el.classList.remove('expanded');
+        btn.textContent = 'Show more ▾';
+      } else {
+        el.classList.add('expanded');
+        btn.textContent = 'Show less ▴';
+      }
+    }
+    
+    let _focusDebounce = null;
     function focusNode(nodeId, location) {
+      if (_focusDebounce) return; // prevent rapid clicks
+      _focusDebounce = setTimeout(() => { _focusDebounce = null; }, 300);
       parent.postMessage({ 
         pluginMessage: { 
           type: 'focus-node', 
@@ -1722,6 +2448,652 @@
     
     // Initial UI
     updateSelectionUI();
+    
+    // ========== ACCESSIBILITY ==========
+
+    // Per-check status tracking: 'idle' | 'running' | 'done' | 'error'
+    let a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
+
+    function setCheckStatus(key, status, extra) {
+      a11yCheckStatus[key] = status;
+      renderCheckStatusChips();
+    }
+
+    function renderCheckStatusChips() {
+      const container = document.getElementById('a11yStatusChips');
+      if (!container) return;
+
+      const checks = [
+        { key: 'text',         label: '🔤 Text Contrast' },
+        { key: 'icon',         label: '🎨 Icon Contrast' },
+        { key: 'aria',         label: '🏷️ ARIA Labels' },
+        { key: 'focus_order',  label: '🔢 Focus Order' },
+      ];
+
+      const activeChecks = checks.filter(c => a11yCheckStatus[c.key] !== 'idle');
+      if (activeChecks.length === 0) { container.innerHTML = ''; return; }
+
+      const statusColors = {
+        running: '#E8EDFF',
+        done:    '#ECFDF5',
+        error:   '#FEF2F2',
+      };
+      const statusBorders = {
+        running: '#1C3FCA',
+        done:    '#10B981',
+        error:   '#EF4444',
+      };
+      const statusText = {
+        running: 'Processing…',
+        done:    'Done ✓',
+        error:   'Error ✗',
+      };
+
+      container.innerHTML = activeChecks.map(c => {
+        const s = a11yCheckStatus[c.key];
+        const bg   = statusColors[s]  || 'var(--white)';
+        const bdr  = statusBorders[s] || 'var(--border)';
+        const stxt = statusText[s]    || '';
+        const pulse = s === 'running' ? 'animation:pulse 1.2s ease-in-out infinite;' : '';
+        return `
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:${bg};border:1px solid ${bdr};border-radius:8px;${pulse}">
+            <span style="font-size:12px;font-weight:600;color:var(--text-primary);">${c.label}</span>
+            <span style="font-size:11px;color:${bdr};font-weight:500;">${stxt}</span>
+            ${s === 'running' ? `<span style="width:14px;height:14px;border:2px solid ${bdr};border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite;flex-shrink:0;"></span>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function runAccessibilityCheck() {
+      if (!selectionData || !selectionData.hasSelection) {
+        showError('Please select a frame first');
+        return;
+      }
+      const checkText = document.getElementById('a11yCheckText').checked;
+      const checkIcon = document.getElementById('a11yCheckIcon').checked;
+      const checkAria = document.getElementById('a11yCheckAria').checked;
+      const checkFocus = document.getElementById('a11yCheckFocus').checked;
+      if (!checkText && !checkIcon && !checkAria && !checkFocus) {
+        showToast('Select at least one check type', 'error');
+        return;
+      }
+
+      // Reset statuses
+      a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
+      if (checkText) setCheckStatus('text', 'running');
+      if (checkIcon) setCheckStatus('icon', 'running');
+      if (checkAria) setCheckStatus('aria', 'running');
+      if (checkFocus) setCheckStatus('focus_order', 'running');
+
+      const btn = document.getElementById('a11yRunBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;"></span><span>Checking...</span>';
+
+      // Show status chips area
+      const chipsEl = document.getElementById('a11yStatusChips');
+      if (chipsEl) chipsEl.style.display = 'flex';
+
+      // Reset issues list for fresh run (clears stale gradient results from previous run)
+      if (checkText || checkIcon) {
+        a11yIssues = [];
+        _gradientChecksInFlight = 0;
+        parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
+      }
+
+      // Run AI checks in parallel
+      if (checkAria || checkFocus) {
+        parent.postMessage({ pluginMessage: { type: 'get-selection-for-a11y-ai', checkAria, checkFocus } }, '*');
+      }
+    }
+
+    let a11yIssues = [];
+    let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
+    let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
+    let a11yCollapsed = new Set(); // collapsed a11y groups
+    let a11yAIResults = { aria: null, focus_order: null }; // AI check results
+
+    // ====== AI ACCESSIBILITY CHECK (parallel) ======
+    async function runAIAccessibilityCheck(data, checkAria, checkFocus, dsContext) {
+      const promises = [];
+
+      const runCheck = async (checkType) => {
+        const label = checkType === 'aria' ? 'ARIA Labels' : 'Focus Order';
+        try {
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-a11y`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              designData: data.nodes,
+              checkType,
+              fileName: data.fileName,
+              pageName: data.pageName,
+              ignoreChrome: getIgnoreChrome(),
+              dsContext: dsContext || null
+            })
+          });
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `AI check failed (${response.status})`);
+          }
+
+          const result = await response.json();
+          const resultKey = checkType === 'focus_order' ? 'focus_order' : 'aria';
+          a11yAIResults[resultKey] = result.results;
+
+          // Write annotations to Figma
+          parent.postMessage({
+            pluginMessage: {
+              type: 'write-a11y-annotations',
+              checkType,
+              results: result.results
+            }
+          }, '*');
+
+          setCheckStatus(checkType, 'done');
+          displayAIAccessibilityResults();
+          showToast(`✅ ${label} done — ${result.results.length} elements`, 'success');
+        } catch (error) {
+          setCheckStatus(checkType, 'error');
+          showToast(`❌ ${label}: ${error.message || 'failed'}`, 'error');
+        }
+      };
+
+      if (checkAria)  promises.push(runCheck('aria'));
+      if (checkFocus) promises.push(runCheck('focus_order'));
+
+      // Fire both in parallel
+      await Promise.all(promises);
+
+      // Re-enable button when all AI checks are done
+      if (!document.getElementById('a11yCheckText').checked && !document.getElementById('a11yCheckIcon').checked) {
+        const btn = document.getElementById('a11yRunBtn');
+        btn.disabled = false;
+        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
+      }
+    }
+
+    // ====== Contrast usage tracking ======
+    async function trackContrastUsage(fileName, nodeCount) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({ userName: fileName || 'unknown', feedback: `contrast_check nodes:${nodeCount}`, feedbackType: 'usage_track' })
+        });
+      } catch (_) {}
+      // Also call plugin_usage directly
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({ _trackOnly: true, action: 'a11y_contrast', fileName: fileName || 'unknown', nodeCount })
+        });
+      } catch (_) {}
+    }
+
+    // Handle contrast results arriving from plugin code
+    function onContrastResultsReceived(issues) {
+      const checkText = document.getElementById('a11yCheckText').checked;
+      const checkIcon = document.getElementById('a11yCheckIcon').checked;
+      if (checkText) setCheckStatus('text', 'done');
+      if (checkIcon) setCheckStatus('icon', 'done');
+
+      // Re-enable button if no AI checks are pending
+      const aria  = a11yCheckStatus.aria;
+      const focus = a11yCheckStatus.focus_order;
+      if (aria !== 'running' && focus !== 'running') {
+        const btn = document.getElementById('a11yRunBtn');
+        btn.disabled = false;
+        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
+      }
+
+      // Track usage
+      if (selectionData && selectionData.nodes) {
+        trackContrastUsage(selectionData.fileName, issues.length).catch(() => {});
+      }
+    }
+
+    // Intercept accessibility-results message to update status
+    const _origAccessibilityResults = (issues, error) => {
+      onContrastResultsReceived(issues || []);
+      displayAccessibilityResults(issues, error);
+    };
+
+    function displayAIAccessibilityResults() {
+      const feedbackList = document.getElementById('feedbackList');
+      const resultsEl = document.getElementById('results');
+      const summaryStats = document.getElementById('summaryStats');
+      const analysisSection = document.getElementById('analysisSection');
+
+      analysisSection.style.display = 'none';
+      document.querySelector('.results-title').textContent = `🤖 AI Accessibility — Results`;
+      document.querySelector('.sort-controls').style.display = 'none';
+      document.querySelector('.filter-controls').style.display = 'none';
+
+      const ariaResults = a11yAIResults.aria;
+      const focusResults = a11yAIResults.focus_order;
+      const totalCount = (ariaResults ? ariaResults.length : 0) + (focusResults ? focusResults.length : 0);
+
+      summaryStats.innerHTML = `
+        <div style="grid-column: 1/-1; padding: 14px 16px; background: var(--hdfc-light); border-radius: var(--radius-sm); border: 1px solid rgba(28,63,202,0.15);">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hdfc-primary);">
+            <span style="font-size: 18px;">🤖</span>
+            <span>${totalCount} elements annotated in Figma</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">AI has generated accessibility metadata and written it directly into your Figma file.</div>
+        </div>
+      `;
+
+      const roleIcons = { button: '🔘', tab: '📑', navigation: '🧭', listitem: '📋', img: '🖼️', input: '✏️', status: '🏷️', link: '🔗', heading: '📰', checkbox: '☑️', radiobutton: '🔵', combobox: '📂', menuitem: '📌' };
+      let html = '';
+
+      // ---- ARIA LABELS SECTION ----
+      if (ariaResults && ariaResults.length > 0) {
+        const grouped = {};
+        ariaResults.forEach(r => {
+          const role = r.role || 'other';
+          if (!grouped[role]) grouped[role] = [];
+          grouped[role].push(r);
+        });
+
+        html += `
+          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px;">
+            <span style="font-size: 16px;">🏷️</span>
+            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">ARIA Labels</span>
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${ariaResults.length} elements</span>
+          </div>
+        `;
+
+        Object.entries(grouped).sort((a, b) => b[1].length - a[1].length).forEach(([role, items]) => {
+          html += `
+            <div class="category-section">
+              <div class="category-header" onclick="this.classList.toggle('collapsed'); this.nextElementSibling.classList.toggle('hidden');">
+                <span class="category-title">
+                  <span class="category-icon">${roleIcons[role] || '🏷️'}</span>
+                  <span style="text-transform: capitalize;">${role}</span>
+                </span>
+                <span class="category-count">${items.length}</span>
+              </div>
+              <div class="category-content">
+                ${items.map(r => `
+                  <div class="a11y-item pass" style="cursor:pointer;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
+                    <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">${r.nodeName || 'Unknown'}</div>
+                    <div style="font-size: 12px; color: var(--hdfc-primary); font-style: italic; margin-bottom: 4px;">"${r.ariaLabel}"</div>
+                    ${r.context ? `<div style="font-size: 11px; color: var(--text-muted);">${r.context}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // ---- FOCUS ORDER SECTION ----
+      if (focusResults && focusResults.length > 0) {
+        const sorted = [...focusResults].sort((a, b) => (a.focusIndex || 0) - (b.focusIndex || 0));
+
+        html += `
+          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px; margin-top: ${ariaResults && ariaResults.length > 0 ? '20px' : '0'};">
+            <span style="font-size: 16px;">🔢</span>
+            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">Focus Order</span>
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${sorted.length} elements</span>
+          </div>
+        `;
+
+        html += sorted.map(r => `
+          <div class="a11y-item pass" style="cursor:pointer; display: flex; align-items: flex-start; gap: 12px;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--hdfc-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">${r.focusIndex}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 2px;">${r.nodeName || 'Unknown'}</div>
+              <div style="font-size: 12px; color: var(--hdfc-primary); margin-bottom: 2px;">${r.ariaLabel || ''}</div>
+              <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+                <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--hdfc-light); color: var(--hdfc-primary); font-weight: 600; text-transform: capitalize;">${r.role || ''}</span>
+                ${r.rationale ? `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">${r.rationale}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      feedbackList.innerHTML = html;
+      resultsEl.classList.add('active');
+    }
+
+    function displayAccessibilityResults(issues, error) {
+      const btn = document.getElementById('a11yRunBtn');
+      btn.disabled = false;
+      btn.innerHTML = '<span>♿</span><span>Run Contrast Check</span>';
+      
+      if (error) {
+        showError(error);
+        return;
+      }
+      
+      // Preserve any gradient results already pushed to a11yIssues by
+      // sampleGradientAndComputeContrast (they arrive before this message).
+      // Only replace non-gradient entries so we don't duplicate solid-bg results.
+      const gradientAlready = a11yIssues.filter(i => i.isGradientBg);
+      const incomingIds = new Set((issues || []).map(i => i.nodeId));
+      // Also keep gradient results whose nodeId isn't in the solid-bg batch
+      const gradientToKeep = gradientAlready.filter(i => !incomingIds.has(i.nodeId));
+      a11yIssues = [...(issues || []), ...gradientToKeep];
+      renderA11yResults();
+
+      // If gradient checks are still in-flight, re-render once they all finish
+      if (_gradientChecksInFlight > 0) {
+        const poll = setInterval(() => {
+          if (_gradientChecksInFlight <= 0) {
+            clearInterval(poll);
+            renderA11yResults();
+          }
+        }, 100);
+      }
+    }
+    
+    function setA11ySort(sort) {
+      a11ySort = sort;
+      renderA11yResults();
+    }
+    
+    function setA11yFilter(filter) {
+      a11yFilter = filter;
+      renderA11yResults();
+    }
+    
+    function renderA11yResults() {
+      const issues = a11yIssues;
+      const analysisSection = document.getElementById('analysisSection');
+      const resultsEl = document.getElementById('results');
+      const feedbackList = document.getElementById('feedbackList');
+      const summaryStats = document.getElementById('summaryStats');
+      
+      analysisSection.style.display = 'none';
+      
+      const textCount = issues.filter(i => i.type === 'text_contrast').length;
+      const iconCount = issues.filter(i => i.type === 'icon_contrast').length;
+      const failCount = issues.filter(i => !i.pass).length;
+      const passCount = issues.filter(i => i.pass).length;
+      
+      summaryStats.innerHTML = `
+        <div style="grid-column: 1/-1;">
+          <div class="a11y-summary" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='all'?1:0.5};" onclick="setA11yFilter('all')">
+              <div class="a11y-stat-val">${issues.length}</div>
+              <div class="a11y-stat-label">All</div>
+            </div>
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='fail'?1:0.5};" onclick="setA11yFilter('fail')">
+              <div class="a11y-stat-val" style="color: var(--error);">${failCount}</div>
+              <div class="a11y-stat-label">Fail</div>
+            </div>
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='pass'?1:0.5};" onclick="setA11yFilter('pass')">
+              <div class="a11y-stat-val" style="color: var(--success);">${passCount}</div>
+              <div class="a11y-stat-label">Pass</div>
+            </div>
+            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='text'?1:0.5};" onclick="setA11yFilter('text')">
+              <div class="a11y-stat-val" style="color: var(--hdfc-primary);">${textCount}</div>
+              <div class="a11y-stat-label">Text</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 4px; background: var(--white); padding: 3px; border-radius: 6px; border: 1px solid var(--border);">
+            <button class="sort-btn ${a11ySort==='type'?'active':''}" onclick="setA11ySort('type')" style="${a11ySort==='type'?'background:var(--hdfc-primary);color:white;':''}">Group by Type</button>
+            <button class="sort-btn ${a11ySort==='ratio'?'active':''}" onclick="setA11ySort('ratio')" style="${a11ySort==='ratio'?'background:var(--hdfc-primary);color:white;':''}">By Ratio</button>
+            <button class="sort-btn ${a11ySort==='status'?'active':''}" onclick="setA11ySort('status')" style="${a11ySort==='status'?'background:var(--hdfc-primary);color:white;':''}">By Status</button>
+          </div>
+        </div>
+      `;
+      
+      document.querySelector('.results-title').textContent = 'Contrast Check Results';
+      document.querySelector('.sort-controls').style.display = 'none';
+      document.querySelector('.filter-controls').style.display = 'none';
+      
+      // Filter
+      let filtered = [...issues];
+      if (a11yFilter === 'fail') filtered = filtered.filter(i => !i.pass);
+      else if (a11yFilter === 'pass') filtered = filtered.filter(i => i.pass);
+      else if (a11yFilter === 'text') filtered = filtered.filter(i => i.type === 'text_contrast');
+      else if (a11yFilter === 'icon') filtered = filtered.filter(i => i.type === 'icon_contrast');
+      
+      if (filtered.length === 0) {
+        feedbackList.innerHTML = `
+          <div class="success-message">
+            <div class="success-icon">✓</div>
+            <div class="success-title">${issues.length === 0 ? 'No elements found' : 'No matching issues'}</div>
+            <div class="success-subtitle">${issues.length === 0 ? 'No checkable layers found in the selection.' : 'Try a different filter.'}</div>
+          </div>
+        `;
+        resultsEl.classList.add('active');
+        return;
+      }
+      
+      if (a11ySort === 'type') {
+        // Group by text vs icon
+        const textIssues = filtered.filter(i => i.type === 'text_contrast');
+        const iconIssues = filtered.filter(i => i.type === 'icon_contrast');
+        textIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+        iconIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+        
+        let html = '';
+        if (textIssues.length > 0) {
+          const textFails = textIssues.filter(i => !i.pass).length;
+          const textCollapsed = a11yCollapsed.has('text');
+          html += `<div class="category-section">
+            <div class="category-header ${textCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('text')">
+              <span class="category-title">
+                <span class="category-icon">🔤</span>
+                <span>Text Contrast</span>
+                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${textIssues.length} items${textFails > 0 ? ', <span style=color:var(--error)>' + textFails + ' fail</span>' : ''}</span>
+              </span>
+              <span class="chevron ${textCollapsed ? 'collapsed' : ''}">▼</span>
+            </div>
+            <div class="category-content ${textCollapsed ? 'hidden' : ''}">
+              ${textIssues.map(renderA11yItem).join('')}
+            </div>
+          </div>`;
+        }
+        if (iconIssues.length > 0) {
+          const iconFails = iconIssues.filter(i => !i.pass).length;
+          const iconCollapsed = a11yCollapsed.has('icon');
+          html += `<div class="category-section">
+            <div class="category-header ${iconCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('icon')">
+              <span class="category-title">
+                <span class="category-icon">🎨</span>
+                <span>Icon Contrast</span>
+                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${iconIssues.length} items${iconFails > 0 ? ', <span style=color:var(--error)>' + iconFails + ' fail</span>' : ''}</span>
+              </span>
+              <span class="chevron ${iconCollapsed ? 'collapsed' : ''}">▼</span>
+            </div>
+            <div class="category-content ${iconCollapsed ? 'hidden' : ''}">
+              ${iconIssues.map(renderA11yItem).join('')}
+            </div>
+          </div>`;
+        }
+        feedbackList.innerHTML = html;
+      } else if (a11ySort === 'ratio') {
+        filtered.sort((a, b) => a.ratio - b.ratio);
+        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
+      } else {
+        // status: fails first
+        filtered.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
+      }
+      
+      resultsEl.classList.add('active');
+    }
+    
+    function renderA11yItem(issue) {
+      const gradientBadge = issue.isGradientBg
+        ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#FFF7ED;color:#D97706;border:1px solid #FDE68A;font-weight:600;margin-left:4px;" title="Background sampled from gradient via pixel average">∿ Gradient</span>`
+        : '';
+      return `
+        <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px; flex-wrap:wrap;">
+                <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
+                <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
+                ${gradientBadge}
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
+            </div>
+            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
+              <div class="a11y-ratio ${issue.pass ? 'pass' : 'fail'}">${issue.ratio}:1</div>
+              <div style="font-size: 10px; color: var(--text-muted);">need ${issue.required}:1</div>
+            </div>
+          </div>
+          <div class="a11y-colors">
+            <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
+            <span style="font-size: 11px; color: var(--text-muted);">on</span>
+            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}${issue.isGradientBg ? ' (gradient avg)' : ''}"></div>
+            <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
+            <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
+          </div>
+        </div>
+      `;
+    }
+    
+    function toggleA11yGroup(group) {
+      if (a11yCollapsed.has(group)) {
+        a11yCollapsed.delete(group);
+      } else {
+        a11yCollapsed.add(group);
+      }
+      renderA11yResults();
+    }
+    
+    // Override newAnalysisBtn to restore a11y UI state
+    const _origNewAnalysis = document.getElementById('newAnalysisBtn').onclick;
+    document.getElementById('newAnalysisBtn').addEventListener('click', () => {
+      document.querySelector('.sort-controls').style.display = '';
+      document.querySelector('.filter-controls').style.display = '';
+      document.querySelector('.results-title').textContent = 'Analysis Results';
+    });
+
+    // ── Gradient background contrast via canvas pixel sampling ──────────────
+    // Track how many gradient checks are in-flight so we know when all are done
+    let _gradientChecksInFlight = 0;
+
+    function sRGBtoLinearUI(c) {
+      const s = c / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    }
+
+    function relativeLuminanceUI(r, g, b) {
+      return 0.2126 * sRGBtoLinearUI(r) + 0.7152 * sRGBtoLinearUI(g) + 0.0722 * sRGBtoLinearUI(b);
+    }
+
+    function contrastRatioUI(l1, l2) {
+      const lighter = Math.max(l1, l2);
+      const darker  = Math.min(l1, l2);
+      return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    function hexToRgb255(hex) {
+      const h = hex.replace('#', '');
+      return {
+        r: parseInt(h.substring(0, 2), 16),
+        g: parseInt(h.substring(2, 4), 16),
+        b: parseInt(h.substring(4, 6), 16),
+      };
+    }
+
+    function rgbToHexUI(r, g, b) {
+      const toH = v => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0');
+      return '#' + toH(r) + toH(g) + toH(b);
+    }
+
+    async function sampleGradientAndComputeContrast(msg) {
+      _gradientChecksInFlight++;
+      try {
+        const bytes = new Uint8Array(msg.imageBytes);
+        const blob  = new Blob([bytes], { type: 'image/png' });
+        const url   = URL.createObjectURL(blob);
+
+        const img = await new Promise((resolve, reject) => {
+          const i = new Image();
+          i.onload  = () => resolve(i);
+          i.onerror = reject;
+          i.src = url;
+        });
+
+        // Draw the full gradient parent image onto a temp canvas, then crop to
+        // the text node's bounding box region (provided as 0–1 fractions).
+        const SAMPLE_SIZE = 20;
+        const canvas = document.getElementById('gradientSampleCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Intermediate full-size canvas to draw the full image first
+        const fullCanvas = document.createElement('canvas');
+        fullCanvas.width  = img.naturalWidth  || img.width;
+        fullCanvas.height = img.naturalHeight || img.height;
+        const fullCtx = fullCanvas.getContext('2d');
+        fullCtx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        // Crop coordinates (fractional → pixel)
+        const cropX = (msg.cropX != null ? msg.cropX : 0) * fullCanvas.width;
+        const cropY = (msg.cropY != null ? msg.cropY : 0) * fullCanvas.height;
+        const cropW = Math.max(1, (msg.cropW != null ? msg.cropW : 1) * fullCanvas.width);
+        const cropH = Math.max(1, (msg.cropH != null ? msg.cropH : 1) * fullCanvas.height);
+
+        // Draw the cropped region into the 20×20 sample canvas
+        canvas.width  = SAMPLE_SIZE;
+        canvas.height = SAMPLE_SIZE;
+        ctx.drawImage(fullCanvas, cropX, cropY, cropW, cropH, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+
+        const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
+        let sumR = 0, sumG = 0, sumB = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const a = data[i + 3];
+          if (a < 16) continue; // skip fully transparent pixels
+          sumR += data[i];
+          sumG += data[i + 1];
+          sumB += data[i + 2];
+          count++;
+        }
+
+        if (count === 0) { _gradientChecksInFlight--; return; }
+
+        const avgR = sumR / count;
+        const avgG = sumG / count;
+        const avgB = sumB / count;
+
+        const bgHex   = rgbToHexUI(avgR, avgG, avgB).toUpperCase();
+        const fgRgb   = hexToRgb255(msg.fgColor);
+        const fgLum   = relativeLuminanceUI(fgRgb.r, fgRgb.g, fgRgb.b);
+        const bgLum   = relativeLuminanceUI(avgR, avgG, avgB);
+        const ratio   = contrastRatioUI(fgLum, bgLum);
+        const required = 4.5;
+
+        const issue = {
+          nodeId:   msg.nodeId,
+          nodeName: msg.nodeName,
+          type:     'text_contrast',
+          text:     msg.text,
+          ratio:    Math.round(ratio * 100) / 100,
+          required,
+          fgColor:  msg.fgColor.toUpperCase(),
+          bgColor:  bgHex,
+          fontSize: msg.fontSize,
+          pass:     ratio >= required,
+          isGradientBg: true,
+        };
+
+        a11yIssues.push(issue);
+        renderA11yResults();
+
+      } catch (e) {
+        console.error('Gradient contrast sampling failed:', e);
+      } finally {
+        _gradientChecksInFlight--;
+      }
+    }
   </script>
+  <!-- Hidden canvas used for gradient bg pixel sampling -->
+  <canvas id="gradientSampleCanvas" style="display:none;"></canvas>
 </body>
 </html>
