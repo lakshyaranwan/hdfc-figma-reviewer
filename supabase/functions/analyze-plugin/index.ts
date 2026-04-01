@@ -307,11 +307,12 @@ CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
 - Provide around ${itemsPerCategory} issues per category
-- Focus on REAL, meaningful issues — typos, colour problems, hierarchy issues, inconsistencies
-- Do NOT skip any category
+- Focus on GLARING, significant issues first — broken layouts, wrong colours, obvious typos, major hierarchy problems, missing states, poor contrast
+- Do NOT flag minor nitpicks, slight spacing differences, or subjective style preferences
+- Prioritise issues that would embarrass the designer in a stakeholder review
 - Read EVERY text field character by character for typos and casing issues
-- Check EVERY fills[].hex value for colour inconsistencies and contrast issues
-- Compare fontSize values across all text nodes for hierarchy problems
+- Check fills[].hex values for obvious colour problems (wrong brand colours, poor contrast, jarring combinations)
+- Compare fontSize values across text nodes for clear hierarchy violations
 
 Format as JSON array:
 [{
