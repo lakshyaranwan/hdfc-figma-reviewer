@@ -727,7 +727,7 @@ function contrastRatio(l1: number, l2: number): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-// Get the effective fill color from a node (solid or gradient)
+// Get the effective fill color from a node (solid only — gradients handled separately)
 function getNodeFillColor(node: SceneNode): { r: number; g: number; b: number } | null {
   if (!('fills' in node)) return null;
   const fills = node.fills;
@@ -738,22 +738,22 @@ function getNodeFillColor(node: SceneNode): { r: number; g: number; b: number } 
     if (fill.type === 'SOLID') {
       return { r: fill.color.r * opacity, g: fill.color.g * opacity, b: fill.color.b * opacity };
     }
-    // Handle gradients by averaging the color stops
-    if (fill.type === 'GRADIENT_LINEAR' || fill.type === 'GRADIENT_RADIAL' || fill.type === 'GRADIENT_ANGULAR' || fill.type === 'GRADIENT_DIAMOND') {
-      const stops = (fill as GradientPaint).gradientStops;
-      if (stops && stops.length > 0) {
-        let r = 0, g = 0, b = 0;
-        for (const stop of stops) {
-          r += stop.color.r;
-          g += stop.color.g;
-          b += stop.color.b;
-        }
-        const n = stops.length;
-        return { r: (r / n) * opacity, g: (g / n) * opacity, b: (b / n) * opacity };
-      }
-    }
   }
   return null;
+}
+
+// Check if a node has a gradient fill
+function hasGradientFill(node: SceneNode): boolean {
+  if (!('fills' in node)) return false;
+  const fills = node.fills;
+  if (fills === figma.mixed || !Array.isArray(fills)) return false;
+  for (const fill of fills as readonly Paint[]) {
+    if (fill.visible === false) continue;
+    if (fill.type === 'GRADIENT_LINEAR' || fill.type === 'GRADIENT_RADIAL' || fill.type === 'GRADIENT_ANGULAR' || fill.type === 'GRADIENT_DIAMOND') {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Check if a node has an image fill (which we can't resolve to a color)
@@ -770,12 +770,17 @@ function hasImageFill(node: SceneNode): boolean {
 
 // Walk up parent chain to find background color
 // Returns null if background cannot be determined (image fills, no fills at all)
-function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number } | null {
+// Also returns gradientParentId if the background is a gradient (needs export-based sampling)
+function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number; gradientParentId?: string } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
     // If a parent has an image fill, we can't determine the bg color
     if (hasImageFill(sceneNode)) return null;
+    // Check for gradient fills — flag for export-based sampling
+    if (hasGradientFill(sceneNode)) {
+      return { r: -1, g: -1, b: -1, gradientParentId: sceneNode.id };
+    }
     const color = getNodeFillColor(sceneNode);
     if (color) return color;
     current = current.parent;
@@ -803,8 +808,10 @@ interface AccessibilityIssue {
 }
 
 // Run text contrast audit on selected nodes
+// Returns solid-bg issues immediately; gradient-bg issues are sent to UI for async export-based sampling
 function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
   const issues: AccessibilityIssue[] = [];
+  const gradientChecks: { textNodeId: string; gradientParentId: string; fgColor: { r: number; g: number; b: number }; nodeName: string; text: string; fontSize: number }[] = [];
 
   function walk(node: SceneNode) {
     if (!node.visible) return;
@@ -817,12 +824,27 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
 
       const bgColor = getBackgroundColor(textNode);
       if (!bgColor) return; // Can't determine background (image fill, etc.) - skip to avoid false positives
+
+      const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
+
+      // Gradient background — defer to export-based sampling
+      if (bgColor.gradientParentId) {
+        gradientChecks.push({
+          textNodeId: textNode.id,
+          gradientParentId: bgColor.gradientParentId,
+          fgColor,
+          nodeName: textNode.name,
+          text: textNode.characters.substring(0, 60),
+          fontSize: Math.round(fontSize),
+        });
+        return;
+      }
+
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
       const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
       const ratio = contrastRatio(fgLum, bgLum);
 
       // WCAG AA: 4.5:1 for ALL text (no large text exception)
-      const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
       const required = 4.5;
 
       issues.push({
@@ -848,6 +870,23 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
 
   for (const node of nodes) {
     walk(node);
+  }
+
+  // Send gradient checks to UI for async export-based sampling
+  if (gradientChecks.length > 0) {
+    figma.ui.postMessage({ type: 'gradient-checks-pending', checks: gradientChecks });
+    // Trigger exports for each gradient check
+    for (const check of gradientChecks) {
+      figma.ui.postMessage({
+        type: 'trigger-gradient-export',
+        textNodeId: check.textNodeId,
+        gradientParentId: check.gradientParentId,
+        fgColor: check.fgColor,
+        nodeName: check.nodeName,
+        text: check.text,
+        fontSize: check.fontSize,
+      });
+    }
   }
 
   return issues;
@@ -1089,6 +1128,55 @@ figma.ui.onmessage = async (msg: any) => {
     figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
   }
 
+  if (msg.type === 'request-gradient-export') {
+    // UI requests an export for gradient sampling
+    const textNode = figma.getNodeById(msg.textNodeId) as SceneNode | null;
+    const gradientParent = figma.getNodeById(msg.gradientParentId) as SceneNode | null;
+    if (!textNode || !gradientParent) {
+      figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: 'Node not found' });
+      return;
+    }
+
+    try {
+      // Hide text node temporarily so we only sample background
+      const origVisible = textNode.visible;
+      textNode.visible = false;
+
+      let imageBytes: Uint8Array;
+      try {
+        imageBytes = await (gradientParent as any).exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 0.25 } });
+      } finally {
+        textNode.visible = origVisible;
+      }
+
+      const parentBB = (gradientParent as any).absoluteBoundingBox;
+      const textBB = (textNode as any).absoluteBoundingBox;
+      if (!parentBB || !textBB) {
+        figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: 'No bounding box' });
+        return;
+      }
+
+      const scale = 0.25;
+      const cropX = Math.max(0, Math.round((textBB.x - parentBB.x) * scale));
+      const cropY = Math.max(0, Math.round((textBB.y - parentBB.y) * scale));
+      const cropW = Math.max(1, Math.round(textBB.width * scale));
+      const cropH = Math.max(1, Math.round(textBB.height * scale));
+
+      figma.ui.postMessage({
+        type: 'gradient-sample-result',
+        textNodeId: msg.textNodeId,
+        imageBytes: Array.from(imageBytes),
+        cropX, cropY, cropW, cropH,
+        fgColor: msg.fgColor,
+        nodeName: msg.nodeName,
+        text: msg.text,
+        fontSize: msg.fontSize,
+      });
+    } catch (e) {
+      figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: (e as Error).message });
+    }
+  }
+
   if (msg.type === 'get-selection-for-a11y-ai') {
     const selection = figma.currentPage.selection;
     if (selection.length === 0) {
@@ -1280,6 +1368,157 @@ figma.ui.onmessage = async (msg: any) => {
       type: 'a11y-ai-annotate-done',
       message: `${annotated} ${label} written to Figma`,
     });
+  }
+
+  if (msg.type === 'create-annotation') {
+    try {
+      const { interaction, role, label } = msg;
+
+      // Get viewport center
+      const vp = figma.viewport.center;
+
+      // Card dimensions
+      const CARD_WIDTH = 280;
+      const CARD_PADDING = 16;
+      const PILL_HEIGHT = 24;
+      const TEXT_LINE_HEIGHT = 22;
+      const SECTION_GAP = 16;
+
+      // Calculate sections needed
+      const sections: { pillText: string; pillColor: { r: number; g: number; b: number }; bodyText: string }[] = [];
+      if (interaction) sections.push({ pillText: 'Interaction', pillColor: { r: 0.8, g: 0.33, b: 0.8 }, bodyText: interaction });
+      if (role) sections.push({ pillText: 'Role/State', pillColor: { r: 0.2, g: 0.7, b: 0.4 }, bodyText: role });
+      if (label) sections.push({ pillText: 'Label', pillColor: { r: 0.85, g: 0.35, b: 0.2 }, bodyText: label });
+
+      if (sections.length === 0) return;
+
+      // Estimate card height
+      const sectionHeight = PILL_HEIGHT + 8 + TEXT_LINE_HEIGHT * 2; // pill + gap + ~2 lines of body text
+      const totalHeight = CARD_PADDING * 2 + sections.length * sectionHeight + (sections.length - 1) * SECTION_GAP;
+
+      // Create main card frame
+      const card = figma.createFrame();
+      card.name = '📝 A11y Annotation';
+      card.resize(CARD_WIDTH, totalHeight);
+      card.x = vp.x - CARD_WIDTH / 2;
+      card.y = vp.y - totalHeight / 2;
+      card.cornerRadius = 12;
+      card.fills = [{ type: 'SOLID', color: { r: 0.18, g: 0.18, b: 0.2 } }];
+      card.layoutMode = 'VERTICAL';
+      card.paddingLeft = CARD_PADDING;
+      card.paddingRight = CARD_PADDING;
+      card.paddingTop = CARD_PADDING;
+      card.paddingBottom = CARD_PADDING;
+      card.itemSpacing = SECTION_GAP;
+      card.primaryAxisSizingMode = 'AUTO';
+
+      // Load font
+      await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+      await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
+
+      for (const section of sections) {
+        // Section container
+        const sectionFrame = figma.createFrame();
+        sectionFrame.name = section.pillText;
+        sectionFrame.layoutMode = 'VERTICAL';
+        sectionFrame.itemSpacing = 8;
+        sectionFrame.fills = [];
+        sectionFrame.layoutSizingHorizontal = 'FILL';
+        sectionFrame.primaryAxisSizingMode = 'AUTO';
+
+        // Pill
+        const pill = figma.createFrame();
+        pill.name = 'Pill';
+        pill.layoutMode = 'HORIZONTAL';
+        pill.paddingLeft = 12;
+        pill.paddingRight = 12;
+        pill.paddingTop = 4;
+        pill.paddingBottom = 4;
+        pill.cornerRadius = 12;
+        pill.fills = [{ type: 'SOLID', color: section.pillColor }];
+        pill.primaryAxisSizingMode = 'AUTO';
+        pill.counterAxisSizingMode = 'AUTO';
+
+        const pillText = figma.createText();
+        pillText.fontName = { family: 'Inter', style: 'Semi Bold' };
+        pillText.characters = section.pillText;
+        pillText.fontSize = 11;
+        pillText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+        pill.appendChild(pillText);
+
+        sectionFrame.appendChild(pill);
+
+        // Body text
+        const bodyText = figma.createText();
+        bodyText.fontName = { family: 'Inter', style: 'Regular' };
+        bodyText.characters = section.bodyText;
+        bodyText.fontSize = 16;
+        bodyText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+        bodyText.layoutSizingHorizontal = 'FILL';
+        bodyText.textAutoResize = 'HEIGHT';
+
+        sectionFrame.appendChild(bodyText);
+        card.appendChild(sectionFrame);
+      }
+
+      // Select and scroll to the annotation
+      figma.currentPage.appendChild(card);
+      figma.currentPage.selection = [card];
+      figma.viewport.scrollAndZoomIntoView([card]);
+      figma.notify('📝 Annotation placed at viewport center');
+    } catch (e) {
+      console.error('Annotation creation failed:', e);
+      figma.notify('❌ Failed to create annotation: ' + (e as Error).message);
+    }
+  }
+
+  if (msg.type === 'export-gradient-region') {
+    // Export a gradient parent node's region under a text node for contrast sampling
+    try {
+      const textNode = figma.getNodeById(msg.textNodeId) as SceneNode | null;
+      const gradientParent = figma.getNodeById(msg.gradientParentId) as SceneNode | null;
+      if (!textNode || !gradientParent) {
+        figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: 'Node not found' });
+        return;
+      }
+
+      // Hide text node temporarily so we only sample background
+      const origVisible = textNode.visible;
+      textNode.visible = false;
+
+      let imageBytes: Uint8Array;
+      try {
+        imageBytes = await (gradientParent as any).exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 0.25 } });
+      } finally {
+        textNode.visible = origVisible;
+      }
+
+      // Get bounding boxes to compute crop region
+      const parentBB = (gradientParent as any).absoluteBoundingBox;
+      const textBB = (textNode as any).absoluteBoundingBox;
+      if (!parentBB || !textBB) {
+        figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: 'No bounding box' });
+        return;
+      }
+
+      // Crop coordinates relative to exported image (which is at 0.25 scale)
+      const scale = 0.25;
+      const cropX = Math.max(0, Math.round((textBB.x - parentBB.x) * scale));
+      const cropY = Math.max(0, Math.round((textBB.y - parentBB.y) * scale));
+      const cropW = Math.max(1, Math.round(textBB.width * scale));
+      const cropH = Math.max(1, Math.round(textBB.height * scale));
+
+      // Send the image bytes + crop info to UI for canvas sampling
+      figma.ui.postMessage({
+        type: 'gradient-sample-result',
+        textNodeId: msg.textNodeId,
+        imageBytes: Array.from(imageBytes),
+        cropX, cropY, cropW, cropH,
+        fgColor: msg.fgColor
+      });
+    } catch (e) {
+      figma.ui.postMessage({ type: 'gradient-sample-result', textNodeId: msg.textNodeId, error: (e as Error).message });
+    }
   }
 
   if (msg.type === 'notify') {
