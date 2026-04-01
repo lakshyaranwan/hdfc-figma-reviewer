@@ -100,6 +100,36 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   return flat;
 }
 
+// Extract all visible text grouped by top-level frame
+function extractTextContent(flatNodes: any[]): string {
+  const grouped: Record<string, string[]> = {};
+  for (const node of flatNodes) {
+    if (!node.text) continue;
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!grouped[topFrame]) grouped[topFrame] = [];
+    grouped[topFrame].push(node.text);
+  }
+  return Object.entries(grouped)
+    .map(([frame, texts]) => `[${frame}]\n${texts.join('\n')}`)
+    .join('\n\n');
+}
+
+// Extract all fill colours grouped by top-level frame
+function extractColorContext(flatNodes: any[]): string {
+  const grouped: Record<string, Set<string>> = {};
+  for (const node of flatNodes) {
+    if (!node.fills || !Array.isArray(node.fills)) continue;
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!grouped[topFrame]) grouped[topFrame] = new Set();
+    for (const fill of node.fills) {
+      if (fill.hex) grouped[topFrame].add(`${fill.hex} (${node.type}${node.name ? ': ' + node.name : ''})`);
+    }
+  }
+  return Object.entries(grouped)
+    .map(([frame, colors]) => `[${frame}]\n${[...colors].join('\n')}`)
+    .join('\n\n');
+}
+
 // Chunk flat nodes by estimated token size
 function chunkByTokens(nodes: any[], maxTokensPerChunk: number): any[][] {
   const chunks: any[][] = [];
