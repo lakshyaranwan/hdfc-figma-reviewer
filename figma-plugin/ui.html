@@ -1,2063 +1,1710 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <style>
-    :root {
-      --hdfc-primary: #1C3FCA;
-      --hdfc-dark: #08173B;
-      --hdfc-medium: #0E346B;
-      --hdfc-light: #E8EDFF;
-      --hdfc-surface: #F5F7FF;
-      --text-primary: #08173B;
-      --text-secondary: #4A5568;
-      --text-muted: #718096;
-      --white: #FFFFFF;
-      --border: #E2E8F0;
-      --success: #10B981;
-      --warning: #F59E0B;
-      --error: #EF4444;
-      --radius: 12px;
-      --radius-sm: 8px;
-      --shadow-sm: 0 1px 3px rgba(8, 23, 59, 0.08);
-      --shadow-md: 0 4px 12px rgba(8, 23, 59, 0.12);
-      --shadow-lg: 0 8px 24px rgba(8, 23, 59, 0.16);
-    }
+  <head>
+    <style>
+      :root {
+        --hdfc-primary: #1C3FCA;
+        --hdfc-dark: #08173B;
+        --hdfc-medium: #0E346B;
+        --hdfc-light: #E8EDFF;
+        --hdfc-surface: #F5F7FF;
+        --text-primary: #08173B;
+        --text-secondary: #4A5568;
+        --text-muted: #718096;
+        --white: #FFFFFF;
+        --border: #E2E8F0;
+        --success: #10B981;
+        --warning: #F59E0B;
+        --error: #EF4444;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --shadow-sm: 0 1px 3px rgba(8, 23, 59, 0.08);
+        --shadow-md: 0 4px 12px rgba(8, 23, 59, 0.12);
+        --shadow-lg: 0 8px 24px rgba(8, 23, 59, 0.16);
+      }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 13px;
-      color: var(--text-primary);
-      background: var(--hdfc-surface);
-      padding: 0;
-      line-height: 1.5;
-    }
-    
-    /* Header */
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 20px 24px;
-      background: var(--hdfc-dark);
-      color: var(--white);
-      border-bottom: none;
-    }
-    
-    .header-logo {
-      width: 36px;
-      height: 36px;
-      background: var(--white);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px;
-    }
-    
-    .header-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-    
-    .header-content {
-      flex: 1;
-    }
-    
-    .header h1 {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 2px;
-    }
-    
-    .header-subtitle {
-      font-size: 11px;
-      opacity: 0.8;
-      font-weight: 400;
-    }
-    
-    /* Main Content */
-    .main-content {
-      padding: 24px;
-    }
-    
-    /* Selection Box - Matching Component Auditor style */
-    .selection-box {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px;
-      background: var(--white);
-      border: 2px dashed var(--border);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      margin-bottom: 24px;
-    }
-    
-    .selection-box:hover {
-      border-color: var(--hdfc-primary);
-      background: rgba(28, 63, 202, 0.03);
-    }
-    
-    .selection-box.selected {
-      border-style: solid;
-      border-color: var(--hdfc-primary);
-      background: rgba(28, 63, 202, 0.06);
-    }
-    
-    .selection-box .icon {
-      width: 40px;
-      height: 40px;
-      background: var(--hdfc-light);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--hdfc-medium);
-      flex-shrink: 0;
-      font-size: 18px;
-    }
-    
-    .selection-box.selected .icon {
-      background: var(--hdfc-primary);
-      color: white;
-    }
-    
-    .selection-info {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .selection-name {
-      font-weight: 600;
-      font-size: 14px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      color: var(--text-primary);
-    }
-    
-    .selection-details {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-    
-    .selection-hint {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-    
-    /* Legacy selection info for detailed view */
-    .selection-info-detailed {
-      background: var(--white);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      margin-bottom: 24px;
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .selection-info-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    
-    .selection-info-row:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-    
-    .selection-info-row:first-child {
-      padding-top: 0;
-    }
-    
-    .selection-info-label {
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 500;
-    }
-    
-    .selection-info-value {
-      font-weight: 600;
-      color: var(--text-primary);
-      font-size: 12px;
-    }
-    
-    /* Section */
-    .section {
-      margin-bottom: 24px;
-    }
-    
-    .section-title {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 12px;
-    }
-    
-    /* Tabs */
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 20px;
-      background: var(--white);
-      padding: 4px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-    }
-    
-    .tab {
-      flex: 1;
-      padding: 10px 16px;
-      border: none;
-      background: transparent;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      color: var(--text-secondary);
-    }
-    
-    .tab:hover {
-      background: var(--hdfc-light);
-      color: var(--hdfc-primary);
-    }
-    
-    .tab.active {
-      background: var(--hdfc-primary);
-      color: var(--white);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .tab-content {
-      display: none;
-    }
-    
-    .tab-content.active {
-      display: block;
-    }
-    
-    /* Categories */
-    .categories {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 20px;
-    }
-    
-    .category-chip {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 10px 16px;
-      background: var(--white);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      color: var(--text-secondary);
-    }
-    
-    .category-chip:hover {
-      border-color: var(--hdfc-primary);
-      background: var(--hdfc-light);
-    }
-    
-    .category-chip.selected {
-      background: var(--hdfc-primary);
-      border-color: var(--hdfc-primary);
-      color: var(--white);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .category-chip input {
-      display: none;
-    }
-    
-    /* Buttons */
-    .btn {
-      width: 100%;
-      padding: 14px 20px;
-      border: none;
-      border-radius: var(--radius-sm);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    
-    .btn-primary {
-      background: var(--hdfc-primary);
-      color: var(--white);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-    }
-    
-    .btn-primary:active:not(:disabled) {
-      transform: translateY(0);
-    }
-    
-    .btn-primary:disabled {
-      background: var(--border);
-      color: var(--text-muted);
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-    
-    .btn-secondary {
-      background: var(--white);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-      margin-top: 12px;
-    }
-    
-    .btn-secondary:hover {
-      background: var(--hdfc-light);
-      border-color: var(--hdfc-primary);
-    }
-    
-    .btn-small {
-      width: auto;
-      padding: 8px 12px;
-      font-size: 11px;
-      border-radius: 6px;
-    }
-    
-    .btn-apply {
-      background: #ECFDF5;
-      color: var(--success);
-      border: 1px solid #A7F3D0;
-    }
-    
-    .btn-apply:hover {
-      background: #D1FAE5;
-    }
-    
-    .btn-applied {
-      background: var(--success);
-      color: var(--white);
-      border: none;
-    }
-    
-    .btn-focus {
-      background: var(--hdfc-light);
-      color: var(--hdfc-primary);
-      border: 1px solid var(--hdfc-primary);
-    }
-    
-    .btn-focus:hover {
-      background: var(--hdfc-primary);
-      color: var(--white);
-    }
-    
-    /* Textarea */
-    textarea {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-family: inherit;
-      resize: vertical;
-      min-height: 100px;
-      background: var(--white);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    
-    textarea:focus {
-      outline: none;
-      border-color: var(--hdfc-primary);
-      box-shadow: 0 0 0 3px rgba(28, 63, 202, 0.1);
-    }
-    
-    textarea::placeholder {
-      color: var(--text-muted);
-    }
-    
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 14px;
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-    
-    .checkbox-row input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--hdfc-primary);
-    }
-    
-    /* Loading */
-    .loading {
-      display: none;
-      text-align: center;
-      padding: 48px 24px;
-    }
-    
-    .loading.active {
-      display: block;
-    }
-    
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 3px solid var(--hdfc-light);
-      border-top-color: var(--hdfc-primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    .loading-text {
-      color: var(--text-secondary);
-      font-size: 14px;
-      font-weight: 500;
-    }
-    
-    .loading-subtext {
-      color: var(--text-muted);
-      font-size: 12px;
-      margin-top: 6px;
-    }
-    
-    /* Results */
-    .results {
-      display: none;
-    }
-    
-    .results.active {
-      display: block;
-    }
-    
-    .results-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    
-    .results-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-    
-    .sort-controls {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    
-    .sort-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-    
-    .sort-btn {
-      padding: 6px 12px;
-      font-size: 11px;
-      border: 1px solid var(--border);
-      background: var(--white);
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s;
-      color: var(--text-secondary);
-    }
-    
-    .sort-btn:hover {
-      border-color: var(--hdfc-primary);
-      color: var(--hdfc-primary);
-    }
-    
-    .sort-btn.active {
-      background: var(--hdfc-primary);
-      color: var(--white);
-      border-color: var(--hdfc-primary);
-    }
-    
-    /* Summary Stats */
-    .summary-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    
-    .stat {
-      text-align: center;
-      padding: 16px 12px;
-      background: var(--white);
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .stat-value {
-      font-size: 24px;
-      font-weight: 700;
-      line-height: 1;
-    }
-    
-    .stat-value.high { color: var(--error); }
-    .stat-value.medium { color: var(--warning); }
-    .stat-value.low { color: var(--success); }
-    
-    .stat-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 6px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    
-    /* Filter Controls */
-    .filter-controls {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 16px;
-      padding: 12px 16px;
-      background: var(--white);
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-    }
-    
-    .filter-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      cursor: pointer;
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-    
-    .filter-toggle input {
-      accent-color: var(--hdfc-primary);
-    }
-    
-    /* Category Section */
-    .category-section {
-      margin-bottom: 16px;
-    }
-    
-    .category-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 16px;
-      background: var(--white);
-      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      border-bottom: none;
-      transition: background 0.2s;
-    }
-    
-    .category-header:hover {
-      background: var(--hdfc-light);
-    }
-    
-    .category-header.collapsed {
-      border-radius: var(--radius-sm);
-      border-bottom: 1px solid var(--border);
-    }
-    
-    .category-title {
-      font-weight: 600;
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-primary);
-    }
-    
-    .category-icon {
-      width: 24px;
-      height: 24px;
-      background: var(--hdfc-light);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-    }
-    
-    .category-count {
-      background: var(--hdfc-light);
-      color: var(--hdfc-primary);
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-    
-    .category-content {
-      border: 1px solid var(--border);
-      border-top: none;
-      border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-      padding: 12px;
-      background: var(--hdfc-surface);
-    }
-    
-    .category-content.hidden {
-      display: none;
-    }
-    
-    /* Feedback Items */
-    .feedback-item {
-      background: var(--white);
-      border-radius: var(--radius-sm);
-      padding: 12px 16px;
-      margin-bottom: 10px;
-      border-left: 4px solid var(--border);
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .feedback-item:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateX(4px);
-    }
-    
-    .feedback-item:last-child {
-      margin-bottom: 0;
-    }
-    
-    .feedback-item.high {
-      border-left-color: var(--error);
-      background: linear-gradient(135deg, #FEF2F2 0%, var(--white) 100%);
-    }
-    
-    .feedback-item.medium {
-      border-left-color: var(--warning);
-      background: linear-gradient(135deg, #FFFBEB 0%, var(--white) 100%);
-    }
-    
-    .feedback-item.low {
-      border-left-color: var(--success);
-      background: linear-gradient(135deg, #ECFDF5 0%, var(--white) 100%);
-    }
-    
-    .feedback-title {
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--text-primary);
-      line-height: 1.4;
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .feedback-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .feedback-desc {
-      font-size: 12px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-      display: none;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .feedback-desc.expanded {
-      display: block;
-    }
-    .feedback-expand-btn {
-      font-size: 11px;
-      color: var(--hdfc-primary);
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px 0 0;
-      font-weight: 500;
-    }
-    .feedback-expand-btn:hover {
-      text-decoration: underline;
-    }
-    
-    .feedback-meta {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
-      font-size: 11px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    
-    .feedback-category {
-      background: var(--hdfc-light);
-      color: var(--hdfc-primary);
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-weight: 500;
-      text-transform: capitalize;
-    }
-    
-    .feedback-severity {
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-weight: 600;
-      text-transform: capitalize;
-    }
-    
-    .feedback-severity.high {
-      background: #FEE2E2;
-      color: #DC2626;
-    }
-    
-    .feedback-severity.medium {
-      background: #FEF3C7;
-      color: #D97706;
-    }
-    
-    .feedback-severity.low {
-      background: #D1FAE5;
-      color: #059669;
-    }
-    
-    .feedback-location {
-      color: var(--text-muted);
-      font-style: italic;
-    }
-    
-    .feedback-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    
-    /* Error */
-    .error {
-      background: #FEF2F2;
-      border: 1px solid #FEE2E2;
-      color: #DC2626;
-      padding: 14px 16px;
-      border-radius: var(--radius-sm);
-      margin-bottom: 16px;
-      display: none;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    
-    .error.active {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .error-icon {
-      font-size: 16px;
-    }
-    
-    /* Scroll Area - More vertical space */
-    .scroll-area {
-      max-height: 520px;
-      overflow-y: auto;
-      padding-right: 6px;
-    }
-    
-    .scroll-area::-webkit-scrollbar {
-      width: 6px;
-    }
-    
-    .scroll-area::-webkit-scrollbar-track {
-      background: var(--hdfc-light);
-      border-radius: 3px;
-    }
-    
-    .scroll-area::-webkit-scrollbar-thumb {
-      background: var(--hdfc-primary);
-      border-radius: 3px;
-    }
-    
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      right: 20px;
-      background: var(--hdfc-dark);
-      color: var(--white);
-      padding: 14px 18px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 500;
-      z-index: 1000;
-      display: none;
-      box-shadow: var(--shadow-lg);
-    }
-    
-    .toast.active {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      animation: slideUp 0.3s ease;
-    }
-    
-    .toast.success {
-      background: var(--success);
-    }
-    
-    .toast.error {
-      background: var(--error);
-    }
-    
-    .toast-icon {
-      font-size: 16px;
-    }
-    
-    @keyframes slideUp {
-      from { transform: translateY(100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    
-    /* Chevron */
-    .chevron {
-      transition: transform 0.2s;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    
-    .chevron.collapsed {
-      transform: rotate(-90deg);
-    }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    /* Success message */
-    .success-message {
-      text-align: center;
-      padding: 32px;
-      background: var(--white);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-    }
-    
-    .success-icon {
-      width: 64px;
-      height: 64px;
-      background: #D1FAE5;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 16px;
-      font-size: 32px;
-    }
-    
-    .success-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--success);
-      margin-bottom: 6px;
-    }
-    
-    .success-subtitle {
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--hdfc-surface);
+        padding: 0;
+        line-height: 1.5;
+      }
 
-    /* Feedback Button */
-    .feedback-btn {
-      background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: var(--white);
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    
-    .feedback-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.5);
-    }
+      /* Header */
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 24px;
+        background: var(--hdfc-dark);
+        color: var(--white);
+        border-bottom: none;
+      }
 
-    /* Modal */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(8, 23, 59, 0.6);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 24px;
-    }
-    
-    .modal-overlay.active {
-      display: flex;
-    }
-    
-    .modal {
-      background: var(--white);
-      border-radius: var(--radius);
-      width: 100%;
-      max-width: 400px;
-      box-shadow: var(--shadow-lg);
-      animation: modalIn 0.2s ease;
-    }
-    
-    @keyframes modalIn {
-      from { transform: scale(0.95); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-    
-    .modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .modal-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-    
-    .modal-close {
-      background: transparent;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      color: var(--text-muted);
-      padding: 4px;
-      line-height: 1;
-    }
-    
-    .modal-close:hover {
-      color: var(--text-primary);
-    }
-    
-    .modal-body {
-      padding: 24px;
-    }
-    
-    .form-group {
-      margin-bottom: 16px;
-    }
-    
-    .form-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 8px;
-    }
-    
-    .form-input {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-family: inherit;
-      transition: border-color 0.2s;
-    }
-    
-    .form-input:focus {
-      outline: none;
-      border-color: var(--hdfc-primary);
-    }
-    
-    .form-textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-    
-    .form-select {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-family: inherit;
-      background: var(--white);
-      cursor: pointer;
-    }
-    
-    .modal-footer {
-      padding: 16px 24px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 12px;
-      justify-content: flex-end;
-    }
-    
-    .btn-cancel {
-      background: var(--white);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      padding: 10px 20px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-    
-    .btn-cancel:hover {
-      background: var(--hdfc-surface);
-    }
-    
-    .btn-submit {
-      background: var(--hdfc-primary);
-      border: none;
-      color: var(--white);
-      padding: 10px 20px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    
-    .btn-submit:hover {
-      background: var(--hdfc-dark);
-    }
-    
-    .btn-submit:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    /* Accessibility Results */
-    .a11y-item {
-      background: var(--white);
-      border-radius: var(--radius-sm);
-      padding: 14px 16px;
-      margin-bottom: 8px;
-      border-left: 4px solid var(--success);
-      box-shadow: var(--shadow-sm);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .a11y-item:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateX(4px);
-    }
-    .a11y-item.fail { border-left-color: var(--error); background: linear-gradient(135deg, #FEF2F2 0%, var(--white) 100%); }
-    .a11y-item.pass { border-left-color: var(--success); background: linear-gradient(135deg, #ECFDF5 0%, var(--white) 100%); }
-    .a11y-ratio { font-weight: 700; font-size: 15px; }
-    .a11y-ratio.fail { color: var(--error); }
-    .a11y-ratio.pass { color: var(--success); }
-    .a11y-colors { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-    .a11y-swatch { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border); }
-    .a11y-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .a11y-stat { text-align: center; padding: 14px; background: var(--white); border-radius: var(--radius-sm); border: 1px solid var(--border); }
-    .a11y-stat-val { font-size: 22px; font-weight: 700; }
-    .a11y-stat-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-logo">
-      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Red corners -->
-        <rect x="0" y="0" width="35" height="35" fill="#ED1C24"/>
-        <rect x="65" y="0" width="35" height="35" fill="#ED1C24"/>
-        <rect x="0" y="65" width="35" height="35" fill="#ED1C24"/>
-        <rect x="65" y="65" width="35" height="35" fill="#ED1C24"/>
-        <!-- Blue center -->
-        <rect x="35" y="35" width="30" height="30" fill="#004C8F"/>
-      </svg>
-    </div>
-    <div class="header-content">
-      <h1>HDFC Design Reviewer</h1>
-      <div class="header-subtitle">AI-powered design analysis</div>
-    </div>
-    <button class="feedback-btn" onclick="openFeedbackModal()">
-      💬 Feedback
-    </button>
-  </div>
+      .header-logo {
+        width: 36px;
+        height: 36px;
+        background: var(--white);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+      }
 
-  <!-- Annotation Tool - Collapsible -->
-  <div id="annotationBar" style="background: var(--hdfc-dark); border-top: 1px solid rgba(255,255,255,0.1);">
-    <div id="annotationToggle" onclick="toggleAnnotationBar()" style="display:flex;align-items:center;justify-content:space-between;padding:8px 24px;cursor:pointer;user-select:none;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:14px;">📝</span>
-        <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);">Annotate</span>
+      .header-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .header-content {
+        flex: 1;
+      }
+
+      .header h1 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 2px;
+      }
+
+      .header-subtitle {
+        font-size: 11px;
+        opacity: 0.8;
+        font-weight: 400;
+      }
+
+      /* Main Content */
+      .main-content {
+        padding: 24px;
+      }
+
+      /* Selection Box - Matching Component Auditor style */
+      .selection-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: var(--white);
+        border: 2px dashed var(--border);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: 24px;
+      }
+
+      .selection-box:hover {
+        border-color: var(--hdfc-primary);
+        background: rgba(28, 63, 202, 0.03);
+      }
+
+      .selection-box.selected {
+        border-style: solid;
+        border-color: var(--hdfc-primary);
+        background: rgba(28, 63, 202, 0.06);
+      }
+
+      .selection-box .icon {
+        width: 40px;
+        height: 40px;
+        background: var(--hdfc-light);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--hdfc-medium);
+        flex-shrink: 0;
+        font-size: 18px;
+      }
+
+      .selection-box.selected .icon {
+        background: var(--hdfc-primary);
+        color: white;
+      }
+
+      .selection-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .selection-name {
+        font-weight: 600;
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-primary);
+      }
+
+      .selection-details {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .selection-hint {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      /* Legacy selection info for detailed view */
+      .selection-info-detailed {
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .selection-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .selection-info-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+
+      .selection-info-row:first-child {
+        padding-top: 0;
+      }
+
+      .selection-info-label {
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .selection-info-value {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 12px;
+      }
+
+      /* Section */
+      .section {
+        margin-bottom: 24px;
+      }
+
+      .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 12px;
+      }
+
+      /* Tabs */
+      .tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 20px;
+        background: var(--white);
+        padding: 4px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+      }
+
+      .tab {
+        flex: 1;
+        padding: 10px 16px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: var(--text-secondary);
+      }
+
+      .tab:hover {
+        background: var(--hdfc-light);
+        color: var(--hdfc-primary);
+      }
+
+      .tab.active {
+        background: var(--hdfc-primary);
+        color: var(--white);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Categories */
+      .categories {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+
+      .category-chip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: var(--text-secondary);
+      }
+
+      .category-chip:hover {
+        border-color: var(--hdfc-primary);
+        background: var(--hdfc-light);
+      }
+
+      .category-chip.selected {
+        background: var(--hdfc-primary);
+        border-color: var(--hdfc-primary);
+        color: var(--white);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .category-chip input {
+        display: none;
+      }
+
+      /* Buttons */
+      .btn {
+        width: 100%;
+        padding: 14px 20px;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .btn-primary {
+        background: var(--hdfc-primary);
+        color: var(--white);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .btn-primary:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      .btn-primary:disabled {
+        background: var(--border);
+        color: var(--text-muted);
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .btn-secondary {
+        background: var(--white);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        margin-top: 12px;
+      }
+
+      .btn-secondary:hover {
+        background: var(--hdfc-light);
+        border-color: var(--hdfc-primary);
+      }
+
+      .btn-small {
+        width: auto;
+        padding: 8px 12px;
+        font-size: 11px;
+        border-radius: 6px;
+      }
+
+      .btn-apply {
+        background: #ECFDF5;
+        color: var(--success);
+        border: 1px solid #A7F3D0;
+      }
+
+      .btn-apply:hover {
+        background: #D1FAE5;
+      }
+
+      .btn-applied {
+        background: var(--success);
+        color: var(--white);
+        border: none;
+      }
+
+      .btn-focus {
+        background: var(--hdfc-light);
+        color: var(--hdfc-primary);
+        border: 1px solid var(--hdfc-primary);
+      }
+
+      .btn-focus:hover {
+        background: var(--hdfc-primary);
+        color: var(--white);
+      }
+
+      /* Textarea */
+      textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 100px;
+        background: var(--white);
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: var(--hdfc-primary);
+        box-shadow: 0 0 0 3px rgba(28, 63, 202, 0.1);
+      }
+
+      textarea::placeholder {
+        color: var(--text-muted);
+      }
+
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .checkbox-row input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--hdfc-primary);
+      }
+
+      /* Loading */
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 48px 24px;
+      }
+
+      .loading.active {
+        display: block;
+      }
+
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid var(--hdfc-light);
+        border-top-color: var(--hdfc-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .loading-text {
+        color: var(--text-secondary);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .loading-subtext {
+        color: var(--text-muted);
+        font-size: 12px;
+        margin-top: 6px;
+      }
+
+      /* Results */
+      .results {
+        display: none;
+      }
+
+      .results.active {
+        display: block;
+      }
+
+      .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .results-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .sort-controls {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .sort-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      .sort-btn {
+        padding: 6px 12px;
+        font-size: 11px;
+        border: 1px solid var(--border);
+        background: var(--white);
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+        color: var(--text-secondary);
+      }
+
+      .sort-btn:hover {
+        border-color: var(--hdfc-primary);
+        color: var(--hdfc-primary);
+      }
+
+      .sort-btn.active {
+        background: var(--hdfc-primary);
+        color: var(--white);
+        border-color: var(--hdfc-primary);
+      }
+
+      /* Summary Stats */
+      .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .stat {
+        text-align: center;
+        padding: 16px 12px;
+        background: var(--white);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .stat-value.high { color: var(--error); }
+      .stat-value.medium { color: var(--warning); }
+      .stat-value.low { color: var(--success); }
+
+      .stat-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 6px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      /* Filter Controls */
+      .filter-controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        background: var(--white);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+      }
+
+      .filter-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .filter-toggle input {
+        accent-color: var(--hdfc-primary);
+      }
+
+      /* Category Section */
+      .category-section {
+        margin-bottom: 16px;
+      }
+
+      .category-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 16px;
+        background: var(--white);
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        border-bottom: none;
+        transition: background 0.2s;
+      }
+
+      .category-header:hover {
+        background: var(--hdfc-light);
+      }
+
+      .category-header.collapsed {
+        border-radius: var(--radius-sm);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .category-title {
+        font-weight: 600;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-primary);
+      }
+
+      .category-icon {
+        width: 24px;
+        height: 24px;
+        background: var(--hdfc-light);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+
+      .category-count {
+        background: var(--hdfc-light);
+        color: var(--hdfc-primary);
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .category-content {
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+        padding: 12px;
+        background: var(--hdfc-surface);
+      }
+
+      .category-content.hidden {
+        display: none;
+      }
+
+      /* Feedback Items */
+      .feedback-item {
+        background: var(--white);
+        border-radius: var(--radius-sm);
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        border-left: 4px solid var(--border);
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .feedback-item:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateX(4px);
+      }
+
+      .feedback-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .feedback-item.high {
+        border-left-color: var(--error);
+        background: linear-gradient(135deg, #FEF2F2 0%, var(--white) 100%);
+      }
+
+      .feedback-item.medium {
+        border-left-color: var(--warning);
+        background: linear-gradient(135deg, #FFFBEB 0%, var(--white) 100%);
+      }
+
+      .feedback-item.low {
+        border-left-color: var(--success);
+        background: linear-gradient(135deg, #ECFDF5 0%, var(--white) 100%);
+      }
+
+      .feedback-title {
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-primary);
+        line-height: 1.4;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .feedback-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .feedback-desc {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        display: none;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .feedback-desc.expanded {
+        display: block;
+      }
+      .feedback-expand-btn {
+        font-size: 11px;
+        color: var(--hdfc-primary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px 0 0;
+        font-weight: 500;
+      }
+      .feedback-expand-btn:hover {
+        text-decoration: underline;
+      }
+
+      .feedback-meta {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+        font-size: 11px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .feedback-category {
+        background: var(--hdfc-light);
+        color: var(--hdfc-primary);
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 500;
+        text-transform: capitalize;
+      }
+
+      .feedback-severity {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 600;
+        text-transform: capitalize;
+      }
+
+      .feedback-severity.high {
+        background: #FEE2E2;
+        color: #DC2626;
+      }
+
+      .feedback-severity.medium {
+        background: #FEF3C7;
+        color: #D97706;
+      }
+
+      .feedback-severity.low {
+        background: #D1FAE5;
+        color: #059669;
+      }
+
+      .feedback-location {
+        color: var(--text-muted);
+        font-style: italic;
+      }
+
+      .feedback-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      /* Error */
+      .error {
+        background: #FEF2F2;
+        border: 1px solid #FEE2E2;
+        color: #DC2626;
+        padding: 14px 16px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 16px;
+        display: none;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .error.active {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .error-icon {
+        font-size: 16px;
+      }
+
+      /* Scroll Area - More vertical space */
+      .scroll-area {
+        max-height: 520px;
+        overflow-y: auto;
+        padding-right: 6px;
+      }
+
+      .scroll-area::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .scroll-area::-webkit-scrollbar-track {
+        background: var(--hdfc-light);
+        border-radius: 3px;
+      }
+
+      .scroll-area::-webkit-scrollbar-thumb {
+        background: var(--hdfc-primary);
+        border-radius: 3px;
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        right: 20px;
+        background: var(--hdfc-dark);
+        color: var(--white);
+        padding: 14px 18px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 500;
+        z-index: 1000;
+        display: none;
+        box-shadow: var(--shadow-lg);
+      }
+
+      .toast.active {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: slideUp 0.3s ease;
+      }
+
+      .toast.success {
+        background: var(--success);
+      }
+
+      .toast.error {
+        background: var(--error);
+      }
+
+      .toast-icon {
+        font-size: 16px;
+      }
+
+      @keyframes slideUp {
+        from { transform: translateY(100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+
+      /* Chevron */
+      .chevron {
+        transition: transform 0.2s;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .chevron.collapsed {
+        transform: rotate(-90deg);
+      }
+
+      /* Success message */
+      .success-message {
+        text-align: center;
+        padding: 32px;
+        background: var(--white);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+      }
+
+      .success-icon {
+        width: 64px;
+        height: 64px;
+        background: #D1FAE5;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 32px;
+      }
+
+      .success-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--success);
+        margin-bottom: 6px;
+      }
+
+      .success-subtitle {
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+
+      /* Feedback Button */
+      .feedback-btn {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: var(--white);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .feedback-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+
+      /* Modal */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(8, 23, 59, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 24px;
+      }
+
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      .modal {
+        background: var(--white);
+        border-radius: var(--radius);
+        width: 100%;
+        max-width: 400px;
+        box-shadow: var(--shadow-lg);
+        animation: modalIn 0.2s ease;
+      }
+
+      @keyframes modalIn {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+
+      .modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .modal-close {
+        background: transparent;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: var(--text-muted);
+        padding: 4px;
+        line-height: 1;
+      }
+
+      .modal-close:hover {
+        color: var(--text-primary);
+      }
+
+      .modal-body {
+        padding: 24px;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      .form-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+      }
+
+      .form-input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-family: inherit;
+        transition: border-color 0.2s;
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: var(--hdfc-primary);
+      }
+
+      .form-textarea {
+        min-height: 100px;
+        resize: vertical;
+      }
+
+      .form-select {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-family: inherit;
+        background: var(--white);
+        cursor: pointer;
+      }
+
+      .modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+      }
+
+      .btn-cancel {
+        background: var(--white);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        padding: 10px 20px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      .btn-cancel:hover {
+        background: var(--hdfc-surface);
+      }
+
+      .btn-submit {
+        background: var(--hdfc-primary);
+        border: none;
+        color: var(--white);
+        padding: 10px 20px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .btn-submit:hover {
+        background: var(--hdfc-dark);
+      }
+
+      .btn-submit:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      /* Accessibility Results */
+      .a11y-item {
+        background: var(--white);
+        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        margin-bottom: 8px;
+        border-left: 4px solid var(--success);
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .a11y-item:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateX(4px);
+      }
+      .a11y-item.fail { border-left-color: var(--error); background: linear-gradient(135deg, #FEF2F2 0%, var(--white) 100%); }
+      .a11y-item.pass { border-left-color: var(--success); background: linear-gradient(135deg, #ECFDF5 0%, var(--white) 100%); }
+      .a11y-ratio { font-weight: 700; font-size: 15px; }
+      .a11y-ratio.fail { color: var(--error); }
+      .a11y-ratio.pass { color: var(--success); }
+      .a11y-colors { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+      .a11y-swatch { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border); }
+      .a11y-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+      .a11y-stat { text-align: center; padding: 14px; background: var(--white); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+      .a11y-stat-val { font-size: 22px; font-weight: 700; }
+      .a11y-stat-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-content">
+        <h1>HDFC Design Reviewer</h1>
+        <div class="header-subtitle">AI-powered design analysis</div>
       </div>
-      <span id="annotationChevron" style="font-size:10px;color:rgba(255,255,255,0.5);transition:transform 0.2s;">▼</span>
+      <button class="feedback-btn" onclick="openFeedbackModal()">💬 Feedback</button>
     </div>
-    <div id="annotationFields" style="display:none;padding:0 24px 16px;animation:slideDown 0.2s ease;">
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <div>
-          <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Interaction</label>
-          <input type="text" id="annotInteraction" placeholder="e.g. Whole field is focused as a single element" style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--hdfc-primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
-        </div>
-        <div>
-          <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Role / State</label>
-          <input type="text" id="annotRole" placeholder="e.g. Input Field" style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--hdfc-primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
-        </div>
-        <div>
-          <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;">Label</label>
-          <input type="text" id="annotLabel" placeholder="e.g. Enter Payee Name or UPI ID or Mobile No." style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--hdfc-primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
-        </div>
-        <button onclick="generateAnnotation()" style="margin-top:4px;padding:10px;background:var(--hdfc-primary);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-          <span>📝</span> Generate Annotation
-        </button>
-      </div>
-    </div>
-  </div>
 
-  <!-- Feedback Modal -->
-  <div class="modal-overlay" id="feedbackModal">
-    <div class="modal">
-      <div class="modal-header">
-        <span class="modal-title">Share Your Feedback</span>
-        <button class="modal-close" onclick="closeFeedbackModal()">×</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Your Name</label>
-          <input type="text" class="form-input" id="feedbackName" placeholder="Enter your name">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Type</label>
-          <select class="form-select" id="feedbackType">
-            <option value="suggestion">💡 Suggestion</option>
-            <option value="bug">🐛 Bug Report</option>
-            <option value="feature">✨ Feature Request</option>
-            <option value="other">📝 Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Your Feedback</label>
-          <textarea class="form-input form-textarea" id="feedbackText" placeholder="Share your thoughts, suggestions, or report issues..."></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-cancel" onclick="closeFeedbackModal()">Cancel</button>
-        <button class="btn-submit" id="submitFeedbackBtn" onclick="submitFeedback()">Submit Feedback</button>
-      </div>
-    </div>
-  </div>
-  
-  <div class="main-content">
-    <div id="selectionBox"></div>
-    
-    <div class="error" id="error">
-      <span class="error-icon">⚠️</span>
-      <span id="errorText"></span>
-    </div>
-    
-    <div id="analysisSection">
-      <!-- Global ignore chrome toggle -->
-      <div id="ignoreChromeRow" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;">
+    <!-- Annotation Tool - Collapsible -->
+    <div id="annotationBar" style="background: var(--hdfc-dark); border-top: 1px solid rgba(255,255,255,0.1);">
+      <div
+        id="annotationToggle"
+        onclick="toggleAnnotationBar()"
+        style="display:flex;align-items:center;justify-content:space-between;padding:8px 24px;cursor:pointer;user-select:none;"
+      >
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:14px;">🙈</span>
+          <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);">Annotate</span>
+        </div>
+        <span id="annotationChevron" style="font-size:10px;color:rgba(255,255,255,0.5);transition:transform 0.2s;"
+          >▼</span
+        >
+      </div>
+      <div id="annotationFields" style="display:none;padding:0 24px 16px;animation:slideDown 0.2s ease;">
+        <div style="display:flex;flex-direction:column;gap:8px;">
           <div>
-            <div style="font-size:12px;font-weight:600;color:var(--text-primary);">Ignore headers, footers & nav bars</div>
-            <div style="font-size:11px;color:var(--text-muted);">Skip structural chrome — focus on content areas</div>
+            <label
+              style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;"
+              >Interaction</label
+            >
+            <input
+              type="text"
+              id="annotInteraction"
+              placeholder="e.g. Whole field is focused as a single element"
+              style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;"
+              onfocus="this.style.borderColor='var(--hdfc-primary)'"
+              onblur="this.style.borderColor='rgba(255,255,255,0.15)'"
+            />
+          </div>
+          <div>
+            <label
+              style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;"
+              >Role / State</label
+            >
+            <input
+              type="text"
+              id="annotRole"
+              placeholder="e.g. Input Field"
+              style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;"
+              onfocus="this.style.borderColor='var(--hdfc-primary)'"
+              onblur="this.style.borderColor='rgba(255,255,255,0.15)'"
+            />
+          </div>
+          <div>
+            <label
+              style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;"
+              >Label</label
+            >
+            <input
+              type="text"
+              id="annotLabel"
+              placeholder="e.g. Enter Payee Name or UPI ID or Mobile No."
+              style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,0.15);border-radius:6px;background:rgba(255,255,255,0.08);color:white;font-size:12px;font-family:inherit;outline:none;"
+              onfocus="this.style.borderColor='var(--hdfc-primary)'"
+              onblur="this.style.borderColor='rgba(255,255,255,0.15)'"
+            />
+          </div>
+          <button
+            onclick="generateAnnotation()"
+            style="margin-top:4px;padding:10px;background:var(--hdfc-primary);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;"
+            onmouseover="this.style.opacity='0.9'"
+            onmouseout="this.style.opacity='1'"
+          >
+            Generate Annotation
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div class="modal-overlay" id="feedbackModal">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title">Share Your Feedback</span>
+          <button class="modal-close" onclick="closeFeedbackModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Your Name</label>
+            <input type="text" class="form-input" id="feedbackName" placeholder="Enter your name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="feedbackType">
+              <option value="suggestion">Suggestion</option>
+              <option value="bug">Bug Report</option>
+              <option value="feature">Feature Request</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Your Feedback</label>
+            <textarea
+              class="form-input form-textarea"
+              id="feedbackText"
+              placeholder="Share your thoughts, suggestions, or report issues..."
+            ></textarea>
           </div>
         </div>
-        <label style="position:relative;display:inline-block;width:38px;height:22px;cursor:pointer;flex-shrink:0;">
-          <input type="checkbox" id="ignoreChromeToggle" checked style="opacity:0;width:0;height:0;">
-          <span id="ignoreChromeSlider" style="position:absolute;inset:0;background:var(--hdfc-primary);border-radius:22px;transition:background 0.2s;">
-            <span style="position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:white;border-radius:50%;transition:transform 0.2s;transform:translateX(16px);display:block;" id="ignoreChromeKnob"></span>
-          </span>
-        </label>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeFeedbackModal()">Cancel</button>
+          <button class="btn-submit" id="submitFeedbackBtn" onclick="submitFeedback()">Submit Feedback</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div id="selectionBox"></div>
+
+      <div class="error" id="error">
+        <span class="error-icon">⚠️</span>
+        <span id="errorText"></span>
       </div>
 
-      <div class="tabs">
-        <button class="tab active" data-tab="categories">Quick Review</button>
-        <!-- <button class="tab" data-tab="custom">Custom Prompt</button> -->
-        <button class="tab" data-tab="accessibility">♿ A11y</button>
-      </div>
-      
-      <div class="tab-content active" id="categoriesTab">
-        <div class="section-title">Select review categories</div>
-        <div class="categories" id="categories">
-          <label class="category-chip selected">
-            <input type="checkbox" value="consistency" checked>
-            <span>✓ Consistency</span>
-          </label>
-          <label class="category-chip selected">
-            <input type="checkbox" value="ux" checked>
-            <span>🎯 UX Review</span>
-          </label>
-          <label class="category-chip selected">
-            <input type="checkbox" value="ui" checked>
-            <span>🎨 UI Review</span>
-          </label>
-          <label class="category-chip">
-            <input type="checkbox" value="ux_writing">
-            <span>✍️ UX Writing</span>
-          </label>
-          <label class="category-chip">
-            <input type="checkbox" value="high_level">
-            <span>💡 High Level</span>
+      <div id="analysisSection">
+        <!-- Global ignore chrome toggle -->
+        <div
+          id="ignoreChromeRow"
+          style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;"
+        >
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text-primary);">
+                Ignore headers, footers & nav bars
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);">Skip structural chrome — focus on content areas</div>
+            </div>
+          </div>
+          <label style="position:relative;display:inline-block;width:38px;height:22px;cursor:pointer;flex-shrink:0;">
+            <input type="checkbox" id="ignoreChromeToggle" checked style="opacity:0;width:0;height:0;" />
+            <span
+              id="ignoreChromeSlider"
+              style="position:absolute;inset:0;background:var(--hdfc-primary);border-radius:22px;transition:background 0.2s;"
+            >
+              <span
+                style="position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:white;border-radius:50%;transition:transform 0.2s;transform:translateX(16px);display:block;"
+                id="ignoreChromeKnob"
+              ></span>
+            </span>
           </label>
         </div>
-      </div>
-      
-      <div class="tab-content" id="customTab">
-        <textarea id="customPrompt" placeholder="Enter your custom analysis prompt...&#10;&#10;Example: Focus on mobile responsiveness and button states. Check if all CTAs are clearly visible and actionable..."></textarea>
-        <div class="checkbox-row">
-          <input type="checkbox" id="includeSuggestions" checked>
-          <label for="includeSuggestions">Include improvement suggestions</label>
-        </div>
-      </div>
-      
-      <div class="tab-content" id="accessibilityTab">
-        <div class="section-title">Choose what to check</div>
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckText" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🔤</span> Text Contrast
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 4.5:1 for all text</div>
-            </div>
-          </label>
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckIcon" checked style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🎨</span> Icon / Non-Text Contrast
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">WCAG AA — 3:1 for icons & UI components</div>
-            </div>
-          </label>
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckAria" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🏷️</span> ARIA Labels
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">AI generates descriptive labels for all interactive elements & writes them to the file</div>
-            </div>
-          </label>
-          <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--hdfc-primary)'" onmouseout="this.style.borderColor='var(--border)'">
-            <input type="checkbox" id="a11yCheckFocus" style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                <span>🔢</span> Focus Order
-              </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">AI maps keyboard navigation order matching natural reading flow & annotates in the file</div>
-            </div>
-          </label>
-        </div>
-        <!-- Per-check status chips -->
-        <div id="a11yStatusChips" style="display:none; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
 
-        <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
-          <span>♿</span>
-          <span>Run Accessibility Check</span>
+        <div class="tabs">
+          <button class="tab active" data-tab="categories">Quick Review</button>
+          <!-- <button class="tab" data-tab="custom">Custom Prompt</button> -->
+          <button class="tab" data-tab="accessibility">A11y</button>
+        </div>
+
+        <div class="tab-content active" id="categoriesTab">
+          <div class="section-title">Select review categories</div>
+          <div class="categories" id="categories">
+            <label class="category-chip selected">
+              <input type="checkbox" value="consistency" checked />
+              <span>✓ Consistency</span>
+            </label>
+            <label class="category-chip selected">
+              <input type="checkbox" value="ux" checked />
+              <span>UX Review</span>
+            </label>
+            <label class="category-chip selected">
+              <input type="checkbox" value="ui" checked />
+              <span>UI Review</span>
+            </label>
+            <label class="category-chip">
+              <input type="checkbox" value="ux_writing" />
+              <span>UX Writing</span>
+            </label>
+            <label class="category-chip">
+              <input type="checkbox" value="high_level" />
+              <span>High Level</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="tab-content" id="customTab">
+          <textarea
+            id="customPrompt"
+            placeholder="Enter your custom analysis prompt...&#10;&#10;Example: Focus on mobile responsiveness and button states. Check if all CTAs are clearly visible and actionable..."
+          ></textarea>
+          <div class="checkbox-row">
+            <input type="checkbox" id="includeSuggestions" checked />
+            <label for="includeSuggestions">Include improvement suggestions</label>
+          </div>
+        </div>
+
+        <div class="tab-content" id="accessibilityTab">
+          <div class="section-title">Choose what to check</div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+            <label
+              style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;"
+              onmouseover="this.style.borderColor='var(--hdfc-primary)'"
+              onmouseout="this.style.borderColor='var(--border)'"
+            >
+              <input
+                type="checkbox"
+                id="a11yCheckText"
+                checked
+                style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);"
+              />
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                  Text Contrast
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                  WCAG AA — 4.5:1 for all text
+                </div>
+              </div>
+            </label>
+            <label
+              style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;"
+              onmouseover="this.style.borderColor='var(--hdfc-primary)'"
+              onmouseout="this.style.borderColor='var(--border)'"
+            >
+              <input
+                type="checkbox"
+                id="a11yCheckIcon"
+                checked
+                style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);"
+              />
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                  Icon / Non-Text Contrast [WIP]
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                  WCAG AA — 3:1 for icons & UI components
+                </div>
+              </div>
+            </label>
+            <label
+              style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;"
+              onmouseover="this.style.borderColor='var(--hdfc-primary)'"
+              onmouseout="this.style.borderColor='var(--border)'"
+            >
+              <input
+                type="checkbox"
+                id="a11yCheckAria"
+                style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);"
+              />
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                  ARIA Labels
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                  AI generates descriptive labels for all interactive elements & writes them to the file
+                </div>
+              </div>
+            </label>
+            <label
+              style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;"
+              onmouseover="this.style.borderColor='var(--hdfc-primary)'"
+              onmouseout="this.style.borderColor='var(--border)'"
+            >
+              <input
+                type="checkbox"
+                id="a11yCheckFocus"
+                style="width: 16px; height: 16px; accent-color: var(--hdfc-primary);"
+              />
+              <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                  Focus Order
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                  AI maps keyboard navigation order matching natural reading flow & annotates in the file
+                </div>
+              </div>
+            </label>
+          </div>
+          <!-- Per-check status chips -->
+          <div id="a11yStatusChips" style="display:none; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
+
+          <button class="btn btn-primary" id="a11yRunBtn" onclick="runAccessibilityCheck()">
+            <span>Run Accessibility Check</span>
+          </button>
+        </div>
+
+        <button class="btn btn-primary" id="analyzeBtn" disabled>
+          <span>Select a frame to analyze</span>
         </button>
       </div>
-      
-      <button class="btn btn-primary" id="analyzeBtn" disabled>
-        <span>Select a frame to analyze</span>
-      </button>
-    </div>
-    
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <div class="loading-text">Analyzing your design...</div>
-      <div class="loading-subtext">This may take a few moments</div>
-    </div>
-    
-    <div class="results" id="results">
-      <div class="results-header">
-        <div class="results-title">Analysis Results</div>
-        <div class="sort-controls">
-          <span class="sort-label">Sort by:</span>
-          <button class="sort-btn active" data-sort="priority">Priority</button>
-          <button class="sort-btn" data-sort="category">Category</button>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Analyzing your design...</div>
+        <div class="loading-subtext">This may take a few moments</div>
+      </div>
+
+      <div class="results" id="results">
+        <div class="results-header">
+          <div class="results-title">Analysis Results</div>
+          <div class="sort-controls">
+            <span class="sort-label">Sort by:</span>
+            <button class="sort-btn active" data-sort="priority">Priority</button>
+            <button class="sort-btn" data-sort="category">Category</button>
+          </div>
         </div>
+
+        <div class="summary-stats" id="summaryStats"></div>
+
+        <div class="filter-controls">
+          <label class="filter-toggle">
+            <input type="checkbox" id="hideLowSeverity" />
+            <span>Hide low severity issues</span>
+          </label>
+        </div>
+
+        <div class="scroll-area">
+          <div id="feedbackList"></div>
+        </div>
+
+        <button class="btn btn-primary" id="newAnalysisBtn" style="margin-top: 16px;">
+          <span>Analyze Again</span>
+        </button>
       </div>
-      
-      <div class="summary-stats" id="summaryStats"></div>
-      
-      <div class="filter-controls">
-        <label class="filter-toggle">
-          <input type="checkbox" id="hideLowSeverity">
-          <span>Hide low severity issues</span>
-        </label>
-      </div>
-      
-      <div class="scroll-area">
-        <div id="feedbackList"></div>
-      </div>
-      
-      <button class="btn btn-primary" id="newAnalysisBtn" style="margin-top: 16px;">
-        <span>🔄</span>
-        <span>Analyze Again</span>
-      </button>
     </div>
-  </div>
-  
-  <div class="toast" id="toast">
-    <span class="toast-icon" id="toastIcon">✓</span>
-    <span id="toastText"></span>
-  </div>
-  
-  <script>
-    // Backend URL
-    const SUPABASE_URL = 'https://lvhtpmtmxxfeomyqvnuq.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aHRwbXRteHhmZW9teXF2bnVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMDQ5NjIsImV4cCI6MjA3ODY4MDk2Mn0.ZeCg-6BKIySftZ8DV3V0uz4LK_FoA0ngSG2OIJpoCUc';
-    
-    let selectionData = null;
-    let analysisResults = [];
-    let currentSort = 'priority';
-    let appliedItems = new Set();
-    let collapsedCategories = new Set();
 
-    // ── Ignore-chrome toggle wiring ──────────────────────────────────────────
-    const _ignoreChromeToggle = document.getElementById('ignoreChromeToggle');
-    const _ignoreChromeKnob   = document.getElementById('ignoreChromeKnob');
-    const _ignoreChromeSlider = document.getElementById('ignoreChromeSlider');
+    <script>
+      // Backend URL
+      const SUPABASE_URL = 'https://lvhtpmtmxxfeomyqvnuq.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aHRwbXRteHhmZW9teXF2bnVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMxMDQ5NjIsImV4cCI6MjA3ODY4MDk2Mn0.ZeCg-6BKIySftZ8DV3V0uz4LK_FoA0ngSG2OIJpoCUc';
 
-    function getIgnoreChrome() { return _ignoreChromeToggle.checked; }
+      let selectionData = null;
+      let analysisResults = [];
+      let currentSort = 'priority';
+      let appliedItems = new Set();
+      let collapsedCategories = new Set();
 
-    _ignoreChromeToggle.addEventListener('change', () => {
-      const on = _ignoreChromeToggle.checked;
-      _ignoreChromeKnob.style.transform  = on ? 'translateX(16px)' : 'translateX(0)';
-      _ignoreChromeSlider.style.background = on ? 'var(--hdfc-primary)' : 'var(--border)';
-    });
-    // Initialise knob position (default: checked = ignore ON)
-    _ignoreChromeKnob.style.transform = 'translateX(16px)';
-    
-    // Category config
-    const categoryConfig = {
-      consistency: { label: 'Consistency', icon: '✓' },
-      ux: { label: 'UX Review', icon: '🎯' },
-      ui: { label: 'UI Review', icon: '🎨' },
-      ux_writing: { label: 'UX Writing', icon: '✍️' },
-      high_level: { label: 'High Level', icon: '💡' },
-      improvement: { label: 'Improvement', icon: '✨' }
-    };
-    
-    const categoryOrder = ['consistency', 'ux', 'ui', 'ux_writing', 'high_level', 'improvement'];
-    
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
-        // Hide analyze button on a11y tab (it has its own button)
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        analyzeBtn.style.display = tab.dataset.tab === 'accessibility' ? 'none' : 'flex';
+      // ── Ignore-chrome toggle wiring ──────────────────────────────────────────
+      const _ignoreChromeToggle = document.getElementById('ignoreChromeToggle');
+      const _ignoreChromeKnob   = document.getElementById('ignoreChromeKnob');
+      const _ignoreChromeSlider = document.getElementById('ignoreChromeSlider');
+
+      function getIgnoreChrome() { return _ignoreChromeToggle.checked; }
+
+      _ignoreChromeToggle.addEventListener('change', () => {
+        const on = _ignoreChromeToggle.checked;
+        _ignoreChromeKnob.style.transform  = on ? 'translateX(16px)' : 'translateX(0)';
+        _ignoreChromeSlider.style.background = on ? 'var(--hdfc-primary)' : 'var(--border)';
       });
-    });
-    
-    // Category chip selection
-    document.querySelectorAll('.category-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const checkbox = chip.querySelector('input');
-        checkbox.checked = !checkbox.checked;
-        chip.classList.toggle('selected', checkbox.checked);
+      // Initialise knob position (default: checked = ignore ON)
+      _ignoreChromeKnob.style.transform = 'translateX(16px)';
+
+      // Category config
+      const categoryConfig = {
+        consistency: { label: 'Consistency', icon: '✓' },
+        ux: { label: 'UX Review', icon: '🎯' },
+        ui: { label: 'UI Review', icon: '🎨' },
+        ux_writing: { label: 'UX Writing', icon: '✍️' },
+        high_level: { label: 'High Level', icon: '💡' },
+        improvement: { label: 'Improvement', icon: '✨' }
+      };
+
+      const categoryOrder = ['consistency', 'ux', 'ui', 'ux_writing', 'high_level', 'improvement'];
+
+      // Tab switching
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
+          // Hide analyze button on a11y tab (it has its own button)
+          const analyzeBtn = document.getElementById('analyzeBtn');
+          analyzeBtn.style.display = tab.dataset.tab === 'accessibility' ? 'none' : 'flex';
+        });
       });
-    });
-    
-    // Sort controls
-    document.querySelectorAll('.sort-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentSort = btn.dataset.sort;
-        displayResults();
+
+      // Category chip selection
+      document.querySelectorAll('.category-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const checkbox = chip.querySelector('input');
+          checkbox.checked = !checkbox.checked;
+          chip.classList.toggle('selected', checkbox.checked);
+        });
       });
-    });
-    
-    // Filter controls
-    document.getElementById('hideLowSeverity').addEventListener('change', displayResults);
-    
-    // Listen for messages from plugin code
-    window.onmessage = (event) => {
-      const msg = event.data.pluginMessage;
-      if (!msg) return;
-      
-      if (msg.type === 'selection-data') {
-        selectionData = msg.data;
-        updateSelectionUI();
-        handleSelectionReceived(msg.data);
-      }
-      
-      if (msg.type === 'analyze-data') {
-        runAnalysis(msg.data);
-      }
-      
-      if (msg.type === 'apply-complete') {
-        if (msg.success) {
-          appliedItems.add(msg.itemId);
-          const changesText = msg.appliedChanges && msg.appliedChanges.length > 0 
-            ? `Applied: ${msg.appliedChanges.join(', ')}` 
-            : 'Suggestion applied!';
-          showToast(changesText, 'success');
+
+      // Sort controls
+      document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentSort = btn.dataset.sort;
           displayResults();
+        });
+      });
+
+      // Filter controls
+      document.getElementById('hideLowSeverity').addEventListener('change', displayResults);
+
+      // Listen for messages from plugin code
+      window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+        if (!msg) return;
+
+        if (msg.type === 'selection-data') {
+          selectionData = msg.data;
+          updateSelectionUI();
+          handleSelectionReceived(msg.data);
+        }
+
+        if (msg.type === 'analyze-data') {
+          runAnalysis(msg.data);
+        }
+
+        if (msg.type === 'apply-complete') {
+          if (msg.success) {
+            appliedItems.add(msg.itemId);
+            const changesText = msg.appliedChanges && msg.appliedChanges.length > 0
+              ? `Applied: ${msg.appliedChanges.join(', ')}`
+              : 'Suggestion applied!';
+            showToast(changesText, 'success');
+            displayResults();
+          } else {
+            showToast('Failed to apply: ' + msg.error, 'error');
+          }
+        }
+
+        if (msg.type === 'accessibility-results') {
+          _origAccessibilityResults(msg.issues, msg.error);
+        }
+
+        if (msg.type === 'selection-for-a11y-ai') {
+          runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus);
+        }
+
+        if (msg.type === 'a11y-ai-annotate-done') {
+          showToast(msg.message || 'Annotations written to Figma!', 'success');
+        }
+
+        // Gradient contrast: UI receives pending gradient checks, triggers exports
+        if (msg.type === 'trigger-gradient-export') {
+          parent.postMessage({
+            pluginMessage: {
+              type: 'request-gradient-export',
+              textNodeId: msg.textNodeId,
+              gradientParentId: msg.gradientParentId,
+              fgColor: msg.fgColor,
+              nodeName: msg.nodeName,
+              text: msg.text,
+              fontSize: msg.fontSize,
+            }
+          }, '*');
+        }
+
+        // Gradient contrast: receive exported image, sample pixels on canvas
+        if (msg.type === 'gradient-sample-result') {
+          handleGradientSampleResult(msg);
+        }
+      };
+
+      function showToast(message, type = '') {
+        const toast = document.getElementById('toast');
+        const toastText = document.getElementById('toastText');
+        const toastIcon = document.getElementById('toastIcon');
+
+        toastText.textContent = message;
+        toastIcon.textContent = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+        toast.className = 'toast active ' + type;
+
+        setTimeout(() => toast.classList.remove('active'), 3500);
+      }
+
+      function updateSelectionUI() {
+        const box = document.getElementById('selectionBox');
+        const btn = document.getElementById('analyzeBtn');
+
+        if (!selectionData || !selectionData.hasSelection) {
+          box.innerHTML = `
+            <div class="selection-box" onclick="requestSelection()">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="9" y1="3" x2="9" y2="21"></line>
+                  <line x1="15" y1="3" x2="15" y2="21"></line>
+                  <line x1="3" y1="9" x2="21" y2="9"></line>
+                  <line x1="3" y1="15" x2="21" y2="15"></line>
+                </svg>
+              </div>
+              <div class="selection-info">
+                <div class="selection-name">Click to select a frame</div>
+                <div class="selection-hint">Select a frame, section, or component</div>
+              </div>
+            </div>
+          `;
+          btn.disabled = true;
+          btn.innerHTML = '<span>Select a frame to analyze</span>';
         } else {
-          showToast('Failed to apply: ' + msg.error, 'error');
-        }
-      }
-      
-      if (msg.type === 'accessibility-results') {
-        _origAccessibilityResults(msg.issues, msg.error);
-      }
+          const nodeNames = selectionData.nodes.map(n => n.name).slice(0, 2).join(', ');
+          const moreCount = selectionData.nodes.length > 2 ? ` +${selectionData.nodes.length - 2} more` : '';
+          const nodeCount = selectionData.nodes.length;
+          const details = `${selectionData.pageName || 'Page'} • ${nodeCount} item${nodeCount > 1 ? 's' : ''} selected`;
 
-      if (msg.type === 'selection-for-a11y-ai') {
-        runAIAccessibilityCheck(msg.data, msg.checkAria, msg.checkFocus);
-      }
-
-      if (msg.type === 'a11y-ai-annotate-done') {
-        showToast(msg.message || 'Annotations written to Figma!', 'success');
-      }
-
-      // Gradient contrast: UI receives pending gradient checks, triggers exports
-      if (msg.type === 'trigger-gradient-export') {
-        parent.postMessage({
-          pluginMessage: {
-            type: 'request-gradient-export',
-            textNodeId: msg.textNodeId,
-            gradientParentId: msg.gradientParentId,
-            fgColor: msg.fgColor,
-            nodeName: msg.nodeName,
-            text: msg.text,
-            fontSize: msg.fontSize,
-          }
-        }, '*');
-      }
-
-      // Gradient contrast: receive exported image, sample pixels on canvas
-      if (msg.type === 'gradient-sample-result') {
-        handleGradientSampleResult(msg);
-      }
-    };
-    
-    function showToast(message, type = '') {
-      const toast = document.getElementById('toast');
-      const toastText = document.getElementById('toastText');
-      const toastIcon = document.getElementById('toastIcon');
-      
-      toastText.textContent = message;
-      toastIcon.textContent = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
-      toast.className = 'toast active ' + type;
-      
-      setTimeout(() => toast.classList.remove('active'), 3500);
-    }
-    
-    function updateSelectionUI() {
-      const box = document.getElementById('selectionBox');
-      const btn = document.getElementById('analyzeBtn');
-      
-      if (!selectionData || !selectionData.hasSelection) {
-        box.innerHTML = `
-          <div class="selection-box" onclick="requestSelection()">
-            <div class="icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="9" y1="3" x2="9" y2="21"></line>
-                <line x1="15" y1="3" x2="15" y2="21"></line>
-                <line x1="3" y1="9" x2="21" y2="9"></line>
-                <line x1="3" y1="15" x2="21" y2="15"></line>
-              </svg>
-            </div>
-            <div class="selection-info">
-              <div class="selection-name">Click to select a frame</div>
-              <div class="selection-hint">Select a frame, section, or component</div>
-            </div>
-          </div>
-        `;
-        btn.disabled = true;
-        btn.innerHTML = '<span>Select a frame to analyze</span>';
-      } else {
-        const nodeNames = selectionData.nodes.map(n => n.name).slice(0, 2).join(', ');
-        const moreCount = selectionData.nodes.length > 2 ? ` +${selectionData.nodes.length - 2} more` : '';
-        const nodeCount = selectionData.nodes.length;
-        const details = `${selectionData.pageName || 'Page'} • ${nodeCount} item${nodeCount > 1 ? 's' : ''} selected`;
-        
-        box.innerHTML = `
-          <div class="selection-box selected" onclick="requestSelection()">
-            <div class="icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <div class="selection-info">
-              <div class="selection-name">${nodeNames}${moreCount}</div>
-              <div class="selection-details">${details}</div>
-            </div>
-          </div>
-        `;
-        btn.disabled = false;
-        btn.innerHTML = '<span>✨</span><span>Analyze Design</span>';
-      }
-    }
-    
-    function requestSelection() {
-      // Request the current selection from Figma - only captures on click
-      parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
-    }
-    
-    // Handle selection data received from plugin
-    function handleSelectionReceived(data) {
-      if (data.hasSelection) {
-        showToast(`Selected: ${data.nodes.length} item${data.nodes.length > 1 ? 's' : ''}`, 'success');
-      } else {
-        showToast('No frame selected. Select a frame in Figma first.', 'error');
-      }
-    }
-    
-    function showError(message) {
-      const errorEl = document.getElementById('error');
-      document.getElementById('errorText').textContent = message;
-      errorEl.classList.add('active');
-    }
-    
-    function hideError() {
-      document.getElementById('error').classList.remove('active');
-    }
-    
-    function showLoading(show) {
-      document.getElementById('loading').classList.toggle('active', show);
-      document.getElementById('analysisSection').style.display = show ? 'none' : 'block';
-      document.getElementById('results').classList.remove('active');
-    }
-    
-    function buildPrompt() {
-      const customTab = document.getElementById('customTab').classList.contains('active');
-      
-      if (customTab) {
-        let prompt = document.getElementById('customPrompt').value.trim();
-        if (!prompt) return null;
-        if (document.getElementById('includeSuggestions').checked) {
-          prompt += '\n\nFor each issue, provide specific actionable suggestions on how to fix it.';
-        }
-        return { prompt, categories: null, isCustom: true };
-      }
-      
-      const selectedCategories = [];
-      document.querySelectorAll('.category-chip input:checked').forEach(cb => {
-        selectedCategories.push(cb.value);
-      });
-      
-      if (selectedCategories.length === 0) {
-        return null;
-      }
-      
-      const categoryLabels = {
-        consistency: 'Consistency across flows regarding UI',
-        ux: 'UX Review',
-        ui: 'UI Review',
-        accessibility: 'Accessibility Issues',
-        design_system: 'Design System Adherence',
-        ux_writing: 'Typos & Inconsistent UX Writing',
-        high_level: 'High Level Review About and the Why? Questioning the basics.'
-      };
-      
-      const categoryDescriptions = selectedCategories.map(c => categoryLabels[c]).join(', ');
-      const prompt = `I am a UI UX designer who lacks attention to detail and makes a lot of mistakes. Act as my manager and reviewer. Provide me feedback on the following areas: ${categoryDescriptions}. For each issue, provide specific actionable suggestions on how to fix it.`;
-      
-      return { prompt, categories: selectedCategories, isCustom: false };
-    }
-    
-    async function analyze() {
-      hideError();
-      
-      if (!selectionData || !selectionData.hasSelection) {
-        showError('Please select a frame or component first');
-        return;
-      }
-      
-      const promptData = buildPrompt();
-      if (!promptData) {
-        showError('Please select at least one category or enter a custom prompt');
-        return;
-      }
-      
-      parent.postMessage({ pluginMessage: { type: 'analyze' } }, '*');
-    }
-    
-    async function runAnalysis(data) {
-      const promptData = buildPrompt();
-      if (!promptData) return;
-      
-      showLoading(true);
-      appliedItems.clear();
-      
-      try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({
-            designData: data.nodes,
-            prompt: promptData.prompt,
-            categories: promptData.categories,
-            isCustom: promptData.isCustom,
-            fileName: data.fileName,
-            pageName: data.pageName,
-            ignoreChrome: getIgnoreChrome()
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Analysis failed (${response.status})`);
-        }
-        
-        const result = await response.json();
-        analysisResults = result.feedback || [];
-        displayResults();
-        
-        parent.postMessage({ pluginMessage: { type: 'analysis-complete' } }, '*');
-        
-      } catch (error) {
-        showError(error.message || 'Analysis failed. Please try again.');
-        showLoading(false);
-        document.getElementById('analysisSection').style.display = 'block';
-      }
-    }
-    
-    function displayResults() {
-      showLoading(false);
-      
-      const resultsEl = document.getElementById('results');
-      const feedbackList = document.getElementById('feedbackList');
-      const summaryStats = document.getElementById('summaryStats');
-      const analysisSection = document.getElementById('analysisSection');
-      const hideLow = document.getElementById('hideLowSeverity').checked;
-      
-      analysisSection.style.display = 'none';
-      
-      // Filter
-      let filteredResults = hideLow 
-        ? analysisResults.filter(f => f.severity !== 'low')
-        : [...analysisResults];
-      
-      if (filteredResults.length === 0 && analysisResults.length === 0) {
-        feedbackList.innerHTML = `
-          <div class="success-message">
-            <div class="success-icon">✓</div>
-            <div class="success-title">No issues found!</div>
-            <div class="success-subtitle">Your design looks great. Keep up the excellent work.</div>
-          </div>
-        `;
-        summaryStats.innerHTML = '';
-        resultsEl.classList.add('active');
-        return;
-      }
-      
-      // Summary stats
-      const highCount = analysisResults.filter(f => f.severity === 'high').length;
-      const mediumCount = analysisResults.filter(f => f.severity === 'medium').length;
-      const lowCount = analysisResults.filter(f => f.severity === 'low').length;
-      
-      summaryStats.innerHTML = `
-        <div class="stat">
-          <div class="stat-value high">${highCount}</div>
-          <div class="stat-label">High</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value medium">${mediumCount}</div>
-          <div class="stat-label">Medium</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value low">${lowCount}</div>
-          <div class="stat-label">Low</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">${filteredResults.length}</div>
-          <div class="stat-label">Showing</div>
-        </div>
-      `;
-      
-      if (currentSort === 'priority') {
-        // Sort by severity
-        filteredResults.sort((a, b) => {
-          const aSev = a.severity ? a.severity.toLowerCase() : 'low';
-          const bSev = b.severity ? b.severity.toLowerCase() : 'low';
-          const aOrder = aSev === 'high' ? 0 : (aSev === 'medium' ? 1 : 2);
-          const bOrder = bSev === 'high' ? 0 : (bSev === 'medium' ? 1 : 2);
-          return aOrder - bOrder;
-        });
-        
-        feedbackList.innerHTML = filteredResults.map(item => renderFeedbackItem(item)).join('');
-      } else {
-        // Group by category
-        const grouped = {};
-        filteredResults.forEach(item => {
-          const cat = item.category || 'general';
-          if (!grouped[cat]) grouped[cat] = [];
-          grouped[cat].push(item);
-        });
-        
-        let html = '';
-        categoryOrder.forEach(cat => {
-          if (grouped[cat] && grouped[cat].length > 0) {
-            const config = categoryConfig[cat] || { label: cat, icon: '📋' };
-            const isCollapsed = collapsedCategories.has(cat);
-            html += `
-              <div class="category-section">
-                <div class="category-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCategory('${cat}')">
-                  <span class="category-title">
-                    <span class="category-icon">${config.icon}</span>
-                    <span>${config.label}</span>
-                  </span>
-                  <span class="category-count">${grouped[cat].length}</span>
-                </div>
-                <div class="category-content ${isCollapsed ? 'hidden' : ''}">
-                  ${grouped[cat].map(item => renderFeedbackItem(item)).join('')}
-                </div>
+          box.innerHTML = `
+            <div class="selection-box selected" onclick="requestSelection()">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
               </div>
-            `;
-          }
-        });
-        
-        // Handle unknown categories
-        Object.keys(grouped).forEach(cat => {
-          if (!categoryOrder.includes(cat)) {
-            const isCollapsed = collapsedCategories.has(cat);
-            html += `
-              <div class="category-section">
-                <div class="category-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCategory('${cat}')">
-                  <span class="category-title">
-                    <span class="category-icon">📋</span>
-                    <span>${cat}</span>
-                  </span>
-                  <span class="category-count">${grouped[cat].length}</span>
-                </div>
-                <div class="category-content ${isCollapsed ? 'hidden' : ''}">
-                  ${grouped[cat].map(item => renderFeedbackItem(item)).join('')}
-                </div>
+              <div class="selection-info">
+                <div class="selection-name">${nodeNames}${moreCount}</div>
+                <div class="selection-details">${details}</div>
               </div>
-            `;
+            </div>
+          `;
+          btn.disabled = false;
+          btn.innerHTML = '<span>✨</span><span>Analyze Design</span>';
+        }
+      }
+
+      function requestSelection() {
+        // Request the current selection from Figma - only captures on click
+        parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
+      }
+
+      // Handle selection data received from plugin
+      function handleSelectionReceived(data) {
+        if (data.hasSelection) {
+          showToast(`Selected: ${data.nodes.length} item${data.nodes.length > 1 ? 's' : ''}`, 'success');
+        } else {
+          showToast('No frame selected. Select a frame in Figma first.', 'error');
+        }
+      }
+
+      function showError(message) {
+        const errorEl = document.getElementById('error');
+        document.getElementById('errorText').textContent = message;
+        errorEl.classList.add('active');
+      }
+
+      function hideError() {
+        document.getElementById('error').classList.remove('active');
+      }
+
+      function showLoading(show) {
+        document.getElementById('loading').classList.toggle('active', show);
+        document.getElementById('analysisSection').style.display = show ? 'none' : 'block';
+        document.getElementById('results').classList.remove('active');
+      }
+
+      function buildPrompt() {
+        const customTab = document.getElementById('customTab').classList.contains('active');
+
+        if (customTab) {
+          let prompt = document.getElementById('customPrompt').value.trim();
+          if (!prompt) return null;
+          if (document.getElementById('includeSuggestions').checked) {
+            prompt += '\n\nFor each issue, provide specific actionable suggestions on how to fix it.';
           }
-        });
-        
-        feedbackList.innerHTML = html;
-      }
-      
-      resultsEl.classList.add('active');
-    }
-    
-    function toggleCategory(cat) {
-      if (collapsedCategories.has(cat)) {
-        collapsedCategories.delete(cat);
-      } else {
-        collapsedCategories.add(cat);
-      }
-      // Toggle DOM directly instead of full re-render
-      const headers = document.querySelectorAll('.category-header');
-      headers.forEach(header => {
-        if (header.getAttribute('onclick')?.includes(`'${cat}'`)) {
-          header.classList.toggle('collapsed');
-          const content = header.nextElementSibling;
-          if (content) content.classList.toggle('hidden');
+          return { prompt, categories: null, isCustom: true };
         }
-      });
-    }
-    
-    function renderFeedbackItem(item) {
-      const severity = (item.severity || 'low').toLowerCase();
-      const isApplied = appliedItems.has(item.id || item.title);
-      const itemId = item.id || item.title;
-      const uniqueId = 'desc-' + Math.random().toString(36).substr(2, 9);
-      
-      return `
-        <div class="feedback-item ${severity}" onclick="focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
-        <div class="feedback-header">
-          <div class="feedback-title">${item.title || 'Issue'}</div>
-          <div class="feedback-actions">
-            ${item.suggestion ? `
-              <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}" 
-                onclick="event.stopPropagation(); applySuggestion('${itemId.replace(/'/g, "\\'")}', '${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}', '${(item.suggestion || item.description || '').replace(/'/g, "\\'")}', '${(item.title || '').replace(/'/g, "\\'")}')"
-                ${isApplied ? 'disabled' : ''}>
-                ${isApplied ? '✓ Applied' : '⚡ Apply'}
-              </button>
-            ` : ''}
-          </div>
-        </div>
-          ${item.description ? `
-            <div class="feedback-desc" id="${uniqueId}">${item.description}</div>
-            <button class="feedback-expand-btn" onclick="event.stopPropagation(); toggleDesc('${uniqueId}', this)">Show more ▾</button>
-          ` : ''}
-          <div class="feedback-meta">
-            <span class="feedback-severity ${severity}">${severity}</span>
-            ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
-          </div>
-        </div>
-      `;
-    }
-    
-    function toggleDesc(id, btn) {
-      const el = document.getElementById(id);
-      if (el.classList.contains('expanded')) {
-        el.classList.remove('expanded');
-        btn.textContent = 'Show more ▾';
-      } else {
-        el.classList.add('expanded');
-        btn.textContent = 'Show less ▴';
-      }
-    }
-    
-    let _focusDebounce = null;
-    function focusNode(nodeId, location) {
-      if (_focusDebounce) return; // prevent rapid clicks
-      _focusDebounce = setTimeout(() => { _focusDebounce = null; }, 300);
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'focus-node', 
-          nodeId: nodeId,
-          location: location
-        } 
-      }, '*');
-    }
-    
-    function applySuggestion(itemId, nodeId, location, suggestion, title) {
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'apply-suggestion',
-          itemId: itemId,
-          nodeId: nodeId,
-          location: location,
-          suggestion: suggestion,
-          title: title
-        } 
-      }, '*');
-    }
-    
-    // Feedback Modal Functions
-    function openFeedbackModal() {
-      document.getElementById('feedbackModal').classList.add('active');
-    }
-    
-    function closeFeedbackModal() {
-      document.getElementById('feedbackModal').classList.remove('active');
-      // Reset form
-      document.getElementById('feedbackName').value = '';
-      document.getElementById('feedbackText').value = '';
-      document.getElementById('feedbackType').value = 'suggestion';
-    }
-    
-    async function submitFeedback() {
-      const name = document.getElementById('feedbackName').value.trim();
-      const feedback = document.getElementById('feedbackText').value.trim();
-      const feedbackType = document.getElementById('feedbackType').value;
-      const submitBtn = document.getElementById('submitFeedbackBtn');
-      
-      if (!name) {
-        showToast('Please enter your name', 'error');
-        return;
-      }
-      
-      if (!feedback) {
-        showToast('Please enter your feedback', 'error');
-        return;
-      }
-      
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Submitting...';
-      
-      try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({
-            userName: name,
-            feedback: feedback,
-            feedbackType: feedbackType
-          })
+
+        const selectedCategories = [];
+        document.querySelectorAll('.category-chip input:checked').forEach(cb => {
+          selectedCategories.push(cb.value);
         });
-        
-        if (!response.ok) {
-          throw new Error('Failed to submit feedback');
+
+        if (selectedCategories.length === 0) {
+          return null;
         }
-        
-        showToast('Thank you for your feedback!', 'success');
-        closeFeedbackModal();
-      } catch (error) {
-        console.error('Feedback error:', error);
-        showToast('Failed to submit feedback. Please try again.', 'error');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Feedback';
-      }
-    }
-    
-    // Button events
-    document.getElementById('analyzeBtn').addEventListener('click', analyze);
-    document.getElementById('newAnalysisBtn').addEventListener('click', () => {
-      document.getElementById('results').classList.remove('active');
-      document.getElementById('analysisSection').style.display = 'block';
-      analysisResults = [];
-    });
-    
-    // Close modal on overlay click
-    document.getElementById('feedbackModal').addEventListener('click', (e) => {
-      if (e.target.id === 'feedbackModal') {
-        closeFeedbackModal();
-      }
-    });
-    
-    // Initial UI
-    updateSelectionUI();
-    
-    // ========== ACCESSIBILITY ==========
 
-    // Per-check status tracking: 'idle' | 'running' | 'done' | 'error'
-    let a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
+        const categoryLabels = {
+          consistency: 'Consistency across flows regarding UI',
+          ux: 'UX Review',
+          ui: 'UI Review',
+          accessibility: 'Accessibility Issues',
+          design_system: 'Design System Adherence',
+          ux_writing: 'Typos & Inconsistent UX Writing',
+          high_level: 'High Level Review About and the Why? Questioning the basics.'
+        };
 
-    function setCheckStatus(key, status, extra) {
-      a11yCheckStatus[key] = status;
-      renderCheckStatusChips();
-    }
+        const categoryDescriptions = selectedCategories.map(c => categoryLabels[c]).join(', ');
+        const prompt = `I am a UI UX designer who lacks attention to detail and makes a lot of mistakes. Act as my manager and reviewer. Provide me feedback on the following areas: ${categoryDescriptions}. For each issue, provide specific actionable suggestions on how to fix it.`;
 
-    function renderCheckStatusChips() {
-      const container = document.getElementById('a11yStatusChips');
-      if (!container) return;
-
-      const checks = [
-        { key: 'text',         label: '🔤 Text Contrast' },
-        { key: 'icon',         label: '🎨 Icon Contrast' },
-        { key: 'aria',         label: '🏷️ ARIA Labels' },
-        { key: 'focus_order',  label: '🔢 Focus Order' },
-      ];
-
-      const activeChecks = checks.filter(c => a11yCheckStatus[c.key] !== 'idle');
-      if (activeChecks.length === 0) { container.innerHTML = ''; return; }
-
-      const statusColors = {
-        running: '#E8EDFF',
-        done:    '#ECFDF5',
-        error:   '#FEF2F2',
-      };
-      const statusBorders = {
-        running: '#1C3FCA',
-        done:    '#10B981',
-        error:   '#EF4444',
-      };
-      const statusText = {
-        running: 'Processing…',
-        done:    'Done ✓',
-        error:   'Error ✗',
-      };
-
-      container.innerHTML = activeChecks.map(c => {
-        const s = a11yCheckStatus[c.key];
-        const bg   = statusColors[s]  || 'var(--white)';
-        const bdr  = statusBorders[s] || 'var(--border)';
-        const stxt = statusText[s]    || '';
-        const pulse = s === 'running' ? 'animation:pulse 1.2s ease-in-out infinite;' : '';
-        return `
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:${bg};border:1px solid ${bdr};border-radius:8px;${pulse}">
-            <span style="font-size:12px;font-weight:600;color:var(--text-primary);">${c.label}</span>
-            <span style="font-size:11px;color:${bdr};font-weight:500;">${stxt}</span>
-            ${s === 'running' ? `<span style="width:14px;height:14px;border:2px solid ${bdr};border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite;flex-shrink:0;"></span>` : ''}
-          </div>
-        `;
-      }).join('');
-    }
-
-    async function runAccessibilityCheck() {
-      if (!selectionData || !selectionData.hasSelection) {
-        showError('Please select a frame first');
-        return;
-      }
-      const checkText = document.getElementById('a11yCheckText').checked;
-      const checkIcon = document.getElementById('a11yCheckIcon').checked;
-      const checkAria = document.getElementById('a11yCheckAria').checked;
-      const checkFocus = document.getElementById('a11yCheckFocus').checked;
-      if (!checkText && !checkIcon && !checkAria && !checkFocus) {
-        showToast('Select at least one check type', 'error');
-        return;
+        return { prompt, categories: selectedCategories, isCustom: false };
       }
 
-      // Reset statuses and clear previous results
-      a11yIssues = []; // Clear previous results including gradient results
-      a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
-      if (checkText) setCheckStatus('text', 'running');
-      if (checkIcon) setCheckStatus('icon', 'running');
-      if (checkAria) setCheckStatus('aria', 'running');
-      if (checkFocus) setCheckStatus('focus_order', 'running');
+      async function analyze() {
+        hideError();
 
-      const btn = document.getElementById('a11yRunBtn');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;"></span><span>Checking...</span>';
+        if (!selectionData || !selectionData.hasSelection) {
+          showError('Please select a frame or component first');
+          return;
+        }
 
-      // Show status chips area
-      const chipsEl = document.getElementById('a11yStatusChips');
-      if (chipsEl) chipsEl.style.display = 'flex';
+        const promptData = buildPrompt();
+        if (!promptData) {
+          showError('Please select at least one category or enter a custom prompt');
+          return;
+        }
 
-      // Run contrast checks (local, via plugin code) — instant
-      if (checkText || checkIcon) {
-        parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
+        parent.postMessage({ pluginMessage: { type: 'analyze' } }, '*');
       }
 
-      // Run AI checks in parallel
-      if (checkAria || checkFocus) {
-        parent.postMessage({ pluginMessage: { type: 'get-selection-for-a11y-ai', checkAria, checkFocus } }, '*');
-      }
-    }
+      async function runAnalysis(data) {
+        const promptData = buildPrompt();
+        if (!promptData) return;
 
-    let a11yIssues = [];
-    let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
-    let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
-    let a11yCollapsed = new Set(); // collapsed a11y groups
-    let a11yAIResults = { aria: null, focus_order: null }; // AI check results
+        showLoading(true);
+        appliedItems.clear();
 
-    // ====== AI ACCESSIBILITY CHECK (parallel) ======
-    async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
-      const promises = [];
-
-      const runCheck = async (checkType) => {
-        const label = checkType === 'aria' ? 'ARIA Labels' : 'Focus Order';
         try {
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-a11y`, {
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -2065,7 +1712,9 @@
             },
             body: JSON.stringify({
               designData: data.nodes,
-              checkType,
+              prompt: promptData.prompt,
+              categories: promptData.categories,
+              isCustom: promptData.isCustom,
               fileName: data.fileName,
               pageName: data.pageName,
               ignoreChrome: getIgnoreChrome()
@@ -2073,496 +1722,926 @@
           });
 
           if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.error || `AI check failed (${response.status})`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Analysis failed (${response.status})`);
           }
 
           const result = await response.json();
-          const resultKey = checkType === 'focus_order' ? 'focus_order' : 'aria';
-          a11yAIResults[resultKey] = result.results;
+          analysisResults = result.feedback || [];
+          displayResults();
 
-          // Write annotations to Figma
-          parent.postMessage({
-            pluginMessage: {
-              type: 'write-a11y-annotations',
-              checkType,
-              results: result.results
-            }
-          }, '*');
+          parent.postMessage({ pluginMessage: { type: 'analysis-complete' } }, '*');
 
-          setCheckStatus(checkType, 'done');
-          displayAIAccessibilityResults();
-          showToast(`✅ ${label} done — ${result.results.length} elements`, 'success');
         } catch (error) {
-          setCheckStatus(checkType, 'error');
-          showToast(`❌ ${label}: ${error.message || 'failed'}`, 'error');
+          showError(error.message || 'Analysis failed. Please try again.');
+          showLoading(false);
+          document.getElementById('analysisSection').style.display = 'block';
         }
-      };
-
-      if (checkAria)  promises.push(runCheck('aria'));
-      if (checkFocus) promises.push(runCheck('focus_order'));
-
-      // Fire both in parallel
-      await Promise.all(promises);
-
-      // Re-enable button when all AI checks are done
-      if (!document.getElementById('a11yCheckText').checked && !document.getElementById('a11yCheckIcon').checked) {
-        const btn = document.getElementById('a11yRunBtn');
-        btn.disabled = false;
-        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
-      }
-    }
-
-    // ====== Contrast usage tracking ======
-    async function trackContrastUsage(fileName, nodeCount) {
-      try {
-        await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ userName: fileName || 'unknown', feedback: `contrast_check nodes:${nodeCount}`, feedbackType: 'usage_track' })
-        });
-      } catch (_) {}
-      // Also call plugin_usage directly
-      try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ _trackOnly: true, action: 'a11y_contrast', fileName: fileName || 'unknown', nodeCount })
-        });
-      } catch (_) {}
-    }
-
-    // Handle contrast results arriving from plugin code
-    function onContrastResultsReceived(issues) {
-      const checkText = document.getElementById('a11yCheckText').checked;
-      const checkIcon = document.getElementById('a11yCheckIcon').checked;
-      if (checkText) setCheckStatus('text', 'done');
-      if (checkIcon) setCheckStatus('icon', 'done');
-
-      // Re-enable button if no AI checks are pending
-      const aria  = a11yCheckStatus.aria;
-      const focus = a11yCheckStatus.focus_order;
-      if (aria !== 'running' && focus !== 'running') {
-        const btn = document.getElementById('a11yRunBtn');
-        btn.disabled = false;
-        btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
       }
 
-      // Track usage
-      if (selectionData && selectionData.nodes) {
-        trackContrastUsage(selectionData.fileName, issues.length).catch(() => {});
-      }
-    }
+      function displayResults() {
+        showLoading(false);
 
-    // Intercept accessibility-results message to update status
-    // Merges with any gradient results already collected
-    const _origAccessibilityResults = (issues, error) => {
-      // Merge: keep any gradient results already pushed asynchronously
-      const gradientResults = a11yIssues.filter(i => i._fromGradient);
-      a11yIssues = [...(issues || []), ...gradientResults];
-      onContrastResultsReceived(a11yIssues);
-      displayAccessibilityResults(a11yIssues, error);
-    };
+        const resultsEl = document.getElementById('results');
+        const feedbackList = document.getElementById('feedbackList');
+        const summaryStats = document.getElementById('summaryStats');
+        const analysisSection = document.getElementById('analysisSection');
+        const hideLow = document.getElementById('hideLowSeverity').checked;
 
-    // ========== GRADIENT CONTRAST SAMPLING ==========
-    // sRGB helpers mirrored from code.ts for UI-side computation
-    function _sRGBtoLinear(c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
-    function _relLum(r, g, b) { return 0.2126 * _sRGBtoLinear(r) + 0.7152 * _sRGBtoLinear(g) + 0.0722 * _sRGBtoLinear(b); }
-    function _contrastRatio(l1, l2) { return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); }
-    function _rgbHex(r, g, b) {
-      const h = v => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0');
-      return `#${h(r)}${h(g)}${h(b)}`.toUpperCase();
-    }
+        analysisSection.style.display = 'none';
 
-    function handleGradientSampleResult(msg) {
-      if (msg.error) {
-        console.warn('Gradient sampling error for', msg.textNodeId, msg.error);
-        return;
-      }
+        // Filter
+        let filteredResults = hideLow
+          ? analysisResults.filter(f => f.severity !== 'low')
+          : [...analysisResults];
 
-      // Decode PNG image on an off-screen canvas
-      const blob = new Blob([new Uint8Array(msg.imageBytes)], { type: 'image/png' });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-
-        const canvas = document.createElement('canvas');
-        // Crop to text region
-        const cw = Math.min(msg.cropW, img.width - msg.cropX);
-        const ch = Math.min(msg.cropH, img.height - msg.cropY);
-        // Downscale to 20x20 for fast sampling
-        const sw = 20, sh = 20;
-        canvas.width = sw;
-        canvas.height = sh;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, msg.cropX, msg.cropY, cw, ch, 0, 0, sw, sh);
-
-        const imgData = ctx.getImageData(0, 0, sw, sh);
-        const pixels = imgData.data;
-        let totalR = 0, totalG = 0, totalB = 0;
-        const count = sw * sh;
-        for (let i = 0; i < pixels.length; i += 4) {
-          totalR += pixels[i] / 255;
-          totalG += pixels[i + 1] / 255;
-          totalB += pixels[i + 2] / 255;
-        }
-        const avgR = totalR / count;
-        const avgG = totalG / count;
-        const avgB = totalB / count;
-
-        // Compute contrast
-        const fg = msg.fgColor;
-        const fgLum = _relLum(fg.r, fg.g, fg.b);
-        const bgLum = _relLum(avgR, avgG, avgB);
-        const ratio = Math.round(_contrastRatio(fgLum, bgLum) * 100) / 100;
-        const required = 4.5;
-
-        const issue = {
-          nodeId: msg.textNodeId,
-          nodeName: msg.nodeName || 'Text',
-          type: 'text_contrast',
-          text: msg.text || '',
-          ratio,
-          required,
-          fgColor: _rgbHex(fg.r, fg.g, fg.b),
-          bgColor: _rgbHex(avgR, avgG, avgB) + ' (gradient avg)',
-          fontSize: msg.fontSize || 14,
-          pass: ratio >= required,
-          _fromGradient: true,
-        };
-
-        // Merge into existing issues and re-render
-        a11yIssues.push(issue);
-        renderA11yResults();
-      };
-      img.src = url;
-    }
-
-    function displayAIAccessibilityResults() {
-      const feedbackList = document.getElementById('feedbackList');
-      const resultsEl = document.getElementById('results');
-      const summaryStats = document.getElementById('summaryStats');
-      const analysisSection = document.getElementById('analysisSection');
-
-      analysisSection.style.display = 'none';
-      document.querySelector('.results-title').textContent = `🤖 AI Accessibility — Results`;
-      document.querySelector('.sort-controls').style.display = 'none';
-      document.querySelector('.filter-controls').style.display = 'none';
-
-      const ariaResults = a11yAIResults.aria;
-      const focusResults = a11yAIResults.focus_order;
-      const totalCount = (ariaResults ? ariaResults.length : 0) + (focusResults ? focusResults.length : 0);
-
-      summaryStats.innerHTML = `
-        <div style="grid-column: 1/-1; padding: 14px 16px; background: var(--hdfc-light); border-radius: var(--radius-sm); border: 1px solid rgba(28,63,202,0.15);">
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hdfc-primary);">
-            <span style="font-size: 18px;">🤖</span>
-            <span>${totalCount} elements annotated in Figma</span>
-          </div>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">AI has generated accessibility metadata and written it directly into your Figma file.</div>
-        </div>
-      `;
-
-      const roleIcons = { button: '🔘', tab: '📑', navigation: '🧭', listitem: '📋', img: '🖼️', input: '✏️', status: '🏷️', link: '🔗', heading: '📰', checkbox: '☑️', radiobutton: '🔵', combobox: '📂', menuitem: '📌' };
-      let html = '';
-
-      // ---- ARIA LABELS SECTION ----
-      if (ariaResults && ariaResults.length > 0) {
-        const grouped = {};
-        ariaResults.forEach(r => {
-          const role = r.role || 'other';
-          if (!grouped[role]) grouped[role] = [];
-          grouped[role].push(r);
-        });
-
-        html += `
-          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px;">
-            <span style="font-size: 16px;">🏷️</span>
-            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">ARIA Labels</span>
-            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${ariaResults.length} elements</span>
-          </div>
-        `;
-
-        Object.entries(grouped).sort((a, b) => b[1].length - a[1].length).forEach(([role, items]) => {
-          html += `
-            <div class="category-section">
-              <div class="category-header" onclick="this.classList.toggle('collapsed'); this.nextElementSibling.classList.toggle('hidden');">
-                <span class="category-title">
-                  <span class="category-icon">${roleIcons[role] || '🏷️'}</span>
-                  <span style="text-transform: capitalize;">${role}</span>
-                </span>
-                <span class="category-count">${items.length}</span>
-              </div>
-              <div class="category-content">
-                ${items.map(r => `
-                  <div class="a11y-item pass" style="cursor:pointer;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
-                    <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">${r.nodeName || 'Unknown'}</div>
-                    <div style="font-size: 12px; color: var(--hdfc-primary); font-style: italic; margin-bottom: 4px;">"${r.ariaLabel}"</div>
-                    ${r.context ? `<div style="font-size: 11px; color: var(--text-muted);">${r.context}</div>` : ''}
-                  </div>
-                `).join('')}
-              </div>
+        if (filteredResults.length === 0 && analysisResults.length === 0) {
+          feedbackList.innerHTML = `
+            <div class="success-message">
+              <div class="success-icon">✓</div>
+              <div class="success-title">No issues found!</div>
+              <div class="success-subtitle">Your design looks great. Keep up the excellent work.</div>
             </div>
           `;
+          summaryStats.innerHTML = '';
+          resultsEl.classList.add('active');
+          return;
+        }
+
+        // Summary stats
+        const highCount = analysisResults.filter(f => f.severity === 'high').length;
+        const mediumCount = analysisResults.filter(f => f.severity === 'medium').length;
+        const lowCount = analysisResults.filter(f => f.severity === 'low').length;
+
+        summaryStats.innerHTML = `
+          <div class="stat">
+            <div class="stat-value high">${highCount}</div>
+            <div class="stat-label">High</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value medium">${mediumCount}</div>
+            <div class="stat-label">Medium</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value low">${lowCount}</div>
+            <div class="stat-label">Low</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">${filteredResults.length}</div>
+            <div class="stat-label">Showing</div>
+          </div>
+        `;
+
+        if (currentSort === 'priority') {
+          // Sort by severity
+          filteredResults.sort((a, b) => {
+            const aSev = a.severity ? a.severity.toLowerCase() : 'low';
+            const bSev = b.severity ? b.severity.toLowerCase() : 'low';
+            const aOrder = aSev === 'high' ? 0 : (aSev === 'medium' ? 1 : 2);
+            const bOrder = bSev === 'high' ? 0 : (bSev === 'medium' ? 1 : 2);
+            return aOrder - bOrder;
+          });
+
+          feedbackList.innerHTML = filteredResults.map(item => renderFeedbackItem(item)).join('');
+        } else {
+          // Group by category
+          const grouped = {};
+          filteredResults.forEach(item => {
+            const cat = item.category || 'general';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(item);
+          });
+
+          let html = '';
+          categoryOrder.forEach(cat => {
+            if (grouped[cat] && grouped[cat].length > 0) {
+              const config = categoryConfig[cat] || { label: cat, icon: '📋' };
+              const isCollapsed = collapsedCategories.has(cat);
+              html += `
+                <div class="category-section">
+                  <div class="category-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCategory('${cat}')">
+                    <span class="category-title">
+                      <span class="category-icon">${config.icon}</span>
+                      <span>${config.label}</span>
+                    </span>
+                    <span class="category-count">${grouped[cat].length}</span>
+                  </div>
+                  <div class="category-content ${isCollapsed ? 'hidden' : ''}">
+                    ${grouped[cat].map(item => renderFeedbackItem(item)).join('')}
+                  </div>
+                </div>
+              `;
+            }
+          });
+
+          // Handle unknown categories
+          Object.keys(grouped).forEach(cat => {
+            if (!categoryOrder.includes(cat)) {
+              const isCollapsed = collapsedCategories.has(cat);
+              html += `
+                <div class="category-section">
+                  <div class="category-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCategory('${cat}')">
+                    <span class="category-title">
+                      <span class="category-icon">📋</span>
+                      <span>${cat}</span>
+                    </span>
+                    <span class="category-count">${grouped[cat].length}</span>
+                  </div>
+                  <div class="category-content ${isCollapsed ? 'hidden' : ''}">
+                    ${grouped[cat].map(item => renderFeedbackItem(item)).join('')}
+                  </div>
+                </div>
+              `;
+            }
+          });
+
+          feedbackList.innerHTML = html;
+        }
+
+        resultsEl.classList.add('active');
+      }
+
+      function toggleCategory(cat) {
+        if (collapsedCategories.has(cat)) {
+          collapsedCategories.delete(cat);
+        } else {
+          collapsedCategories.add(cat);
+        }
+        // Toggle DOM directly instead of full re-render
+        const headers = document.querySelectorAll('.category-header');
+        headers.forEach(header => {
+          if (header.getAttribute('onclick')?.includes(`'${cat}'`)) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            if (content) content.classList.toggle('hidden');
+          }
         });
       }
 
-      // ---- FOCUS ORDER SECTION ----
-      if (focusResults && focusResults.length > 0) {
-        const sorted = [...focusResults].sort((a, b) => (a.focusIndex || 0) - (b.focusIndex || 0));
+      function renderFeedbackItem(item) {
+        const severity = (item.severity || 'low').toLowerCase();
+        const isApplied = appliedItems.has(item.id || item.title);
+        const itemId = item.id || item.title;
+        const uniqueId = 'desc-' + Math.random().toString(36).substr(2, 9);
 
-        html += `
-          <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px; margin-top: ${ariaResults && ariaResults.length > 0 ? '20px' : '0'};">
-            <span style="font-size: 16px;">🔢</span>
-            <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">Focus Order</span>
-            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${sorted.length} elements</span>
+        return `
+          <div class="feedback-item ${severity}" onclick="focusNode('${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}')">
+          <div class="feedback-header">
+            <div class="feedback-title">${item.title || 'Issue'}</div>
+            <div class="feedback-actions">
+              ${item.suggestion ? `
+                <button class="btn btn-small ${isApplied ? 'btn-applied' : 'btn-apply'}"
+                  onclick="event.stopPropagation(); applySuggestion('${itemId.replace(/'/g, "\\'")}', '${item.nodeId || ''}', '${(item.location || '').replace(/'/g, "\\'")}', '${(item.suggestion || item.description || '').replace(/'/g, "\\'")}', '${(item.title || '').replace(/'/g, "\\'")}')"
+                  ${isApplied ? 'disabled' : ''}>
+                  ${isApplied ? '✓ Applied' : '⚡ Apply'}
+                </button>
+              ` : ''}
+            </div>
+          </div>
+            ${item.description ? `
+              <div class="feedback-desc" id="${uniqueId}">${item.description}</div>
+              <button class="feedback-expand-btn" onclick="event.stopPropagation(); toggleDesc('${uniqueId}', this)">Show more ▾</button>
+            ` : ''}
+            <div class="feedback-meta">
+              <span class="feedback-severity ${severity}">${severity}</span>
+              ${item.location ? `<span class="feedback-location">📍 ${item.location}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }
+
+      function toggleDesc(id, btn) {
+        const el = document.getElementById(id);
+        if (el.classList.contains('expanded')) {
+          el.classList.remove('expanded');
+          btn.textContent = 'Show more ▾';
+        } else {
+          el.classList.add('expanded');
+          btn.textContent = 'Show less ▴';
+        }
+      }
+
+      let _focusDebounce = null;
+      function focusNode(nodeId, location) {
+        if (_focusDebounce) return; // prevent rapid clicks
+        _focusDebounce = setTimeout(() => { _focusDebounce = null; }, 300);
+        parent.postMessage({
+          pluginMessage: {
+            type: 'focus-node',
+            nodeId: nodeId,
+            location: location
+          }
+        }, '*');
+      }
+
+      function applySuggestion(itemId, nodeId, location, suggestion, title) {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'apply-suggestion',
+            itemId: itemId,
+            nodeId: nodeId,
+            location: location,
+            suggestion: suggestion,
+            title: title
+          }
+        }, '*');
+      }
+
+      // Feedback Modal Functions
+      function openFeedbackModal() {
+        document.getElementById('feedbackModal').classList.add('active');
+      }
+
+      function closeFeedbackModal() {
+        document.getElementById('feedbackModal').classList.remove('active');
+        // Reset form
+        document.getElementById('feedbackName').value = '';
+        document.getElementById('feedbackText').value = '';
+        document.getElementById('feedbackType').value = 'suggestion';
+      }
+
+      async function submitFeedback() {
+        const name = document.getElementById('feedbackName').value.trim();
+        const feedback = document.getElementById('feedbackText').value.trim();
+        const feedbackType = document.getElementById('feedbackType').value;
+        const submitBtn = document.getElementById('submitFeedbackBtn');
+
+        if (!name) {
+          showToast('Please enter your name', 'error');
+          return;
+        }
+
+        if (!feedback) {
+          showToast('Please enter your feedback', 'error');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+
+        try {
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              userName: name,
+              feedback: feedback,
+              feedbackType: feedbackType
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to submit feedback');
+          }
+
+          showToast('Thank you for your feedback!', 'success');
+          closeFeedbackModal();
+        } catch (error) {
+          console.error('Feedback error:', error);
+          showToast('Failed to submit feedback. Please try again.', 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Feedback';
+        }
+      }
+
+      // Button events
+      document.getElementById('analyzeBtn').addEventListener('click', analyze);
+      document.getElementById('newAnalysisBtn').addEventListener('click', () => {
+        document.getElementById('results').classList.remove('active');
+        document.getElementById('analysisSection').style.display = 'block';
+        analysisResults = [];
+      });
+
+      // Close modal on overlay click
+      document.getElementById('feedbackModal').addEventListener('click', (e) => {
+        if (e.target.id === 'feedbackModal') {
+          closeFeedbackModal();
+        }
+      });
+
+      // Initial UI
+      updateSelectionUI();
+
+      // ========== ACCESSIBILITY ==========
+
+      // Per-check status tracking: 'idle' | 'running' | 'done' | 'error'
+      let a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
+
+      function setCheckStatus(key, status, extra) {
+        a11yCheckStatus[key] = status;
+        renderCheckStatusChips();
+      }
+
+      function renderCheckStatusChips() {
+        const container = document.getElementById('a11yStatusChips');
+        if (!container) return;
+
+        const checks = [
+          { key: 'text',         label: '🔤 Text Contrast' },
+          { key: 'icon',         label: '🎨 Icon Contrast' },
+          { key: 'aria',         label: '🏷️ ARIA Labels' },
+          { key: 'focus_order',  label: '🔢 Focus Order' },
+        ];
+
+        const activeChecks = checks.filter(c => a11yCheckStatus[c.key] !== 'idle');
+        if (activeChecks.length === 0) { container.innerHTML = ''; return; }
+
+        const statusColors = {
+          running: '#E8EDFF',
+          done:    '#ECFDF5',
+          error:   '#FEF2F2',
+        };
+        const statusBorders = {
+          running: '#1C3FCA',
+          done:    '#10B981',
+          error:   '#EF4444',
+        };
+        const statusText = {
+          running: 'Processing…',
+          done:    'Done ✓',
+          error:   'Error ✗',
+        };
+
+        container.innerHTML = activeChecks.map(c => {
+          const s = a11yCheckStatus[c.key];
+          const bg   = statusColors[s]  || 'var(--white)';
+          const bdr  = statusBorders[s] || 'var(--border)';
+          const stxt = statusText[s]    || '';
+          const pulse = s === 'running' ? 'animation:pulse 1.2s ease-in-out infinite;' : '';
+          return `
+            <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:${bg};border:1px solid ${bdr};border-radius:8px;${pulse}">
+              <span style="font-size:12px;font-weight:600;color:var(--text-primary);">${c.label}</span>
+              <span style="font-size:11px;color:${bdr};font-weight:500;">${stxt}</span>
+              ${s === 'running' ? `<span style="width:14px;height:14px;border:2px solid ${bdr};border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.8s linear infinite;flex-shrink:0;"></span>` : ''}
+            </div>
+          `;
+        }).join('');
+      }
+
+      async function runAccessibilityCheck() {
+        if (!selectionData || !selectionData.hasSelection) {
+          showError('Please select a frame first');
+          return;
+        }
+        const checkText = document.getElementById('a11yCheckText').checked;
+        const checkIcon = document.getElementById('a11yCheckIcon').checked;
+        const checkAria = document.getElementById('a11yCheckAria').checked;
+        const checkFocus = document.getElementById('a11yCheckFocus').checked;
+        if (!checkText && !checkIcon && !checkAria && !checkFocus) {
+          showToast('Select at least one check type', 'error');
+          return;
+        }
+
+        // Reset statuses and clear previous results
+        a11yIssues = []; // Clear previous results including gradient results
+        a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
+        if (checkText) setCheckStatus('text', 'running');
+        if (checkIcon) setCheckStatus('icon', 'running');
+        if (checkAria) setCheckStatus('aria', 'running');
+        if (checkFocus) setCheckStatus('focus_order', 'running');
+
+        const btn = document.getElementById('a11yRunBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;"></span><span>Checking...</span>';
+
+        // Show status chips area
+        const chipsEl = document.getElementById('a11yStatusChips');
+        if (chipsEl) chipsEl.style.display = 'flex';
+
+        // Run contrast checks (local, via plugin code) — instant
+        if (checkText || checkIcon) {
+          parent.postMessage({ pluginMessage: { type: 'run-accessibility-check', checkText, checkIcon, skipAI: true } }, '*');
+        }
+
+        // Run AI checks in parallel
+        if (checkAria || checkFocus) {
+          parent.postMessage({ pluginMessage: { type: 'get-selection-for-a11y-ai', checkAria, checkFocus } }, '*');
+        }
+      }
+
+      let a11yIssues = [];
+      let a11ySort = 'type'; // 'type' (grouped) | 'ratio' | 'status'
+      let a11yFilter = 'all'; // 'all' | 'text' | 'icon' | 'fail' | 'pass'
+      let a11yCollapsed = new Set(); // collapsed a11y groups
+      let a11yAIResults = { aria: null, focus_order: null }; // AI check results
+
+      // ====== AI ACCESSIBILITY CHECK (parallel) ======
+      async function runAIAccessibilityCheck(data, checkAria, checkFocus) {
+        const promises = [];
+
+        const runCheck = async (checkType) => {
+          const label = checkType === 'aria' ? 'ARIA Labels' : 'Focus Order';
+          try {
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-a11y`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+              },
+              body: JSON.stringify({
+                designData: data.nodes,
+                checkType,
+                fileName: data.fileName,
+                pageName: data.pageName,
+                ignoreChrome: getIgnoreChrome()
+              })
+            });
+
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err.error || `AI check failed (${response.status})`);
+            }
+
+            const result = await response.json();
+            const resultKey = checkType === 'focus_order' ? 'focus_order' : 'aria';
+            a11yAIResults[resultKey] = result.results;
+
+            // Write annotations to Figma
+            parent.postMessage({
+              pluginMessage: {
+                type: 'write-a11y-annotations',
+                checkType,
+                results: result.results
+              }
+            }, '*');
+
+            setCheckStatus(checkType, 'done');
+            displayAIAccessibilityResults();
+            showToast(`✅ ${label} done — ${result.results.length} elements`, 'success');
+          } catch (error) {
+            setCheckStatus(checkType, 'error');
+            showToast(`❌ ${label}: ${error.message || 'failed'}`, 'error');
+          }
+        };
+
+        if (checkAria)  promises.push(runCheck('aria'));
+        if (checkFocus) promises.push(runCheck('focus_order'));
+
+        // Fire both in parallel
+        await Promise.all(promises);
+
+        // Re-enable button when all AI checks are done
+        if (!document.getElementById('a11yCheckText').checked && !document.getElementById('a11yCheckIcon').checked) {
+          const btn = document.getElementById('a11yRunBtn');
+          btn.disabled = false;
+          btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
+        }
+      }
+
+      // ====== Contrast usage tracking ======
+      async function trackContrastUsage(fileName, nodeCount) {
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/submit-plugin-feedback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+            body: JSON.stringify({ userName: fileName || 'unknown', feedback: `contrast_check nodes:${nodeCount}`, feedbackType: 'usage_track' })
+          });
+        } catch (_) {}
+        // Also call plugin_usage directly
+        try {
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-plugin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+            body: JSON.stringify({ _trackOnly: true, action: 'a11y_contrast', fileName: fileName || 'unknown', nodeCount })
+          });
+        } catch (_) {}
+      }
+
+      // Handle contrast results arriving from plugin code
+      function onContrastResultsReceived(issues) {
+        const checkText = document.getElementById('a11yCheckText').checked;
+        const checkIcon = document.getElementById('a11yCheckIcon').checked;
+        if (checkText) setCheckStatus('text', 'done');
+        if (checkIcon) setCheckStatus('icon', 'done');
+
+        // Re-enable button if no AI checks are pending
+        const aria  = a11yCheckStatus.aria;
+        const focus = a11yCheckStatus.focus_order;
+        if (aria !== 'running' && focus !== 'running') {
+          const btn = document.getElementById('a11yRunBtn');
+          btn.disabled = false;
+          btn.innerHTML = '<span>♿</span><span>Run Accessibility Check</span>';
+        }
+
+        // Track usage
+        if (selectionData && selectionData.nodes) {
+          trackContrastUsage(selectionData.fileName, issues.length).catch(() => {});
+        }
+      }
+
+      // Intercept accessibility-results message to update status
+      // Merges with any gradient results already collected
+      const _origAccessibilityResults = (issues, error) => {
+        // Merge: keep any gradient results already pushed asynchronously
+        const gradientResults = a11yIssues.filter(i => i._fromGradient);
+        a11yIssues = [...(issues || []), ...gradientResults];
+        onContrastResultsReceived(a11yIssues);
+        displayAccessibilityResults(a11yIssues, error);
+      };
+
+      // ========== GRADIENT CONTRAST SAMPLING ==========
+      // sRGB helpers mirrored from code.ts for UI-side computation
+      function _sRGBtoLinear(c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+      function _relLum(r, g, b) { return 0.2126 * _sRGBtoLinear(r) + 0.7152 * _sRGBtoLinear(g) + 0.0722 * _sRGBtoLinear(b); }
+      function _contrastRatio(l1, l2) { return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); }
+      function _rgbHex(r, g, b) {
+        const h = v => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0');
+        return `#${h(r)}${h(g)}${h(b)}`.toUpperCase();
+      }
+
+      function handleGradientSampleResult(msg) {
+        if (msg.error) {
+          console.warn('Gradient sampling error for', msg.textNodeId, msg.error);
+          return;
+        }
+
+        // Decode PNG image on an off-screen canvas
+        const blob = new Blob([new Uint8Array(msg.imageBytes)], { type: 'image/png' });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+
+          const canvas = document.createElement('canvas');
+          // Crop to text region
+          const cw = Math.min(msg.cropW, img.width - msg.cropX);
+          const ch = Math.min(msg.cropH, img.height - msg.cropY);
+          // Downscale to 20x20 for fast sampling
+          const sw = 20, sh = 20;
+          canvas.width = sw;
+          canvas.height = sh;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, msg.cropX, msg.cropY, cw, ch, 0, 0, sw, sh);
+
+          const imgData = ctx.getImageData(0, 0, sw, sh);
+          const pixels = imgData.data;
+          let totalR = 0, totalG = 0, totalB = 0;
+          const count = sw * sh;
+          for (let i = 0; i < pixels.length; i += 4) {
+            totalR += pixels[i] / 255;
+            totalG += pixels[i + 1] / 255;
+            totalB += pixels[i + 2] / 255;
+          }
+          const avgR = totalR / count;
+          const avgG = totalG / count;
+          const avgB = totalB / count;
+
+          // Compute contrast
+          const fg = msg.fgColor;
+          const fgLum = _relLum(fg.r, fg.g, fg.b);
+          const bgLum = _relLum(avgR, avgG, avgB);
+          const ratio = Math.round(_contrastRatio(fgLum, bgLum) * 100) / 100;
+          const required = 4.5;
+
+          const issue = {
+            nodeId: msg.textNodeId,
+            nodeName: msg.nodeName || 'Text',
+            type: 'text_contrast',
+            text: msg.text || '',
+            ratio,
+            required,
+            fgColor: _rgbHex(fg.r, fg.g, fg.b),
+            bgColor: _rgbHex(avgR, avgG, avgB) + ' (gradient avg)',
+            fontSize: msg.fontSize || 14,
+            pass: ratio >= required,
+            _fromGradient: true,
+          };
+
+          // Merge into existing issues and re-render
+          a11yIssues.push(issue);
+          renderA11yResults();
+        };
+        img.src = url;
+      }
+
+      function displayAIAccessibilityResults() {
+        const feedbackList = document.getElementById('feedbackList');
+        const resultsEl = document.getElementById('results');
+        const summaryStats = document.getElementById('summaryStats');
+        const analysisSection = document.getElementById('analysisSection');
+
+        analysisSection.style.display = 'none';
+        document.querySelector('.results-title').textContent = `🤖 AI Accessibility — Results`;
+        document.querySelector('.sort-controls').style.display = 'none';
+        document.querySelector('.filter-controls').style.display = 'none';
+
+        const ariaResults = a11yAIResults.aria;
+        const focusResults = a11yAIResults.focus_order;
+        const totalCount = (ariaResults ? ariaResults.length : 0) + (focusResults ? focusResults.length : 0);
+
+        summaryStats.innerHTML = `
+          <div style="grid-column: 1/-1; padding: 14px 16px; background: var(--hdfc-light); border-radius: var(--radius-sm); border: 1px solid rgba(28,63,202,0.15);">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hdfc-primary);">
+              <span style="font-size: 18px;">🤖</span>
+              <span>${totalCount} elements annotated in Figma</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">AI has generated accessibility metadata and written it directly into your Figma file.</div>
           </div>
         `;
 
-        html += sorted.map(r => `
-          <div class="a11y-item pass" style="cursor:pointer; display: flex; align-items: flex-start; gap: 12px;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
-            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--hdfc-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">${r.focusIndex}</div>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 2px;">${r.nodeName || 'Unknown'}</div>
-              <div style="font-size: 12px; color: var(--hdfc-primary); margin-bottom: 2px;">${r.ariaLabel || ''}</div>
-              <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
-                <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--hdfc-light); color: var(--hdfc-primary); font-weight: 600; text-transform: capitalize;">${r.role || ''}</span>
-                ${r.rationale ? `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">${r.rationale}</span>` : ''}
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-
-      feedbackList.innerHTML = html;
-      resultsEl.classList.add('active');
-    }
-
-    function displayAccessibilityResults(issues, error) {
-      const btn = document.getElementById('a11yRunBtn');
-      btn.disabled = false;
-      btn.innerHTML = '<span>♿</span><span>Run Contrast Check</span>';
-      
-      if (error) {
-        showError(error);
-        return;
-      }
-      
-      a11yIssues = issues;
-      renderA11yResults();
-    }
-    
-    function setA11ySort(sort) {
-      a11ySort = sort;
-      renderA11yResults();
-    }
-    
-    function setA11yFilter(filter) {
-      a11yFilter = filter;
-      renderA11yResults();
-    }
-    
-    function renderA11yResults() {
-      const issues = a11yIssues;
-      const analysisSection = document.getElementById('analysisSection');
-      const resultsEl = document.getElementById('results');
-      const feedbackList = document.getElementById('feedbackList');
-      const summaryStats = document.getElementById('summaryStats');
-      
-      analysisSection.style.display = 'none';
-      
-      const textCount = issues.filter(i => i.type === 'text_contrast').length;
-      const iconCount = issues.filter(i => i.type === 'icon_contrast').length;
-      const failCount = issues.filter(i => !i.pass).length;
-      const passCount = issues.filter(i => i.pass).length;
-      
-      summaryStats.innerHTML = `
-        <div style="grid-column: 1/-1;">
-          <div class="a11y-summary" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='all'?1:0.5};" onclick="setA11yFilter('all')">
-              <div class="a11y-stat-val">${issues.length}</div>
-              <div class="a11y-stat-label">All</div>
-            </div>
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='fail'?1:0.5};" onclick="setA11yFilter('fail')">
-              <div class="a11y-stat-val" style="color: var(--error);">${failCount}</div>
-              <div class="a11y-stat-label">Fail</div>
-            </div>
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='pass'?1:0.5};" onclick="setA11yFilter('pass')">
-              <div class="a11y-stat-val" style="color: var(--success);">${passCount}</div>
-              <div class="a11y-stat-label">Pass</div>
-            </div>
-            <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='text'?1:0.5};" onclick="setA11yFilter('text')">
-              <div class="a11y-stat-val" style="color: var(--hdfc-primary);">${textCount}</div>
-              <div class="a11y-stat-label">Text</div>
-            </div>
-          </div>
-          <div style="display: flex; gap: 4px; background: var(--white); padding: 3px; border-radius: 6px; border: 1px solid var(--border);">
-            <button class="sort-btn ${a11ySort==='type'?'active':''}" onclick="setA11ySort('type')" style="${a11ySort==='type'?'background:var(--hdfc-primary);color:white;':''}">Group by Type</button>
-            <button class="sort-btn ${a11ySort==='ratio'?'active':''}" onclick="setA11ySort('ratio')" style="${a11ySort==='ratio'?'background:var(--hdfc-primary);color:white;':''}">By Ratio</button>
-            <button class="sort-btn ${a11ySort==='status'?'active':''}" onclick="setA11ySort('status')" style="${a11ySort==='status'?'background:var(--hdfc-primary);color:white;':''}">By Status</button>
-          </div>
-        </div>
-      `;
-      
-      document.querySelector('.results-title').textContent = 'Contrast Check Results';
-      document.querySelector('.sort-controls').style.display = 'none';
-      document.querySelector('.filter-controls').style.display = 'none';
-      
-      // Filter
-      let filtered = [...issues];
-      if (a11yFilter === 'fail') filtered = filtered.filter(i => !i.pass);
-      else if (a11yFilter === 'pass') filtered = filtered.filter(i => i.pass);
-      else if (a11yFilter === 'text') filtered = filtered.filter(i => i.type === 'text_contrast');
-      else if (a11yFilter === 'icon') filtered = filtered.filter(i => i.type === 'icon_contrast');
-      
-      if (filtered.length === 0) {
-        feedbackList.innerHTML = `
-          <div class="success-message">
-            <div class="success-icon">✓</div>
-            <div class="success-title">${issues.length === 0 ? 'No elements found' : 'No matching issues'}</div>
-            <div class="success-subtitle">${issues.length === 0 ? 'No checkable layers found in the selection.' : 'Try a different filter.'}</div>
-          </div>
-        `;
-        resultsEl.classList.add('active');
-        return;
-      }
-      
-      if (a11ySort === 'type') {
-        // Group by text vs icon
-        const textIssues = filtered.filter(i => i.type === 'text_contrast');
-        const iconIssues = filtered.filter(i => i.type === 'icon_contrast');
-        textIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
-        iconIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
-        
+        const roleIcons = { button: '🔘', tab: '📑', navigation: '🧭', listitem: '📋', img: '🖼️', input: '✏️', status: '🏷️', link: '🔗', heading: '📰', checkbox: '☑️', radiobutton: '🔵', combobox: '📂', menuitem: '📌' };
         let html = '';
-        if (textIssues.length > 0) {
-          const textFails = textIssues.filter(i => !i.pass).length;
-          const textCollapsed = a11yCollapsed.has('text');
-          html += `<div class="category-section">
-            <div class="category-header ${textCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('text')">
-              <span class="category-title">
-                <span class="category-icon">🔤</span>
-                <span>Text Contrast</span>
-                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${textIssues.length} items${textFails > 0 ? ', <span style=color:var(--error)>' + textFails + ' fail</span>' : ''}</span>
-              </span>
-              <span class="chevron ${textCollapsed ? 'collapsed' : ''}">▼</span>
+
+        // ---- ARIA LABELS SECTION ----
+        if (ariaResults && ariaResults.length > 0) {
+          const grouped = {};
+          ariaResults.forEach(r => {
+            const role = r.role || 'other';
+            if (!grouped[role]) grouped[role] = [];
+            grouped[role].push(r);
+          });
+
+          html += `
+            <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px;">
+              <span style="font-size: 16px;">🏷️</span>
+              <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">ARIA Labels</span>
+              <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${ariaResults.length} elements</span>
             </div>
-            <div class="category-content ${textCollapsed ? 'hidden' : ''}">
-              ${textIssues.map(renderA11yItem).join('')}
-            </div>
-          </div>`;
-        }
-        if (iconIssues.length > 0) {
-          const iconFails = iconIssues.filter(i => !i.pass).length;
-          const iconCollapsed = a11yCollapsed.has('icon');
-          html += `<div class="category-section">
-            <div class="category-header ${iconCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('icon')">
-              <span class="category-title">
-                <span class="category-icon">🎨</span>
-                <span>Icon Contrast</span>
-                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${iconIssues.length} items${iconFails > 0 ? ', <span style=color:var(--error)>' + iconFails + ' fail</span>' : ''}</span>
-              </span>
-              <span class="chevron ${iconCollapsed ? 'collapsed' : ''}">▼</span>
-            </div>
-            <div class="category-content ${iconCollapsed ? 'hidden' : ''}">
-              ${iconIssues.map(renderA11yItem).join('')}
-            </div>
-          </div>`;
-        }
-        feedbackList.innerHTML = html;
-      } else if (a11ySort === 'ratio') {
-        filtered.sort((a, b) => a.ratio - b.ratio);
-        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
-      } else {
-        // status: fails first
-        filtered.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
-        feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
-      }
-      
-      resultsEl.classList.add('active');
-    }
-    
-    function renderA11yItem(issue) {
-      return `
-        <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div style="flex: 1; min-width: 0;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
-                <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
+          `;
+
+          Object.entries(grouped).sort((a, b) => b[1].length - a[1].length).forEach(([role, items]) => {
+            html += `
+              <div class="category-section">
+                <div class="category-header" onclick="this.classList.toggle('collapsed'); this.nextElementSibling.classList.toggle('hidden');">
+                  <span class="category-title">
+                    <span class="category-icon">${roleIcons[role] || '🏷️'}</span>
+                    <span style="text-transform: capitalize;">${role}</span>
+                  </span>
+                  <span class="category-count">${items.length}</span>
+                </div>
+                <div class="category-content">
+                  ${items.map(r => `
+                    <div class="a11y-item pass" style="cursor:pointer;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
+                      <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">${r.nodeName || 'Unknown'}</div>
+                      <div style="font-size: 12px; color: var(--hdfc-primary); font-style: italic; margin-bottom: 4px;">"${r.ariaLabel}"</div>
+                      ${r.context ? `<div style="font-size: 11px; color: var(--text-muted);">${r.context}</div>` : ''}
+                    </div>
+                  `).join('')}
+                </div>
               </div>
-              <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
-            </div>
-            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
-              <div class="a11y-ratio ${issue.pass ? 'pass' : 'fail'}">${issue.ratio}:1</div>
-              <div style="font-size: 10px; color: var(--text-muted);">need ${issue.required}:1</div>
-            </div>
-          </div>
-          <div class="a11y-colors">
-            <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
-            <span style="font-size: 11px; color: var(--text-muted);">on</span>
-            <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
-            <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
-            <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
-          </div>
-        </div>
-      `;
-    }
-    
-    function toggleA11yGroup(group) {
-      if (a11yCollapsed.has(group)) {
-        a11yCollapsed.delete(group);
-      } else {
-        a11yCollapsed.add(group);
-      }
-      renderA11yResults();
-    }
-    
-    // Override newAnalysisBtn to restore a11y UI state
-    const _origNewAnalysis = document.getElementById('newAnalysisBtn').onclick;
-    document.getElementById('newAnalysisBtn').addEventListener('click', () => {
-      document.querySelector('.sort-controls').style.display = '';
-      document.querySelector('.filter-controls').style.display = '';
-      document.querySelector('.results-title').textContent = 'Analysis Results';
-    });
-
-    // ========== ANNOTATION TOOL ==========
-    let annotationBarOpen = false;
-
-    function toggleAnnotationBar() {
-      annotationBarOpen = !annotationBarOpen;
-      const fields = document.getElementById('annotationFields');
-      const chevron = document.getElementById('annotationChevron');
-      fields.style.display = annotationBarOpen ? 'block' : 'none';
-      chevron.style.transform = annotationBarOpen ? 'rotate(180deg)' : 'rotate(0)';
-    }
-
-    function generateAnnotation() {
-      const interaction = document.getElementById('annotInteraction').value.trim();
-      const role = document.getElementById('annotRole').value.trim();
-      const label = document.getElementById('annotLabel').value.trim();
-
-      if (!interaction && !role && !label) {
-        showToast('Fill in at least one field', 'error');
-        return;
-      }
-
-      parent.postMessage({
-        pluginMessage: {
-          type: 'create-annotation',
-          interaction,
-          role,
-          label
+            `;
+          });
         }
-      }, '*');
 
-      // Clear fields after generating
-      document.getElementById('annotInteraction').value = '';
-      document.getElementById('annotRole').value = '';
-      document.getElementById('annotLabel').value = '';
-      showToast('Annotation placed on canvas!', 'success');
-    }
-  </script>
-</body>
+        // ---- FOCUS ORDER SECTION ----
+        if (focusResults && focusResults.length > 0) {
+          const sorted = [...focusResults].sort((a, b) => (a.focusIndex || 0) - (b.focusIndex || 0));
+
+          html += `
+            <div style="padding: 10px 0 6px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--hdfc-primary); margin-bottom: 8px; margin-top: ${ariaResults && ariaResults.length > 0 ? '20px' : '0'};">
+              <span style="font-size: 16px;">🔢</span>
+              <span style="font-size: 13px; font-weight: 700; color: var(--hdfc-primary);">Focus Order</span>
+              <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${sorted.length} elements</span>
+            </div>
+          `;
+
+          html += sorted.map(r => `
+            <div class="a11y-item pass" style="cursor:pointer; display: flex; align-items: flex-start; gap: 12px;" onclick="focusNode('${r.nodeId}', '${(r.nodeName||'').replace(/'/g,"\\'")}')">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--hdfc-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">${r.focusIndex}</div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 2px;">${r.nodeName || 'Unknown'}</div>
+                <div style="font-size: 12px; color: var(--hdfc-primary); margin-bottom: 2px;">${r.ariaLabel || ''}</div>
+                <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+                  <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--hdfc-light); color: var(--hdfc-primary); font-weight: 600; text-transform: capitalize;">${r.role || ''}</span>
+                  ${r.rationale ? `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">${r.rationale}</span>` : ''}
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        feedbackList.innerHTML = html;
+        resultsEl.classList.add('active');
+      }
+
+      function displayAccessibilityResults(issues, error) {
+        const btn = document.getElementById('a11yRunBtn');
+        btn.disabled = false;
+        btn.innerHTML = '<span>♿</span><span>Run Contrast Check</span>';
+
+        if (error) {
+          showError(error);
+          return;
+        }
+
+        a11yIssues = issues;
+        renderA11yResults();
+      }
+
+      function setA11ySort(sort) {
+        a11ySort = sort;
+        renderA11yResults();
+      }
+
+      function setA11yFilter(filter) {
+        a11yFilter = filter;
+        renderA11yResults();
+      }
+
+      function renderA11yResults() {
+        const issues = a11yIssues;
+        const analysisSection = document.getElementById('analysisSection');
+        const resultsEl = document.getElementById('results');
+        const feedbackList = document.getElementById('feedbackList');
+        const summaryStats = document.getElementById('summaryStats');
+
+        analysisSection.style.display = 'none';
+
+        const textCount = issues.filter(i => i.type === 'text_contrast').length;
+        const iconCount = issues.filter(i => i.type === 'icon_contrast').length;
+        const failCount = issues.filter(i => !i.pass).length;
+        const passCount = issues.filter(i => i.pass).length;
+
+        summaryStats.innerHTML = `
+          <div style="grid-column: 1/-1;">
+            <div class="a11y-summary" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
+              <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='all'?1:0.5};" onclick="setA11yFilter('all')">
+                <div class="a11y-stat-val">${issues.length}</div>
+                <div class="a11y-stat-label">All</div>
+              </div>
+              <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='fail'?1:0.5};" onclick="setA11yFilter('fail')">
+                <div class="a11y-stat-val" style="color: var(--error);">${failCount}</div>
+                <div class="a11y-stat-label">Fail</div>
+              </div>
+              <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='pass'?1:0.5};" onclick="setA11yFilter('pass')">
+                <div class="a11y-stat-val" style="color: var(--success);">${passCount}</div>
+                <div class="a11y-stat-label">Pass</div>
+              </div>
+              <div class="a11y-stat" style="cursor:pointer; opacity:${a11yFilter==='text'?1:0.5};" onclick="setA11yFilter('text')">
+                <div class="a11y-stat-val" style="color: var(--hdfc-primary);">${textCount}</div>
+                <div class="a11y-stat-label">Text</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 4px; background: var(--white); padding: 3px; border-radius: 6px; border: 1px solid var(--border);">
+              <button class="sort-btn ${a11ySort==='type'?'active':''}" onclick="setA11ySort('type')" style="${a11ySort==='type'?'background:var(--hdfc-primary);color:white;':''}">Group by Type</button>
+              <button class="sort-btn ${a11ySort==='ratio'?'active':''}" onclick="setA11ySort('ratio')" style="${a11ySort==='ratio'?'background:var(--hdfc-primary);color:white;':''}">By Ratio</button>
+              <button class="sort-btn ${a11ySort==='status'?'active':''}" onclick="setA11ySort('status')" style="${a11ySort==='status'?'background:var(--hdfc-primary);color:white;':''}">By Status</button>
+            </div>
+          </div>
+        `;
+
+        document.querySelector('.results-title').textContent = 'Contrast Check Results';
+        document.querySelector('.sort-controls').style.display = 'none';
+        document.querySelector('.filter-controls').style.display = 'none';
+
+        // Filter
+        let filtered = [...issues];
+        if (a11yFilter === 'fail') filtered = filtered.filter(i => !i.pass);
+        else if (a11yFilter === 'pass') filtered = filtered.filter(i => i.pass);
+        else if (a11yFilter === 'text') filtered = filtered.filter(i => i.type === 'text_contrast');
+        else if (a11yFilter === 'icon') filtered = filtered.filter(i => i.type === 'icon_contrast');
+
+        if (filtered.length === 0) {
+          feedbackList.innerHTML = `
+            <div class="success-message">
+              <div class="success-icon">✓</div>
+              <div class="success-title">${issues.length === 0 ? 'No elements found' : 'No matching issues'}</div>
+              <div class="success-subtitle">${issues.length === 0 ? 'No checkable layers found in the selection.' : 'Try a different filter.'}</div>
+            </div>
+          `;
+          resultsEl.classList.add('active');
+          return;
+        }
+
+        if (a11ySort === 'type') {
+          // Group by text vs icon
+          const textIssues = filtered.filter(i => i.type === 'text_contrast');
+          const iconIssues = filtered.filter(i => i.type === 'icon_contrast');
+          textIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+          iconIssues.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+
+          let html = '';
+          if (textIssues.length > 0) {
+            const textFails = textIssues.filter(i => !i.pass).length;
+            const textCollapsed = a11yCollapsed.has('text');
+            html += `<div class="category-section">
+              <div class="category-header ${textCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('text')">
+                <span class="category-title">
+                  <span class="category-icon">🔤</span>
+                  <span>Text Contrast</span>
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${textIssues.length} items${textFails > 0 ? ', <span style=color:var(--error)>' + textFails + ' fail</span>' : ''}</span>
+                </span>
+                <span class="chevron ${textCollapsed ? 'collapsed' : ''}">▼</span>
+              </div>
+              <div class="category-content ${textCollapsed ? 'hidden' : ''}">
+                ${textIssues.map(renderA11yItem).join('')}
+              </div>
+            </div>`;
+          }
+          if (iconIssues.length > 0) {
+            const iconFails = iconIssues.filter(i => !i.pass).length;
+            const iconCollapsed = a11yCollapsed.has('icon');
+            html += `<div class="category-section">
+              <div class="category-header ${iconCollapsed ? 'collapsed' : ''}" onclick="toggleA11yGroup('icon')">
+                <span class="category-title">
+                  <span class="category-icon">🎨</span>
+                  <span>Icon Contrast</span>
+                  <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${iconIssues.length} items${iconFails > 0 ? ', <span style=color:var(--error)>' + iconFails + ' fail</span>' : ''}</span>
+                </span>
+                <span class="chevron ${iconCollapsed ? 'collapsed' : ''}">▼</span>
+              </div>
+              <div class="category-content ${iconCollapsed ? 'hidden' : ''}">
+                ${iconIssues.map(renderA11yItem).join('')}
+              </div>
+            </div>`;
+          }
+          feedbackList.innerHTML = html;
+        } else if (a11ySort === 'ratio') {
+          filtered.sort((a, b) => a.ratio - b.ratio);
+          feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
+        } else {
+          // status: fails first
+          filtered.sort((a, b) => (a.pass === b.pass ? a.ratio - b.ratio : a.pass ? 1 : -1));
+          feedbackList.innerHTML = filtered.map(renderA11yItem).join('');
+        }
+
+        resultsEl.classList.add('active');
+      }
+
+      function renderA11yItem(issue) {
+        return `
+          <div class="a11y-item ${issue.pass ? 'pass' : 'fail'}" onclick="focusNode('${issue.nodeId}', '${issue.nodeName.replace(/'/g, "\\'")}')">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                  <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${issue.type === 'icon_contrast' ? '#EDE9FE' : 'var(--hdfc-light)'}; color: ${issue.type === 'icon_contrast' ? '#7C3AED' : 'var(--hdfc-primary)'}; font-weight: 600;">${issue.type === 'icon_contrast' ? 'Icon' : 'Text'}</span>
+                  <span style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.nodeName}</span>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${issue.type === 'icon_contrast' ? 'Size: ' + issue.text : '"' + issue.text + '"'}</div>
+              </div>
+              <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
+                <div class="a11y-ratio ${issue.pass ? 'pass' : 'fail'}">${issue.ratio}:1</div>
+                <div style="font-size: 10px; color: var(--text-muted);">need ${issue.required}:1</div>
+              </div>
+            </div>
+            <div class="a11y-colors">
+              <div class="a11y-swatch" style="background:${issue.fgColor};" title="${issue.type === 'icon_contrast' ? 'Fill' : 'Text'}: ${issue.fgColor}"></div>
+              <span style="font-size: 11px; color: var(--text-muted);">on</span>
+              <div class="a11y-swatch" style="background:${issue.bgColor};" title="BG: ${issue.bgColor}"></div>
+              <span style="font-size: 11px; color: var(--text-muted);">${issue.fgColor} / ${issue.bgColor}</span>
+              <span style="margin-left: auto; font-size: 11px; font-weight: 600; color: ${issue.pass ? 'var(--success)' : 'var(--error)'};">${issue.pass ? '✓ Pass AA' : '✗ Fails AA'}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      function toggleA11yGroup(group) {
+        if (a11yCollapsed.has(group)) {
+          a11yCollapsed.delete(group);
+        } else {
+          a11yCollapsed.add(group);
+        }
+        renderA11yResults();
+      }
+
+      // Override newAnalysisBtn to restore a11y UI state
+      const _origNewAnalysis = document.getElementById('newAnalysisBtn').onclick;
+      document.getElementById('newAnalysisBtn').addEventListener('click', () => {
+        document.querySelector('.sort-controls').style.display = '';
+        document.querySelector('.filter-controls').style.display = '';
+        document.querySelector('.results-title').textContent = 'Analysis Results';
+      });
+
+      // ========== ANNOTATION TOOL ==========
+      let annotationBarOpen = false;
+
+      function toggleAnnotationBar() {
+        annotationBarOpen = !annotationBarOpen;
+        const fields = document.getElementById('annotationFields');
+        const chevron = document.getElementById('annotationChevron');
+        fields.style.display = annotationBarOpen ? 'block' : 'none';
+        chevron.style.transform = annotationBarOpen ? 'rotate(180deg)' : 'rotate(0)';
+      }
+
+      function generateAnnotation() {
+        const interaction = document.getElementById('annotInteraction').value.trim();
+        const role = document.getElementById('annotRole').value.trim();
+        const label = document.getElementById('annotLabel').value.trim();
+
+        if (!interaction && !role && !label) {
+          showToast('Fill in at least one field', 'error');
+          return;
+        }
+
+        parent.postMessage({
+          pluginMessage: {
+            type: 'create-annotation',
+            interaction,
+            role,
+            label
+          }
+        }, '*');
+
+        // Clear fields after generating
+        document.getElementById('annotInteraction').value = '';
+        document.getElementById('annotRole').value = '';
+        document.getElementById('annotLabel').value = '';
+        showToast('Annotation placed on canvas!', 'success');
+      }
+    </script>
+  </body>
 </html>
