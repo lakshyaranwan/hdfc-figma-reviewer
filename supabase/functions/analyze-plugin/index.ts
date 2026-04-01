@@ -107,10 +107,46 @@ function extractTextContent(flatNodes: any[]): string {
     if (!node.text) continue;
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = [];
-    grouped[topFrame].push(node.text);
+    grouped[topFrame].push(`"${node.text}" (id:${node.id}, name:${node.name || '-'})`);
   }
   return Object.entries(grouped)
     .map(([frame, texts]) => `[${frame}]\n${texts.join('\n')}`)
+    .join('\n\n');
+}
+
+// Extract semantic context: pair container fills with their child text content
+function extractSemanticContext(flatNodes: any[]): string {
+  // Build a map of node ID → node for quick lookup
+  const nodeMap = new Map<string, any>();
+  for (const node of flatNodes) nodeMap.set(node.id, node);
+
+  // For every non-text node with fills, find text children by path prefix
+  const semanticPairs: string[] = [];
+  const grouped: Record<string, string[]> = {};
+
+  for (const node of flatNodes) {
+    if (node.type === 'TEXT') continue;
+    if (!node.fills || !Array.isArray(node.fills) || node.fills.length === 0) continue;
+    const hex = node.fills[0]?.hex;
+    if (!hex) continue;
+
+    // Find all text nodes that are children of this container (path starts with this node's path)
+    const childTexts: string[] = [];
+    for (const candidate of flatNodes) {
+      if (candidate.type !== 'TEXT' || !candidate.text) continue;
+      if (candidate.path?.startsWith(node.path + ' > ')) {
+        childTexts.push(candidate.text);
+      }
+    }
+    if (childTexts.length === 0) continue;
+
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!grouped[topFrame]) grouped[topFrame] = [];
+    grouped[topFrame].push(`Container "${node.name || node.type}" (id:${node.id}) fill:${hex} → text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
+  }
+
+  return Object.entries(grouped)
+    .map(([frame, pairs]) => `[${frame}]\n${pairs.join('\n')}`)
     .join('\n\n');
 }
 
@@ -122,7 +158,7 @@ function extractColorContext(flatNodes: any[]): string {
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = new Set();
     for (const fill of node.fills) {
-      if (fill.hex) grouped[topFrame].add(`${fill.hex} (${node.type}${node.name ? ': ' + node.name : ''})`);
+      if (fill.hex) grouped[topFrame].add(`${fill.hex} (${node.type}${node.name ? ': ' + node.name : ''}, id:${node.id})`);
     }
   }
   return Object.entries(grouped)
