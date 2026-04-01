@@ -85,7 +85,7 @@ serve(async (req) => {
     }
 
     // Fetch selected AI model from settings
-    let selectedModel = "google/gemini-2.5-flash"; // default
+    let selectedModel = "google/gemini-2.5-flash-lite"; // default
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const settingsResponse = await fetch(
