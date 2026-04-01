@@ -120,13 +120,27 @@ function extractTextContent(flatNodes: any[]): string {
 }
 
 // Extract semantic context: pair container fills with their child text content
-function extractSemanticContext(flatNodes: any[]): string {
-  // Build a map of node ID → node for quick lookup
-  const nodeMap = new Map<string, any>();
-  for (const node of flatNodes) nodeMap.set(node.id, node);
+// Also classify the fill colour semantically (red=danger, green=success, etc.)
+function classifyColor(hex: string): string {
+  if (!hex) return '';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  // Red-ish (danger/error)
+  if (r > 180 && g < 100 && b < 100) return '🔴 RED/DANGER';
+  if (r > 200 && g < 80) return '🔴 RED/DANGER';
+  // Orange-ish (warning)
+  if (r > 200 && g > 100 && g < 180 && b < 80) return '🟠 ORANGE/WARNING';
+  // Green-ish (success)
+  if (g > 150 && r < 150 && b < 150) return '🟢 GREEN/SUCCESS';
+  // Blue-ish (info)
+  if (b > 180 && r < 120 && g < 180) return '🔵 BLUE/INFO';
+  // Yellow-ish (caution)
+  if (r > 200 && g > 200 && b < 100) return '🟡 YELLOW/CAUTION';
+  return '';
+}
 
-  // For every non-text node with fills, find text children by path prefix
-  const semanticPairs: string[] = [];
+function extractSemanticContext(flatNodes: any[]): string {
   const grouped: Record<string, string[]> = {};
 
   for (const node of flatNodes) {
@@ -135,7 +149,7 @@ function extractSemanticContext(flatNodes: any[]): string {
     const hex = node.fills[0]?.hex;
     if (!hex) continue;
 
-    // Find all text nodes that are children of this container (path starts with this node's path)
+    // Find all text nodes that are children of this container
     const childTexts: string[] = [];
     for (const candidate of flatNodes) {
       if (candidate.type !== 'TEXT' || !candidate.text) continue;
@@ -145,9 +159,10 @@ function extractSemanticContext(flatNodes: any[]): string {
     }
     if (childTexts.length === 0) continue;
 
+    const colorLabel = classifyColor(hex);
     const topFrame = node.path?.split(' > ')[0] || 'Unknown';
     if (!grouped[topFrame]) grouped[topFrame] = [];
-    grouped[topFrame].push(`Container "${node.name || node.type}" (id:${node.id}) fill:${hex} → text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
+    grouped[topFrame].push(`Container (id:${node.id}) fill:${hex}${colorLabel ? ' ← ' + colorLabel : ''} → text: ${childTexts.map(t => `"${t}"`).join(', ')}`);
   }
 
   return Object.entries(grouped)
