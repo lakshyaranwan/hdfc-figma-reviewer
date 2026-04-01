@@ -304,11 +304,17 @@ Start your response with [ and end with ].`;
 
       const baseContext = `I am a UI UX designer who lacks attention to details and makes mistakes. You are a UX/UI expert, my manager and my reviewer, analyzing my Figma designs.
 
-Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs and paths):
+Design Structure from Figma Plugin${chunkLabel} (flattened node list with IDs):
 ${designContext}
 
 File: ${fileName}
 Page: ${pageName}
+
+CRITICAL DATA INTERPRETATION:
+- "layerName" = Figma internal layer name. IGNORE THIS for all descriptions and locations. It is often misleading (e.g. "NEFT" when the visible text is "UPI").
+- "text" = actual visible text rendered on screen (for TEXT nodes).
+- "allText" = aggregated visible text from all children of a container (e.g. "Anmol Sharma · SBI Bank · ₹15,010"). Use this to understand what a component displays.
+- Always refer to elements by their visible text/allText content, NEVER by layerName.
 
 CRITICAL NODE ID INSTRUCTIONS:
 - You MUST use the EXACT node IDs from the design data above
