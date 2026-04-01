@@ -1337,8 +1337,17 @@
     
     function requestSelection() {
       // Request the current selection from Figma - only captures on click
+      console.log('requestSelection called');
       parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
     }
+    
+    // Use event delegation for selection box clicks (inline onclick may not work in Figma sandbox)
+    document.getElementById('selectionBox').addEventListener('click', function(e) {
+      const box = e.target.closest('.selection-box');
+      if (box) {
+        requestSelection();
+      }
+    });
     
     // Handle selection data received from plugin
     function handleSelectionReceived(data) {
