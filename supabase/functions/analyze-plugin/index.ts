@@ -325,7 +325,7 @@ serve(async (req) => {
     }
 
     // Fetch selected AI model from settings (same as analyze-figma)
-    let selectedModel = "google/gemini-2.5-flash"; // default — NOT flash-lite, needs reasoning
+    let selectedModel = "google/gemini-2.5-flash";
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const settingsResponse = await fetch(
