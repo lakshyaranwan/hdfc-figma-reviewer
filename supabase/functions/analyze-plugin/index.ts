@@ -25,7 +25,7 @@ function estimateTokens(text: string): number {
 function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   const flat: any[] = [];
 
-  function traverse(node: any, path: string, depth: number) {
+  function traverse(node: any, path: string, depth: number, parentId?: string) {
     if (!node || depth > maxDepth) return;
     if (node.visible === false) return;
     if (node.opacity !== undefined && node.opacity === 0) return;
@@ -39,6 +39,7 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
       name: node.name,
       type: node.type,
       path: currentPath,
+      parentId: parentId || null,
     };
 
     // Include text content
