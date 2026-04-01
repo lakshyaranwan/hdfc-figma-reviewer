@@ -397,12 +397,15 @@ serve(async (req) => {
     console.log(`Processing ${chunks.length} chunk(s) with AI model: ${selectedModel}`);
     let allFeedback: FeedbackItem[] = [];
 
-    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+    // Process chunks in parallel (max 3 concurrent)
+    const CONCURRENCY = 3;
+    const chunkResults: (FeedbackItem[] | null)[] = new Array(chunks.length).fill(null);
+
+    const processChunk = async (chunkIdx: number) => {
       const chunk = chunks[chunkIdx];
       const chunkLabel = isChunked ? ` (chunk ${chunkIdx + 1}/${chunks.length})` : "";
       console.log(`Processing${chunkLabel}: ${chunk.nodes.length} nodes...`);
 
-      // Adjust expected items per category based on chunk count
       const itemsPerCategory = isChunked 
         ? Math.max(3, Math.floor(8 / chunks.length))
         : Math.floor(80 / allowedCategories.length);
@@ -417,7 +420,9 @@ CRITICAL NODE ID INSTRUCTIONS:
 - Choose the MOST SPECIFIC node ID for each piece of feedback
 - For a button issue, use the button's node ID, NOT its parent frame
 - For a text issue, use the text layer's node ID, NOT the containing group
-- The more specific the node, the better the comment placement will be`;
+- The more specific the node, the better the comment placement will be
+
+IMPORTANT: Do NOT reference internal layer/component names. Only analyze VISIBLE text content and visual properties.`;
 
       const formatInstructions = `
 For each issue found, provide:
@@ -448,6 +453,7 @@ CRITICAL:
 - NEVER include technical IDs like [123:456] in title or description
 - Always include the nodeId field with the exact ID from the design structure
 - For the location field, use ONLY user-friendly, descriptive names
+- Do NOT flag "missing content" unless you can prove no text nodes exist in that area
 ${includeSuggestions ? "- For EACH issue, include specific, actionable suggestions" : ""}
 
 ${allowedCategories.includes("consistency") ? `
@@ -498,65 +504,69 @@ SPECIAL INSTRUCTIONS FOR UX WRITING REVIEW:
           aiResponse.headers,
           errorText
         );
-
-        // Update chunk status to failed
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try {
-            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed");
-          } catch (e) { /* ignore */ }
+          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "failed"); } catch (_) {}
         }
-
-        // If it's a 400 (token limit), skip this chunk and continue with others
         if (aiResponse.status === 400 && isChunked) {
           console.warn(`Chunk ${chunkIdx + 1} hit token limit, skipping...`);
-          continue;
+          return;
         }
-
         throw new Error(`AI analysis failed: ${aiResponse.status}`);
       }
 
       await storeUsageInfo("available", aiResponse.headers);
       const aiData = await aiResponse.json();
 
-      // Parse chunk feedback
       try {
         const content = aiData.choices[0].message.content;
         if (!content || content.trim() === "") {
           console.error(`Empty AI response for chunk ${chunkIdx + 1}`);
-          if (isChunked) continue;
-          throw new Error("AI response was empty.");
+          return;
         }
 
         const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\[[\s\S]*\]/);
         const jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
         
-        const chunkFeedback: FeedbackItem[] = JSON.parse(jsonContent);
-        if (!Array.isArray(chunkFeedback)) {
-          throw new Error("AI response is not an array");
+        let chunkFeedback: FeedbackItem[];
+        try {
+          const parsed = JSON.parse(jsonContent);
+          chunkFeedback = Array.isArray(parsed) ? parsed : [parsed];
+        } catch (_) {
+          // Use robust repair for truncated responses
+          chunkFeedback = repairTruncatedJSON(jsonContent) as FeedbackItem[];
+          if (chunkFeedback.length === 0) throw new Error("Could not repair JSON");
+          console.log(`Chunk ${chunkIdx + 1}: repaired truncated JSON, recovered ${chunkFeedback.length} items`);
         }
 
-        allFeedback.push(...chunkFeedback);
+        chunkResults[chunkIdx] = chunkFeedback;
         console.log(`Chunk ${chunkIdx + 1}: got ${chunkFeedback.length} feedback items`);
 
-        // Update chunk status to completed
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try {
-            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "completed", { count: chunkFeedback.length });
-          } catch (e) { /* ignore */ }
+          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "completed", { count: chunkFeedback.length }); } catch (_) {}
         }
       } catch (parseError) {
         console.error(`Failed to parse chunk ${chunkIdx + 1}:`, parseError);
         if (isChunked && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-          try {
-            await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "parse_error");
-          } catch (e) { /* ignore */ }
+          try { await updateChunkStatus(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, jobId, chunkIdx, "parse_error"); } catch (_) {}
         }
         if (!isChunked) {
           throw new Error(`Failed to parse AI feedback: ${parseError instanceof Error ? parseError.message : "Unknown parsing error"}`);
         }
-        // If chunked, skip this chunk and continue
-        continue;
       }
+    };
+
+    // Run chunks with concurrency limit
+    for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+      const batch = [];
+      for (let j = i; j < Math.min(i + CONCURRENCY, chunks.length); j++) {
+        batch.push(processChunk(j));
+      }
+      await Promise.all(batch);
+    }
+
+    // Collect results
+    for (const result of chunkResults) {
+      if (result) allFeedback.push(...result);
     }
 
     // Step 5: Clean up chunk records from DB
