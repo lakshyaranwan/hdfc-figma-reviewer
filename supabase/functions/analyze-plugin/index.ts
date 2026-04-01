@@ -313,9 +313,10 @@ For each issue found, provide:
 CRITICAL CATEGORY RESTRICTION: Only use these categories: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
-- Provide around ${itemsPerCategory} issues per category
+- You MUST provide AT LEAST ${itemsPerCategory} issues for EACH category listed above
+- This means your response must contain a MINIMUM of ${itemsPerCategory * allowedCategories.length} total items (${itemsPerCategory} × ${allowedCategories.length} categories)
 - Focus on REAL, meaningful issues
-- Do NOT skip any category
+- Do NOT skip any category — every category must have ${itemsPerCategory} items
 
 Format as JSON array:
 [{
@@ -404,7 +405,7 @@ Use category "design_system" for all DS-related feedback items.
             { role: "system", content: systemPrompt },
             { role: "user", content: analysisPrompt },
           ],
-          max_tokens: 16000,
+          max_tokens: 64000,
           temperature: 0,
         }),
       });
