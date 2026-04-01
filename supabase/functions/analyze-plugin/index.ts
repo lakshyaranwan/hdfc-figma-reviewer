@@ -105,6 +105,40 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   return flat;
 }
 
+// Classify nodes as boilerplate (footer/header/nav/legal) vs primary content
+// Uses position, size, and name patterns to determine importance
+function classifyBoilerplate(flatNodes: any[]): any[] {
+  // Find page dimensions from top-level frames
+  const topFrames = flatNodes.filter(n => !n.parentId || n.path?.split(' > ').length <= 2);
+  
+  for (const node of flatNodes) {
+    // Pattern-based boilerplate detection
+    const nameAndText = `${node.name || ''} ${node.text || ''}`.toLowerCase();
+    const isBoilerplateName = /\b(footer|header|nav|menu|legal|copyright|help|contact|social|status.?bar|tab.?bar|bottom.?nav|app.?bar|toolbar|disclaimer|terms|privacy|©)\b/i.test(nameAndText);
+    
+    // Size-based: very small nodes relative to their frame are likely decorative
+    const area = (node.size?.w || 0) * (node.size?.h || 0);
+    const isTiny = area > 0 && area < 400; // < 20x20
+    
+    // Compute salience score (higher = more important to review)
+    let salience = 0;
+    salience += Math.min(area / 1000, 100); // size contribution (capped)
+    if (node.text) salience += 200; // text nodes are important
+    if (node.fills?.some((f: any) => f.hex && classifyColor(f.hex))) salience += 300; // colored containers
+    if (node.type === 'TEXT' && (node.fontSize || 0) > 16) salience += 100; // large text
+    
+    if (isBoilerplateName) {
+      node._boilerplate = true;
+      salience -= 500;
+    }
+    if (isTiny) salience -= 200;
+    
+    node._salience = Math.max(0, salience);
+  }
+  
+  return flatNodes;
+}
+
 // Extract all visible text grouped by top-level frame
 // IMPORTANT: Only show the actual displayed text (characters), NOT layer names.
 function extractTextContent(flatNodes: any[]): string {
@@ -131,15 +165,19 @@ function classifyColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  // Red-ish (danger/error)
+  // Red-ish (danger/error) — broadened to catch darker reds, HDFC reds, maroons
+  if (r > 150 && g < 80 && b < 80) return '🔴 RED/DANGER';
   if (r > 180 && g < 100 && b < 100) return '🔴 RED/DANGER';
   if (r > 200 && g < 80) return '🔴 RED/DANGER';
+  if (r > 140 && g < 60 && b < 60) return '🔴 RED/DANGER'; // deep/dark reds
+  // Reddish with some green (like #cc3333, #e04040)
+  if (r > 160 && r > g * 2 && r > b * 2) return '🔴 RED/DANGER';
   // Orange-ish (warning)
   if (r > 200 && g > 100 && g < 180 && b < 80) return '🟠 ORANGE/WARNING';
-  // Green-ish (success)
-  if (g > 150 && r < 150 && b < 150) return '🟢 GREEN/SUCCESS';
+  // Green-ish (success) — broadened
+  if (g > 120 && r < 150 && b < 150 && g > r && g > b) return '🟢 GREEN/SUCCESS';
   // Blue-ish (info)
-  if (b > 180 && r < 120 && g < 180) return '🔵 BLUE/INFO';
+  if (b > 150 && r < 120 && g < 180 && b > r) return '🔵 BLUE/INFO';
   // Yellow-ish (caution)
   if (r > 200 && g > 200 && b < 100) return '🟡 YELLOW/CAUTION';
   return '';
@@ -501,17 +539,30 @@ serve(async (req) => {
 
     // Step 1: Flatten deeply nested design data into simplified flat nodes
     const flatNodes = flattenDesignData(designData);
+    // Step 1b: Classify boilerplate and compute salience scores
+    classifyBoilerplate(flatNodes);
     console.log("Flattened to", flatNodes.length, "nodes");
+    
     // Debug: check how many nodes have fills at all
     const nodesWithFills = flatNodes.filter((n: any) => n.fills && n.fills.length > 0);
     const nodesWithHex = flatNodes.filter((n: any) => n.fills?.some((f: any) => f.hex));
+    const boilerplateCount = flatNodes.filter((n: any) => n._boilerplate).length;
     console.log(`Nodes with fills: ${nodesWithFills.length}, with hex: ${nodesWithHex.length}`);
-    // Sample a few fills for debugging
+    console.log(`Boilerplate nodes: ${boilerplateCount}`);
+    
+    // Log ALL colored container hex values (not just first 5) for debugging
     if (nodesWithHex.length > 0) {
-      const sample = nodesWithHex.slice(0, 5).map((n: any) => `${n.id}(${n.type}):${n.fills[0].hex}`);
-      console.log(`Fill samples: ${sample.join(', ')}`);
+      // Show largest containers with color first (most likely to be banners)
+      const coloredContainers = nodesWithHex
+        .filter((n: any) => n.type !== 'TEXT')
+        .sort((a: any, b: any) => ((b.size?.w || 0) * (b.size?.h || 0)) - ((a.size?.w || 0) * (a.size?.h || 0)));
+      const sample = coloredContainers.slice(0, 10).map((n: any) => {
+        const hex = n.fills[0]?.hex;
+        const classification = hex ? classifyColor(hex) : '';
+        return `${n.id}(${n.type},${n.size?.w}x${n.size?.h}):${hex}${classification ? ' ' + classification : ''}`;
+      });
+      console.log(`Top colored containers: ${sample.join(', ')}`);
     } else if (nodesWithFills.length > 0) {
-      // Fills exist but no hex — log what we do have
       const sample = nodesWithFills.slice(0, 3).map((n: any) => `${n.id}(${n.type}):${JSON.stringify(n.fills[0])}`);
       console.log(`Fills WITHOUT hex: ${sample.join(', ')}`);
     }
@@ -678,7 +729,17 @@ ${crossScreenFacts}
 ` : ''}
 ${dsPromptSection}
 
-${isCustom ? `User's specific request: ${prompt}\n` : ''}${ignoreChrome ? `IGNORE CHROME: Do NOT flag status bars, app bars, nav bars, tab bars, footers, or other shell elements. Only flag content-area issues.\n` : ''}
+${isCustom ? `User's specific request: ${prompt}\n` : ''}
+═══ CONTENT PRIORITY (CRITICAL — READ THIS) ═══
+Focus your review on the PRIMARY CONTENT AREA of each screen — the main body, banners, cards, forms, CTAs, and key messages that users interact with.
+DO NOT waste feedback on these BOILERPLATE/CHROME areas:
+- Footers, headers, navigation bars, tab bars, status bars, app bars
+- Legal text, copyright notices, "Terms & Conditions", "Privacy Policy" links
+- Social media icons, help/contact links
+- Any element whose layer name contains: footer, header, nav, menu, legal, copyright, tab-bar, status-bar
+These are structural chrome — they are NOT interesting for design review. Skip them entirely.
+If a node is tagged _boilerplate:true in the data, IGNORE it completely.
+Prioritize nodes with high _salience scores — these are the visually prominent elements users will notice first.
 
 ═══ PASS 1: STAKEHOLDER GLANCE (HIGH + MEDIUM) ═══
 Scan ALL screens. For each screen, check these categories. Flag every violation with evidence.
