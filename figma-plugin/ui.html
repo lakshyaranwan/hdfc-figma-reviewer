@@ -1292,69 +1292,72 @@
       const btn = document.getElementById('analyzeBtn');
       
       if (!selectionData || !selectionData.hasSelection) {
-        box.innerHTML = `
-          <div class="selection-box" onclick="requestSelection()">
-            <div class="icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="9" y1="3" x2="9" y2="21"></line>
-                <line x1="15" y1="3" x2="15" y2="21"></line>
-                <line x1="3" y1="9" x2="21" y2="9"></line>
-                <line x1="3" y1="15" x2="21" y2="15"></line>
-              </svg>
-            </div>
-            <div class="selection-info">
-              <div class="selection-name">Click to select a frame</div>
-              <div class="selection-hint">Select a frame, section, or component</div>
-            </div>
-          </div>
-        `;
+        box.innerHTML = '<div class="selection-box" id="selectionClickTarget">' +
+            '<div class="icon">' +
+              '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>' +
+                '<line x1="9" y1="3" x2="9" y2="21"></line>' +
+                '<line x1="15" y1="3" x2="15" y2="21"></line>' +
+                '<line x1="3" y1="9" x2="21" y2="9"></line>' +
+                '<line x1="3" y1="15" x2="21" y2="15"></line>' +
+              '</svg>' +
+            '</div>' +
+            '<div class="selection-info">' +
+              '<div class="selection-name">Click to select a frame</div>' +
+              '<div class="selection-hint">Select a frame, section, or component in Figma first</div>' +
+            '</div>' +
+          '</div>';
         btn.disabled = true;
         btn.innerHTML = '<span>Select a frame to analyze</span>';
       } else {
-        const nodeNames = selectionData.nodes.map(n => n.name).slice(0, 2).join(', ');
-        const moreCount = selectionData.nodes.length > 2 ? ` +${selectionData.nodes.length - 2} more` : '';
-        const nodeCount = selectionData.nodes.length;
-        const details = `${selectionData.pageName || 'Page'} • ${nodeCount} item${nodeCount > 1 ? 's' : ''} selected`;
+        var nodeNames = selectionData.nodes.map(function(n) { return n.name; }).slice(0, 2).join(', ');
+        var moreCount = selectionData.nodes.length > 2 ? ' +' + (selectionData.nodes.length - 2) + ' more' : '';
+        var nodeCount = selectionData.nodes.length;
+        var details = (selectionData.pageName || 'Page') + ' \u2022 ' + nodeCount + ' item' + (nodeCount > 1 ? 's' : '') + ' selected';
         
-        box.innerHTML = `
-          <div class="selection-box selected" onclick="requestSelection()">
-            <div class="icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <div class="selection-info">
-              <div class="selection-name">${nodeNames}${moreCount}</div>
-              <div class="selection-details">${details}</div>
-            </div>
-          </div>
-        `;
+        box.innerHTML = '<div class="selection-box selected" id="selectionClickTarget">' +
+            '<div class="icon">' +
+              '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<polyline points="20 6 9 17 4 12"></polyline>' +
+              '</svg>' +
+            '</div>' +
+            '<div class="selection-info">' +
+              '<div class="selection-name">' + nodeNames + moreCount + '</div>' +
+              '<div class="selection-details">' + details + '</div>' +
+            '</div>' +
+          '</div>';
         btn.disabled = false;
-        btn.innerHTML = '<span>✨</span><span>Analyze Design</span>';
+        btn.innerHTML = '<span>\u2728</span><span>Analyze Design</span>';
       }
     }
     
     function requestSelection() {
-      // Request the current selection from Figma - only captures on click
-      console.log('requestSelection called');
+      // Show immediate visual feedback
+      var box = document.getElementById('selectionClickTarget');
+      if (box) {
+        box.style.borderColor = 'var(--hdfc-primary)';
+        box.style.opacity = '0.7';
+        setTimeout(function() {
+          if (box) {
+            box.style.opacity = '1';
+          }
+        }, 300);
+      }
+      // Request the current selection from Figma
       parent.postMessage({ pluginMessage: { type: 'get-selection' } }, '*');
     }
     
-    // Use event delegation for selection box clicks (inline onclick may not work in Figma sandbox)
-    document.getElementById('selectionBox').addEventListener('click', function(e) {
-      const box = e.target.closest('.selection-box');
-      if (box) {
-        requestSelection();
-      }
+    // Use event delegation for selection box clicks (inline onclick is unreliable in Figma sandbox)
+    document.getElementById('selectionBox').addEventListener('click', function() {
+      requestSelection();
     });
     
     // Handle selection data received from plugin
     function handleSelectionReceived(data) {
       if (data.hasSelection) {
-        showToast(`Selected: ${data.nodes.length} item${data.nodes.length > 1 ? 's' : ''}`, 'success');
+        showToast('Selected: ' + data.nodes.length + ' item' + (data.nodes.length > 1 ? 's' : ''), 'success');
       } else {
-        showToast('No frame selected. Select a frame in Figma first.', 'error');
+        showToast('No frame selected. Select a frame in Figma first, then click here.', 'error');
       }
     }
     
