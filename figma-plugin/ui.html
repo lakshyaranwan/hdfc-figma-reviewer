@@ -2017,7 +2017,8 @@
         return;
       }
 
-      // Reset statuses
+      // Reset statuses and clear previous results
+      a11yIssues = []; // Clear previous results including gradient results
       a11yCheckStatus = { text: 'idle', icon: 'idle', aria: 'idle', focus_order: 'idle' };
       if (checkText) setCheckStatus('text', 'running');
       if (checkIcon) setCheckStatus('icon', 'running');
