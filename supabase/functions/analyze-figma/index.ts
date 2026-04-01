@@ -307,7 +307,7 @@ serve(async (req) => {
     console.log("Canvas data extracted, node count:", canvasData.nodes.length);
 
     // Step 2: Chunk data if too large for AI token limits
-    const TOKEN_LIMIT = 12000;
+    const TOKEN_LIMIT = 80000;
     const chunks = chunkNodes(canvasData, TOKEN_LIMIT);
     const isChunked = chunks.length > 1;
     const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
