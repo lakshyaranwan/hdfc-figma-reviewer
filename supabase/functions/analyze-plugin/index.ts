@@ -105,6 +105,40 @@ function flattenDesignData(nodes: any[], maxDepth = 8): any[] {
   return flat;
 }
 
+// Classify nodes as boilerplate (footer/header/nav/legal) vs primary content
+// Uses position, size, and name patterns to determine importance
+function classifyBoilerplate(flatNodes: any[]): any[] {
+  // Find page dimensions from top-level frames
+  const topFrames = flatNodes.filter(n => !n.parentId || n.path?.split(' > ').length <= 2);
+  
+  for (const node of flatNodes) {
+    // Pattern-based boilerplate detection
+    const nameAndText = `${node.name || ''} ${node.text || ''}`.toLowerCase();
+    const isBoilerplateName = /\b(footer|header|nav|menu|legal|copyright|help|contact|social|status.?bar|tab.?bar|bottom.?nav|app.?bar|toolbar|disclaimer|terms|privacy|©)\b/i.test(nameAndText);
+    
+    // Size-based: very small nodes relative to their frame are likely decorative
+    const area = (node.size?.w || 0) * (node.size?.h || 0);
+    const isTiny = area > 0 && area < 400; // < 20x20
+    
+    // Compute salience score (higher = more important to review)
+    let salience = 0;
+    salience += Math.min(area / 1000, 100); // size contribution (capped)
+    if (node.text) salience += 200; // text nodes are important
+    if (node.fills?.some((f: any) => f.hex && classifyColor(f.hex))) salience += 300; // colored containers
+    if (node.type === 'TEXT' && (node.fontSize || 0) > 16) salience += 100; // large text
+    
+    if (isBoilerplateName) {
+      node._boilerplate = true;
+      salience -= 500;
+    }
+    if (isTiny) salience -= 200;
+    
+    node._salience = Math.max(0, salience);
+  }
+  
+  return flatNodes;
+}
+
 // Extract all visible text grouped by top-level frame
 // IMPORTANT: Only show the actual displayed text (characters), NOT layer names.
 function extractTextContent(flatNodes: any[]): string {
