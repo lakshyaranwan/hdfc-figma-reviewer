@@ -139,6 +139,68 @@ function classifyBoilerplate(flatNodes: any[]): any[] {
   return flatNodes;
 }
 
+// Build a spatial layout summary per screen
+// Groups nearby elements into visual "bands" so the AI understands what's next to what
+// This solves the core problem: AI sees flat list, can't tell that radio buttons are below a label
+function buildSpatialLayoutSummary(flatNodes: any[]): string {
+  const frameNodes: Record<string, any[]> = {};
+  for (const node of flatNodes) {
+    if (!node.text && !node.fills?.length) continue; // only meaningful nodes
+    const topFrame = node.path?.split(' > ')[0] || 'Unknown';
+    if (!frameNodes[topFrame]) frameNodes[topFrame] = [];
+    frameNodes[topFrame].push(node);
+  }
+
+  const summaries: string[] = [];
+
+  for (const [frame, nodes] of Object.entries(frameNodes)) {
+    // Sort by y position
+    const sorted = [...nodes].sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
+    
+    // Group into vertical bands (elements within 40px of each other are in the same visual group)
+    const bands: any[][] = [];
+    let currentBand: any[] = [];
+    let lastY = -999;
+    
+    for (const node of sorted) {
+      const y = node.y ?? 0;
+      if (currentBand.length > 0 && y - lastY > 40) {
+        bands.push(currentBand);
+        currentBand = [];
+      }
+      currentBand.push(node);
+      lastY = y;
+    }
+    if (currentBand.length > 0) bands.push(currentBand);
+
+    // Build human-readable description of each band
+    const bandDescriptions = bands.map((band, idx) => {
+      const items: string[] = [];
+      for (const node of band) {
+        if (node.text) {
+          const fontSize = node.fontSize ? ` (${node.fontSize}px)` : '';
+          items.push(`TEXT: "${node.text}"${fontSize} [id:${node.id}]`);
+        } else if (node.fills?.length && node.type !== 'TEXT') {
+          const hex = node.fills[0]?.hex;
+          const colorLabel = hex ? classifyColor(hex) : '';
+          const size = node.size ? ` ${node.size.w}x${node.size.h}` : '';
+          if (hex && colorLabel) {
+            items.push(`CONTAINER: fill ${hex} ${colorLabel}${size} [id:${node.id}]`);
+          }
+        }
+      }
+      if (items.length === 0) return null;
+      return `  Section ${idx + 1} (y≈${Math.round(band[0].y ?? 0)}):\n    ${items.join('\n    ')}`;
+    }).filter(Boolean);
+
+    if (bandDescriptions.length > 0) {
+      summaries.push(`[${frame}] — ${bandDescriptions.length} visual sections:\n${bandDescriptions.join('\n')}`);
+    }
+  }
+
+  return summaries.join('\n\n');
+}
+
 // Extract all visible text grouped by top-level frame
 // IMPORTANT: Only show the actual displayed text (characters), NOT layer names.
 function extractTextContent(flatNodes: any[]): string {
