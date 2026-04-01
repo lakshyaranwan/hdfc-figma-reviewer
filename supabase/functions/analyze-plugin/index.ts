@@ -297,8 +297,8 @@ Start your response with [ and end with ].`;
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
       const itemsPerCategory = isChunked
-        ? Math.max(3, Math.floor(10 / chunks.length))
-        : 10;
+        ? Math.max(8, Math.floor(15 / chunks.length))
+        : 15;
 
       const designContext = JSON.stringify(chunk, null, 2);
 
