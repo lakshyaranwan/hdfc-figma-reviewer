@@ -297,8 +297,8 @@ Start your response with [ and end with ].`;
       console.log(`Processing${chunkLabel}: ${chunk.length} nodes, ~${estimateTokens(JSON.stringify(chunk))} tokens`);
 
       const itemsPerCategory = isChunked
-        ? Math.max(12, Math.floor(25 / chunks.length))
-        : 25;
+        ? Math.max(8, Math.floor(15 / chunks.length))
+        : 15;
 
       const designContext = JSON.stringify(chunk, null, 2);
 
@@ -336,7 +336,7 @@ Only use these exact category values: ${categoryOptions}
 
 FEEDBACK GUIDELINES:
 - You MUST provide AT LEAST ${itemsPerCategory} issues per category — aim for ${itemsPerCategory} to ${itemsPerCategory + 5}. Do NOT stop early.
-${!isChunked ? '- Total feedback should be 100-200 issues across all categories. Be exhaustive.' : `- This is chunk ${chunkIdx + 1} of ${chunks.length} — provide thorough feedback for the nodes in this chunk`}
+${!isChunked ? '- Total feedback should be 60-120 issues across all categories. Be exhaustive.' : `- This is chunk ${chunkIdx + 1} of ${chunks.length} — provide thorough feedback for the nodes in this chunk`}
 - Focus on REAL, meaningful issues - do NOT invent problems
 - Be exhaustive - scan EVERY element, EVERY text, EVERY spacing value. Missing real issues is worse than reporting too many.
 - Be consistent and deterministic - given the same design, always flag the same issues
