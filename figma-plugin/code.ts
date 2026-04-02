@@ -889,7 +889,7 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: Accessibil
     }
   }
 
-  return issues;
+  return { issues, gradientChecksCount: gradientChecks.length };
 }
 
 // Icon / non-text contrast audit (3:1 for shapes, vectors, icons)
