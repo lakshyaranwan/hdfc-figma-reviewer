@@ -1124,7 +1124,6 @@ figma.ui.onmessage = async (msg: any) => {
     const iconIssues = checkIcon ? runIconContrastAudit(selection) : [];
     const issues = [...textResult.issues, ...iconIssues];
     const gradientChecksCount = textResult.gradientChecksCount;
-    const hasGradientPending = textIssues.length === 0 && checkText && selection.length > 0;
     figma.ui.postMessage({ type: 'accessibility-results', issues, hasGradientPending: gradientChecksCount > 0 });
     const failCount = issues.filter(i => !i.pass).length;
     if (gradientChecksCount > 0) {
