@@ -809,7 +809,7 @@ interface AccessibilityIssue {
 
 // Run text contrast audit on selected nodes
 // Returns solid-bg issues immediately; gradient-bg issues are sent to UI for async export-based sampling
-function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
+function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: AccessibilityIssue[], gradientChecksCount: number } {
   const issues: AccessibilityIssue[] = [];
   const gradientChecks: { textNodeId: string; gradientParentId: string; fgColor: { r: number; g: number; b: number }; nodeName: string; text: string; fontSize: number }[] = [];
 
@@ -889,7 +889,7 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
     }
   }
 
-  return issues;
+  return { issues, gradientChecksCount: gradientChecks.length };
 }
 
 // Icon / non-text contrast audit (3:1 for shapes, vectors, icons)
@@ -1120,12 +1120,17 @@ figma.ui.onmessage = async (msg: any) => {
     }
     const checkText = msg.checkText !== false;
     const checkIcon = msg.checkIcon !== false;
-    const textIssues = checkText ? runTextContrastAudit(selection) : [];
+    const textResult = checkText ? runTextContrastAudit(selection) : { issues: [], gradientChecksCount: 0 };
     const iconIssues = checkIcon ? runIconContrastAudit(selection) : [];
-    const issues = [...textIssues, ...iconIssues];
-    figma.ui.postMessage({ type: 'accessibility-results', issues });
+    const issues = [...textResult.issues, ...iconIssues];
+    const gradientChecksCount = textResult.gradientChecksCount;
+    figma.ui.postMessage({ type: 'accessibility-results', issues, hasGradientPending: gradientChecksCount > 0 });
     const failCount = issues.filter(i => !i.pass).length;
-    figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
+    if (gradientChecksCount > 0) {
+      figma.notify(`🔍 ${issues.length} solid checks done, ${gradientChecksCount} gradient checks in progress…`);
+    } else {
+      figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
+    }
   }
 
   if (msg.type === 'request-gradient-export') {

@@ -2279,22 +2279,27 @@
 
           const imgData = ctx.getImageData(0, 0, sw, sh);
           const pixels = imgData.data;
-          let totalR = 0, totalG = 0, totalB = 0;
-          const count = sw * sh;
-          for (let i = 0; i < pixels.length; i += 4) {
-            totalR += pixels[i] / 255;
-            totalG += pixels[i + 1] / 255;
-            totalB += pixels[i + 2] / 255;
-          }
-          const avgR = totalR / count;
-          const avgG = totalG / count;
-          const avgB = totalB / count;
-
-          // Compute contrast
           const fg = msg.fgColor;
           const fgLum = _relLum(fg.r, fg.g, fg.b);
-          const bgLum = _relLum(avgR, avgG, avgB);
-          const ratio = Math.round(_contrastRatio(fgLum, bgLum) * 100) / 100;
+
+          // WCAG: use WORST-CASE (minimum) contrast pixel, not average
+          let worstRatio = Infinity;
+          let worstR = 0, worstG = 0, worstB = 0;
+          for (let i = 0; i < pixels.length; i += 4) {
+            const pr = pixels[i] / 255;
+            const pg = pixels[i + 1] / 255;
+            const pb = pixels[i + 2] / 255;
+            const bgLum = _relLum(pr, pg, pb);
+            const r = _contrastRatio(fgLum, bgLum);
+            if (r < worstRatio) {
+              worstRatio = r;
+              worstR = pr;
+              worstG = pg;
+              worstB = pb;
+            }
+          }
+
+          const ratio = Math.round(worstRatio * 100) / 100;
           const required = 4.5;
 
           const issue = {
@@ -2305,7 +2310,7 @@
             ratio,
             required,
             fgColor: _rgbHex(fg.r, fg.g, fg.b),
-            bgColor: _rgbHex(avgR, avgG, avgB) + ' (gradient avg)',
+            bgColor: _rgbHex(worstR, worstG, worstB) + ' (gradient worst)',
             fontSize: msg.fontSize || 14,
             pass: ratio >= required,
             _fromGradient: true,
