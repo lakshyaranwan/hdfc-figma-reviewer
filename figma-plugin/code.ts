@@ -1123,9 +1123,14 @@ figma.ui.onmessage = async (msg: any) => {
     const textIssues = checkText ? runTextContrastAudit(selection) : [];
     const iconIssues = checkIcon ? runIconContrastAudit(selection) : [];
     const issues = [...textIssues, ...iconIssues];
-    figma.ui.postMessage({ type: 'accessibility-results', issues });
+    const hasGradientPending = textIssues.length === 0 && checkText && selection.length > 0;
+    figma.ui.postMessage({ type: 'accessibility-results', issues, hasGradientPending: gradientChecksCount > 0 });
     const failCount = issues.filter(i => !i.pass).length;
-    figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
+    if (gradientChecksCount > 0) {
+      figma.notify(`🔍 ${issues.length} solid checks done, ${gradientChecksCount} gradient checks in progress…`);
+    } else {
+      figma.notify(failCount > 0 ? `⚠️ ${failCount} contrast issue${failCount > 1 ? 's' : ''} found` : '✅ All elements pass contrast check');
+    }
   }
 
   if (msg.type === 'request-gradient-export') {

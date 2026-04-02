@@ -2310,7 +2310,7 @@
             ratio,
             required,
             fgColor: _rgbHex(fg.r, fg.g, fg.b),
-            bgColor: _rgbHex(avgR, avgG, avgB) + ' (gradient avg)',
+            bgColor: _rgbHex(worstR, worstG, worstB) + ' (gradient worst)',
             fontSize: msg.fontSize || 14,
             pass: ratio >= required,
             _fromGradient: true,
