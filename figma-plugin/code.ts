@@ -809,7 +809,7 @@ interface AccessibilityIssue {
 
 // Run text contrast audit on selected nodes
 // Returns solid-bg issues immediately; gradient-bg issues are sent to UI for async export-based sampling
-function runTextContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[] {
+function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: AccessibilityIssue[], gradientChecksCount: number } {
   const issues: AccessibilityIssue[] = [];
   const gradientChecks: { textNodeId: string; gradientParentId: string; fgColor: { r: number; g: number; b: number }; nodeName: string; text: string; fontSize: number }[] = [];
 
