@@ -1120,9 +1120,10 @@ figma.ui.onmessage = async (msg: any) => {
     }
     const checkText = msg.checkText !== false;
     const checkIcon = msg.checkIcon !== false;
-    const textIssues = checkText ? runTextContrastAudit(selection) : [];
+    const textResult = checkText ? runTextContrastAudit(selection) : { issues: [], gradientChecksCount: 0 };
     const iconIssues = checkIcon ? runIconContrastAudit(selection) : [];
-    const issues = [...textIssues, ...iconIssues];
+    const issues = [...textResult.issues, ...iconIssues];
+    const gradientChecksCount = textResult.gradientChecksCount;
     const hasGradientPending = textIssues.length === 0 && checkText && selection.length > 0;
     figma.ui.postMessage({ type: 'accessibility-results', issues, hasGradientPending: gradientChecksCount > 0 });
     const failCount = issues.filter(i => !i.pass).length;
