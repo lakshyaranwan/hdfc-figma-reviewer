@@ -171,16 +171,54 @@ function getSelectionData() {
   };
 }
 
-// Find a node by ID using Figma's direct lookup (O(1) instead of tree traversal)
+// Find a node by ID using Figma's direct lookup (O(1) instead of tree traversal).
+// In the published Figma runtime, `getNodeById` is deprecated and can return null
+// for nodes that haven't been loaded into memory. We fall back to the async
+// variant and finally to a page-wide subtree search to make focus reliable in
+// both local-development and Figma Community published environments.
 function findNodeById(nodeId: string): SceneNode | null {
   try {
-    const node = figma.getNodeById(nodeId);
+    // @ts-ignore - getNodeById still exists in the runtime even if deprecated
+    const node = figma.getNodeById ? figma.getNodeById(nodeId) : null;
     if (node && node.type !== 'PAGE' && node.type !== 'DOCUMENT') {
       return node as SceneNode;
     }
   } catch (e) {
     // fallback silently
   }
+  return null;
+}
+
+// Async variant — works reliably when the document uses dynamic page loading
+// (the default in published Community plugins). Falls back to sync lookup and
+// then to a page-wide subtree walk.
+async function findNodeByIdAsync(nodeId: string): Promise<SceneNode | null> {
+  // 1. Try the async API first (modern, supported in all runtimes).
+  try {
+    // @ts-ignore - getNodeByIdAsync may be undefined in older sandboxes
+    if (typeof figma.getNodeByIdAsync === 'function') {
+      // @ts-ignore
+      const node = await figma.getNodeByIdAsync(nodeId);
+      if (node && node.type !== 'PAGE' && node.type !== 'DOCUMENT') {
+        return node as SceneNode;
+      }
+    }
+  } catch (e) {
+    // fall through
+  }
+
+  // 2. Fall back to the synchronous lookup.
+  const sync = findNodeById(nodeId);
+  if (sync) return sync;
+
+  // 3. Last-resort: walk the current page tree looking for the id.
+  try {
+    const found = figma.currentPage.findOne(n => n.id === nodeId);
+    if (found) return found;
+  } catch (e) {
+    // ignore
+  }
+
   return null;
 }
 
