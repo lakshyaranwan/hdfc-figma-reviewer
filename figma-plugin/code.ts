@@ -1027,88 +1027,96 @@ figma.ui.onmessage = async (msg: any) => {
 
   if (msg.type === 'focus-node') {
     let targetNode: SceneNode | null = null;
-    
-    // Try to find the node by ID first
+
+    // Clean the location string of any AI-appended coordinate hints like "[1:2]" or "(3:4)"
+    const cleanLocation: string = (msg.location || '')
+      .replace(/\[[\d:;,\s]+\]/g, '')
+      .replace(/\([\d:;,\s]+\)/g, '')
+      .trim();
+
+    // Helper: validate a candidate is acceptable.
+    // Accept any node when no analysis root is set; otherwise require descendant of root.
+    const isAcceptable = (n: SceneNode | null): boolean => {
+      if (!n) return false;
+      if (_analysisRootIds.length === 0) return true;
+      return isDescendantOfRoot(n);
+    };
+
+    // 1. Try direct nodeId — but ONLY accept if it lives under the analysis root.
+    //    Figma's getNodeById can resolve instance-child IDs to the master component,
+    //    which would focus the wrong element. Rejecting non-descendants prevents that.
     if (msg.nodeId) {
-      targetNode = findNodeById(msg.nodeId);
-      
-      // Handle instance node IDs like "I9:123;456:789" - try each part
+      const direct = findNodeById(msg.nodeId);
+      if (isAcceptable(direct)) {
+        targetNode = direct;
+      }
+
+      // For instance IDs like "I9:123;456:789", try each segment but still require
+      // descendant-of-root to avoid jumping to the master component.
       if (!targetNode && (msg.nodeId.startsWith('I') || msg.nodeId.includes(';'))) {
         const cleanId = msg.nodeId.startsWith('I') ? msg.nodeId.substring(1) : msg.nodeId;
         const parts = cleanId.split(';');
-        for (let i = parts.length - 1; i >= 0; i--) {
-          targetNode = findNodeById(parts[i]);
-          if (targetNode) break;
+        for (const part of parts) {
+          const candidate = findNodeById(part);
+          if (isAcceptable(candidate)) { targetNode = candidate; break; }
         }
       }
     }
-    
-    // Try the name cache - prefer nodes under the analysis root
-    if (!targetNode && msg.location) {
-      const cachedIds = _nodeNameCache.get(msg.location);
+
+    // 2. Exact name match via cache, restricted to descendants of the analysis root.
+    if (!targetNode && cleanLocation) {
+      const cachedIds = _nodeNameCache.get(cleanLocation);
       if (cachedIds) {
-        // Prefer descendant of analysis root
         for (const id of cachedIds) {
           const node = findNodeById(id);
-          if (node && isDescendantOfRoot(node)) { targetNode = node; break; }
-        }
-        if (!targetNode) {
-          for (const id of cachedIds) {
-            const node = findNodeById(id);
-            if (node) { targetNode = node; break; }
-          }
+          if (isAcceptable(node)) { targetNode = node; break; }
         }
       }
-      // Partial cache match - prefer descendants of root
-      if (!targetNode) {
-        const searchLower = msg.location.toLowerCase();
-        let fallback: SceneNode | null = null;
-        for (const [name, ids] of _nodeNameCache.entries()) {
-          const nameLower = name.toLowerCase();
-          if (nameLower === searchLower || nameLower.includes(searchLower) || searchLower.includes(nameLower)) {
-            for (const id of ids) {
-              const found = findNodeById(id);
-              if (found && isDescendantOfRoot(found)) { targetNode = found; break; }
-              if (found && !fallback) fallback = found;
-            }
-            if (targetNode) break;
-          }
+    }
+
+    // 3. Exact name match by walking the analysis root subtree (catches nodes
+    //    that may not have been cached, e.g. when extraction was capped).
+    if (!targetNode && cleanLocation && _analysisRootIds.length > 0) {
+      for (const rootId of _analysisRootIds) {
+        const root = findNodeById(rootId);
+        if (root && 'findOne' in root) {
+          try {
+            const found = (root as FrameNode).findOne(n => n.name === cleanLocation);
+            if (found) { targetNode = found; break; }
+          } catch (e) { /* ignore */ }
         }
-        if (!targetNode && fallback) targetNode = fallback;
       }
     }
-    
-    // Try by location/name within current selection
-    if (!targetNode && msg.location) {
-      targetNode = findNodeByName(msg.location);
-    }
-    
-    // Search the entire current page - prefer descendants of analysis root
-    if (!targetNode && msg.location) {
-      const searchName = msg.location.toLowerCase();
-      try {
-        let fallback: SceneNode | null = null;
-        figma.currentPage.findOne(n => {
-          const nLower = n.name.toLowerCase();
-          const match = nLower === searchName || nLower.includes(searchName) || searchName.includes(nLower);
-          if (match) {
-            if (isDescendantOfRoot(n)) { targetNode = n; return true; }
-            if (!fallback) fallback = n;
-          }
-          return false;
-        });
-        if (!targetNode && fallback) targetNode = fallback;
-      } catch (e) {
-        // Page-level search may fail on very large files
+
+    // 4. Last-resort fuzzy match — ONLY within the analysis root, and only when the
+    //    cached name fully contains the search OR vice versa with reasonable overlap.
+    //    Avoids matching unrelated short substrings (e.g. "Title" vs "Subtitle").
+    if (!targetNode && cleanLocation && _analysisRootIds.length > 0) {
+      const searchLower = cleanLocation.toLowerCase();
+      const minLen = Math.max(4, Math.floor(searchLower.length * 0.6));
+      for (const rootId of _analysisRootIds) {
+        const root = findNodeById(rootId);
+        if (root && 'findOne' in root) {
+          try {
+            const found = (root as FrameNode).findOne(n => {
+              const nLower = n.name.toLowerCase();
+              if (!nLower || nLower.length < minLen) return false;
+              return nLower === searchLower
+                || (nLower.length >= minLen && searchLower.includes(nLower))
+                || (searchLower.length >= minLen && nLower.includes(searchLower));
+            });
+            if (found) { targetNode = found; break; }
+          } catch (e) { /* ignore */ }
+        }
       }
     }
-    
+
     if (targetNode) {
       figma.currentPage.selection = [targetNode];
       figma.viewport.scrollAndZoomIntoView([targetNode]);
       figma.notify(`🎯 Focused on: ${targetNode.name}`);
     } else {
-      figma.notify('⚠️ Could not find the element. It may have been deleted or renamed.');
+      figma.notify('⚠️ Could not find the element. Re-run analysis if it was renamed or moved.');
     }
   }
 
