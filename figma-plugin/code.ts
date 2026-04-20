@@ -1066,6 +1066,17 @@ figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'focus-node') {
     let targetNode: SceneNode | null = null;
 
+    // In published Figma Community plugins, dynamic-page loading means nodes
+    // outside the current page may not be resolvable until pages are loaded.
+    // Best-effort: load all pages so getNodeByIdAsync + tree walks succeed.
+    try {
+      // @ts-ignore - loadAllPagesAsync may be undefined in older sandboxes
+      if (typeof figma.loadAllPagesAsync === 'function') {
+        // @ts-ignore
+        await figma.loadAllPagesAsync();
+      }
+    } catch (e) { /* ignore */ }
+
     // Clean the location string of any AI-appended coordinate hints like "[1:2]" or "(3:4)"
     const cleanLocation: string = (msg.location || '')
       .replace(/\[[\d:;,\s]+\]/g, '')
@@ -1084,7 +1095,7 @@ figma.ui.onmessage = async (msg: any) => {
     //    Figma's getNodeById can resolve instance-child IDs to the master component,
     //    which would focus the wrong element. Rejecting non-descendants prevents that.
     if (msg.nodeId) {
-      const direct = findNodeById(msg.nodeId);
+      const direct = await findNodeByIdAsync(msg.nodeId);
       if (isAcceptable(direct)) {
         targetNode = direct;
       }
@@ -1095,7 +1106,7 @@ figma.ui.onmessage = async (msg: any) => {
         const cleanId = msg.nodeId.startsWith('I') ? msg.nodeId.substring(1) : msg.nodeId;
         const parts = cleanId.split(';');
         for (const part of parts) {
-          const candidate = findNodeById(part);
+          const candidate = await findNodeByIdAsync(part);
           if (isAcceptable(candidate)) { targetNode = candidate; break; }
         }
       }
@@ -1106,7 +1117,7 @@ figma.ui.onmessage = async (msg: any) => {
       const cachedIds = _nodeNameCache.get(cleanLocation);
       if (cachedIds) {
         for (const id of cachedIds) {
-          const node = findNodeById(id);
+          const node = await findNodeByIdAsync(id);
           if (isAcceptable(node)) { targetNode = node; break; }
         }
       }
@@ -1116,7 +1127,7 @@ figma.ui.onmessage = async (msg: any) => {
     //    that may not have been cached, e.g. when extraction was capped).
     if (!targetNode && cleanLocation && _analysisRootIds.length > 0) {
       for (const rootId of _analysisRootIds) {
-        const root = findNodeById(rootId);
+        const root = await findNodeByIdAsync(rootId);
         if (root && 'findOne' in root) {
           try {
             const found = (root as FrameNode).findOne(n => n.name === cleanLocation);
@@ -1133,7 +1144,7 @@ figma.ui.onmessage = async (msg: any) => {
       const searchLower = cleanLocation.toLowerCase();
       const minLen = Math.max(4, Math.floor(searchLower.length * 0.6));
       for (const rootId of _analysisRootIds) {
-        const root = findNodeById(rootId);
+        const root = await findNodeByIdAsync(rootId);
         if (root && 'findOne' in root) {
           try {
             const found = (root as FrameNode).findOne(n => {
@@ -1149,7 +1160,34 @@ figma.ui.onmessage = async (msg: any) => {
       }
     }
 
+    // 5. Final fallback for published runtime: search the entire current page
+    //    by name. Useful when _analysisRootIds were lost across runtime restarts
+    //    (which can happen in Community plugins).
+    if (!targetNode && cleanLocation) {
+      try {
+        const found = figma.currentPage.findOne(n => n.name === cleanLocation);
+        if (found) targetNode = found;
+      } catch (e) { /* ignore */ }
+    }
+
     if (targetNode) {
+      try {
+        // Switch to the page that owns the node if it's not the current page.
+        let pageOwner: BaseNode | null = targetNode.parent;
+        while (pageOwner && pageOwner.type !== 'PAGE') {
+          pageOwner = pageOwner.parent;
+        }
+        if (pageOwner && pageOwner.type === 'PAGE' && pageOwner.id !== figma.currentPage.id) {
+          // @ts-ignore - setCurrentPageAsync exists in modern runtime
+          if (typeof figma.setCurrentPageAsync === 'function') {
+            // @ts-ignore
+            await figma.setCurrentPageAsync(pageOwner as PageNode);
+          } else {
+            figma.currentPage = pageOwner as PageNode;
+          }
+        }
+      } catch (e) { /* ignore page switch errors */ }
+
       figma.currentPage.selection = [targetNode];
       figma.viewport.scrollAndZoomIntoView([targetNode]);
       figma.notify(`🎯 Focused on: ${targetNode.name}`);
