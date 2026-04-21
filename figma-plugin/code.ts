@@ -884,10 +884,11 @@ interface AccessibilityIssue {
 }
 
 // Run text contrast audit on selected nodes
-// Returns solid-bg issues immediately; gradient-bg issues are sent to UI for async export-based sampling
+// Computes contrast synchronously for both solid AND gradient backgrounds.
+// For gradients we evaluate every gradient stop and use the WORST-CASE (lowest) contrast ratio.
 function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: AccessibilityIssue[], gradientChecksCount: number } {
   const issues: AccessibilityIssue[] = [];
-  const gradientChecks: { textNodeId: string; gradientParentId: string; fgColor: { r: number; g: number; b: number }; nodeName: string; text: string; fontSize: number }[] = [];
+  let gradientChecksCount = 0;
 
   function walk(node: SceneNode) {
     if (!node.visible) return;
@@ -902,26 +903,34 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: Accessibil
       if (!bgColor) return; // Can't determine background (image fill, etc.) - skip to avoid false positives
 
       const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
-
-      // Gradient background — defer to export-based sampling
-      if (bgColor.gradientParentId) {
-        gradientChecks.push({
-          textNodeId: textNode.id,
-          gradientParentId: bgColor.gradientParentId,
-          fgColor,
-          nodeName: textNode.name,
-          text: textNode.characters.substring(0, 60),
-          fontSize: Math.round(fontSize),
-        });
-        return;
-      }
-
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
-      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-      const ratio = contrastRatio(fgLum, bgLum);
+      const required = 4.5; // WCAG AA: 4.5:1 for ALL text (no large text exception)
 
-      // WCAG AA: 4.5:1 for ALL text (no large text exception)
-      const required = 4.5;
+      let ratio: number;
+      let bgHex: string;
+      let isGradient = false;
+
+      if (bgColor.gradientStops && bgColor.gradientStops.length > 0) {
+        // GRADIENT — evaluate every stop, take WORST (lowest) contrast ratio
+        isGradient = true;
+        gradientChecksCount++;
+        let worstRatio = Infinity;
+        let worstStop = bgColor.gradientStops[0];
+        for (const stop of bgColor.gradientStops) {
+          const sLum = relativeLuminance(stop.r, stop.g, stop.b);
+          const r = contrastRatio(fgLum, sLum);
+          if (r < worstRatio) {
+            worstRatio = r;
+            worstStop = stop;
+          }
+        }
+        ratio = worstRatio;
+        bgHex = rgbToHex(worstStop.r, worstStop.g, worstStop.b) + ' (gradient worst)';
+      } else {
+        const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+        ratio = contrastRatio(fgLum, bgLum);
+        bgHex = rgbToHex(bgColor.r, bgColor.g, bgColor.b);
+      }
 
       issues.push({
         nodeId: textNode.id,
@@ -931,10 +940,11 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: Accessibil
         ratio: Math.round(ratio * 100) / 100,
         required,
         fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+        bgColor: bgHex,
         fontSize: Math.round(fontSize),
         pass: ratio >= required,
       });
+      void isGradient;
     }
 
     if ('children' in node) {
@@ -948,24 +958,7 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: Accessibil
     walk(node);
   }
 
-  // Send gradient checks to UI for async export-based sampling
-  if (gradientChecks.length > 0) {
-    figma.ui.postMessage({ type: 'gradient-checks-pending', checks: gradientChecks });
-    // Trigger exports for each gradient check
-    for (const check of gradientChecks) {
-      figma.ui.postMessage({
-        type: 'trigger-gradient-export',
-        textNodeId: check.textNodeId,
-        gradientParentId: check.gradientParentId,
-        fgColor: check.fgColor,
-        nodeName: check.nodeName,
-        text: check.text,
-        fontSize: check.fontSize,
-      });
-    }
-  }
-
-  return { issues, gradientChecksCount: gradientChecks.length };
+  return { issues, gradientChecksCount };
 }
 
 // Icon / non-text contrast audit (3:1 for shapes, vectors, icons)
