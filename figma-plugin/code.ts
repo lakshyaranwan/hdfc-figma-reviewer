@@ -794,6 +794,38 @@ function hasGradientFill(node: SceneNode): boolean {
   return false;
 }
 
+// Extract all gradient stop colors (premultiplied with stop alpha & fill opacity)
+// Returns an array of effective RGB colors representing the full color range of the gradient(s).
+// We use these to compute worst-case contrast directly — no async export needed.
+function getGradientStopColors(node: SceneNode): { r: number; g: number; b: number }[] {
+  const stops: { r: number; g: number; b: number }[] = [];
+  if (!('fills' in node)) return stops;
+  const fills = node.fills;
+  if (fills === figma.mixed || !Array.isArray(fills)) return stops;
+  for (const fill of fills as readonly Paint[]) {
+    if (fill.visible === false) continue;
+    if (
+      fill.type === 'GRADIENT_LINEAR' ||
+      fill.type === 'GRADIENT_RADIAL' ||
+      fill.type === 'GRADIENT_ANGULAR' ||
+      fill.type === 'GRADIENT_DIAMOND'
+    ) {
+      const fillOpacity = fill.opacity == null ? 1 : fill.opacity;
+      const gradientStops = (fill as GradientPaint).gradientStops || [];
+      for (const stop of gradientStops) {
+        const stopAlpha = stop.color.a == null ? 1 : stop.color.a;
+        const a = fillOpacity * stopAlpha;
+        // Premultiply against assumed white surface so transparent stops don't fake-pass
+        const r = stop.color.r * a + (1 - a);
+        const g = stop.color.g * a + (1 - a);
+        const b = stop.color.b * a + (1 - a);
+        stops.push({ r, g, b });
+      }
+    }
+  }
+  return stops;
+}
+
 // Check if a node has an image fill (which we can't resolve to a color)
 function hasImageFill(node: SceneNode): boolean {
   if (!('fills' in node)) return false;
