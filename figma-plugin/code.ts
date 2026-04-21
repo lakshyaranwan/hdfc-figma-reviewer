@@ -806,24 +806,72 @@ function hasImageFill(node: SceneNode): boolean {
   return false;
 }
 
+// Check if two bounding boxes overlap
+function bbOverlaps(a: { x: number; y: number; width: number; height: number } | null,
+                    b: { x: number; y: number; width: number; height: number } | null): boolean {
+  if (!a || !b) return false;
+  return !(a.x + a.width <= b.x || b.x + b.width <= a.x ||
+           a.y + a.height <= b.y || b.y + b.height <= a.y);
+}
+
+// Look for a sibling rendered BEHIND the given child within a parent (lower index = behind in Figma).
+// Returns the topmost (highest index still below child) sibling overlapping the child's bounds.
+function findBackgroundSibling(parent: SceneNode, child: SceneNode):
+  { color?: { r: number; g: number; b: number }; gradientId?: string; image?: boolean } | null {
+  if (!('children' in parent)) return null;
+  const children = (parent as FrameNode).children;
+  const childIdx = children.indexOf(child as any);
+  if (childIdx <= 0) return null;
+  const childBB = (child as any).absoluteBoundingBox;
+  if (!childBB) return null;
+
+  // Iterate from just below the child DOWN through z-order (children[0] is bottom in Figma)
+  // We want the TOPMOST sibling beneath the text that overlaps it.
+  for (let i = childIdx - 1; i >= 0; i--) {
+    const sib = children[i] as SceneNode;
+    if (!sib.visible) continue;
+    if ('opacity' in sib && (sib as any).opacity === 0) continue;
+    const sibBB = (sib as any).absoluteBoundingBox;
+    if (!bbOverlaps(sibBB, childBB)) continue;
+    if (hasImageFill(sib)) return { image: true };
+    if (hasGradientFill(sib)) return { gradientId: sib.id };
+    const c = getNodeFillColor(sib);
+    if (c) return { color: c };
+    // sibling has no usable fill — keep looking deeper
+  }
+  return null;
+}
+
 // Walk up parent chain to find background color
-// Returns null if background cannot be determined (image fills, no fills at all)
-// Also returns gradientParentId if the background is a gradient (needs export-based sampling)
+// Also checks SIBLINGS rendered behind the node at each level (covers the common
+// pattern of a gradient Rectangle placed behind a TEXT node inside the same frame).
+// Returns null if background cannot be determined (image fills, no fills at all).
+// Also returns gradientParentId if the background is a gradient (needs export-based sampling).
 function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number; gradientParentId?: string } | null {
+  let child: SceneNode = node;
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
-    // If a parent has an image fill, we can't determine the bg color
+
+    // 1) Check siblings of `child` rendered behind it (gradient/solid background rect pattern)
+    const sib = findBackgroundSibling(sceneNode, child);
+    if (sib) {
+      if (sib.image) return null;
+      if (sib.gradientId) return { r: -1, g: -1, b: -1, gradientParentId: sib.gradientId };
+      if (sib.color) return sib.color;
+    }
+
+    // 2) Check the parent's own fill
     if (hasImageFill(sceneNode)) return null;
-    // Check for gradient fills — flag for export-based sampling
     if (hasGradientFill(sceneNode)) {
       return { r: -1, g: -1, b: -1, gradientParentId: sceneNode.id };
     }
     const color = getNodeFillColor(sceneNode);
     if (color) return color;
+
+    child = sceneNode;
     current = current.parent;
   }
-  // No background found at all - return null instead of assuming white
   return null;
 }
 
