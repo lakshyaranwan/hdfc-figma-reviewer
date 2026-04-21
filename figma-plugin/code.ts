@@ -794,38 +794,6 @@ function hasGradientFill(node: SceneNode): boolean {
   return false;
 }
 
-// Extract all gradient stop colors (premultiplied with stop alpha & fill opacity)
-// Returns an array of effective RGB colors representing the full color range of the gradient(s).
-// We use these to compute worst-case contrast directly — no async export needed.
-function getGradientStopColors(node: SceneNode): { r: number; g: number; b: number }[] {
-  const stops: { r: number; g: number; b: number }[] = [];
-  if (!('fills' in node)) return stops;
-  const fills = node.fills;
-  if (fills === figma.mixed || !Array.isArray(fills)) return stops;
-  for (const fill of fills as readonly Paint[]) {
-    if (fill.visible === false) continue;
-    if (
-      fill.type === 'GRADIENT_LINEAR' ||
-      fill.type === 'GRADIENT_RADIAL' ||
-      fill.type === 'GRADIENT_ANGULAR' ||
-      fill.type === 'GRADIENT_DIAMOND'
-    ) {
-      const fillOpacity = fill.opacity == null ? 1 : fill.opacity;
-      const gradientStops = (fill as GradientPaint).gradientStops || [];
-      for (const stop of gradientStops) {
-        const stopAlpha = stop.color.a == null ? 1 : stop.color.a;
-        const a = fillOpacity * stopAlpha;
-        // Premultiply against assumed white surface so transparent stops don't fake-pass
-        const r = stop.color.r * a + (1 - a);
-        const g = stop.color.g * a + (1 - a);
-        const b = stop.color.b * a + (1 - a);
-        stops.push({ r, g, b });
-      }
-    }
-  }
-  return stops;
-}
-
 // Check if a node has an image fill (which we can't resolve to a color)
 function hasImageFill(node: SceneNode): boolean {
   if (!('fills' in node)) return false;
@@ -840,22 +808,16 @@ function hasImageFill(node: SceneNode): boolean {
 
 // Walk up parent chain to find background color
 // Returns null if background cannot be determined (image fills, no fills at all)
-// Also returns gradientStops if the background is a gradient — used for synchronous worst-case sampling
-function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number; gradientStops?: { r: number; g: number; b: number }[] } | null {
+// Also returns gradientParentId if the background is a gradient (needs export-based sampling)
+function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number; gradientParentId?: string } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
     // If a parent has an image fill, we can't determine the bg color
     if (hasImageFill(sceneNode)) return null;
-    // Check for gradient fills — return all stop colors for worst-case computation
+    // Check for gradient fills — flag for export-based sampling
     if (hasGradientFill(sceneNode)) {
-      const stops = getGradientStopColors(sceneNode);
-      if (stops.length > 0) {
-        // Use first stop as nominal r/g/b; worst-case computed against full stop list
-        return { r: stops[0].r, g: stops[0].g, b: stops[0].b, gradientStops: stops };
-      }
-      // Fallback: treat as unresolvable
-      return null;
+      return { r: -1, g: -1, b: -1, gradientParentId: sceneNode.id };
     }
     const color = getNodeFillColor(sceneNode);
     if (color) return color;
@@ -884,11 +846,10 @@ interface AccessibilityIssue {
 }
 
 // Run text contrast audit on selected nodes
-// Computes contrast synchronously for both solid AND gradient backgrounds.
-// For gradients we evaluate every gradient stop and use the WORST-CASE (lowest) contrast ratio.
+// Returns solid-bg issues immediately; gradient-bg issues are sent to UI for async export-based sampling
 function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: AccessibilityIssue[], gradientChecksCount: number } {
   const issues: AccessibilityIssue[] = [];
-  let gradientChecksCount = 0;
+  const gradientChecks: { textNodeId: string; gradientParentId: string; fgColor: { r: number; g: number; b: number }; nodeName: string; text: string; fontSize: number }[] = [];
 
   function walk(node: SceneNode) {
     if (!node.visible) return;
@@ -903,34 +864,26 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: Accessibil
       if (!bgColor) return; // Can't determine background (image fill, etc.) - skip to avoid false positives
 
       const fontSize = textNode.fontSize !== figma.mixed ? (textNode.fontSize as number) : 14;
-      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
-      const required = 4.5; // WCAG AA: 4.5:1 for ALL text (no large text exception)
 
-      let ratio: number;
-      let bgHex: string;
-      let isGradient = false;
-
-      if (bgColor.gradientStops && bgColor.gradientStops.length > 0) {
-        // GRADIENT — evaluate every stop, take WORST (lowest) contrast ratio
-        isGradient = true;
-        gradientChecksCount++;
-        let worstRatio = Infinity;
-        let worstStop = bgColor.gradientStops[0];
-        for (const stop of bgColor.gradientStops) {
-          const sLum = relativeLuminance(stop.r, stop.g, stop.b);
-          const r = contrastRatio(fgLum, sLum);
-          if (r < worstRatio) {
-            worstRatio = r;
-            worstStop = stop;
-          }
-        }
-        ratio = worstRatio;
-        bgHex = rgbToHex(worstStop.r, worstStop.g, worstStop.b) + ' (gradient worst)';
-      } else {
-        const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-        ratio = contrastRatio(fgLum, bgLum);
-        bgHex = rgbToHex(bgColor.r, bgColor.g, bgColor.b);
+      // Gradient background — defer to export-based sampling
+      if (bgColor.gradientParentId) {
+        gradientChecks.push({
+          textNodeId: textNode.id,
+          gradientParentId: bgColor.gradientParentId,
+          fgColor,
+          nodeName: textNode.name,
+          text: textNode.characters.substring(0, 60),
+          fontSize: Math.round(fontSize),
+        });
+        return;
       }
+
+      const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+      const ratio = contrastRatio(fgLum, bgLum);
+
+      // WCAG AA: 4.5:1 for ALL text (no large text exception)
+      const required = 4.5;
 
       issues.push({
         nodeId: textNode.id,
@@ -940,11 +893,10 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: Accessibil
         ratio: Math.round(ratio * 100) / 100,
         required,
         fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-        bgColor: bgHex,
+        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
         fontSize: Math.round(fontSize),
         pass: ratio >= required,
       });
-      void isGradient;
     }
 
     if ('children' in node) {
@@ -958,7 +910,24 @@ function runTextContrastAudit(nodes: readonly SceneNode[]): { issues: Accessibil
     walk(node);
   }
 
-  return { issues, gradientChecksCount };
+  // Send gradient checks to UI for async export-based sampling
+  if (gradientChecks.length > 0) {
+    figma.ui.postMessage({ type: 'gradient-checks-pending', checks: gradientChecks });
+    // Trigger exports for each gradient check
+    for (const check of gradientChecks) {
+      figma.ui.postMessage({
+        type: 'trigger-gradient-export',
+        textNodeId: check.textNodeId,
+        gradientParentId: check.gradientParentId,
+        fgColor: check.fgColor,
+        nodeName: check.nodeName,
+        text: check.text,
+        fontSize: check.fontSize,
+      });
+    }
+  }
+
+  return { issues, gradientChecksCount: gradientChecks.length };
 }
 
 // Icon / non-text contrast audit (3:1 for shapes, vectors, icons)
@@ -1013,26 +982,9 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
       const bgColor = getBackgroundColor(node);
       if (!bgColor) return; // Can't determine background - skip to avoid false positives
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
+      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+      const ratio = contrastRatio(fgLum, bgLum);
       const required = 3;
-
-      let ratio: number;
-      let bgHex: string;
-      if (bgColor.gradientStops && bgColor.gradientStops.length > 0) {
-        // Worst-case across all gradient stops
-        let worstRatio = Infinity;
-        let worstStop = bgColor.gradientStops[0];
-        for (const stop of bgColor.gradientStops) {
-          const sLum = relativeLuminance(stop.r, stop.g, stop.b);
-          const r = contrastRatio(fgLum, sLum);
-          if (r < worstRatio) { worstRatio = r; worstStop = stop; }
-        }
-        ratio = worstRatio;
-        bgHex = rgbToHex(worstStop.r, worstStop.g, worstStop.b) + ' (gradient worst)';
-      } else {
-        const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-        ratio = contrastRatio(fgLum, bgLum);
-        bgHex = rgbToHex(bgColor.r, bgColor.g, bgColor.b);
-      }
 
       const w = 'width' in node ? (node as any).width : 0;
       const h = 'height' in node ? (node as any).height : 0;
@@ -1045,7 +997,7 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
         ratio: Math.round(ratio * 100) / 100,
         required,
         fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-        bgColor: bgHex,
+        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
         fontSize: 0,
         pass: ratio >= required,
       });
