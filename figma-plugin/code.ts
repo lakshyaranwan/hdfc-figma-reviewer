@@ -840,16 +840,22 @@ function hasImageFill(node: SceneNode): boolean {
 
 // Walk up parent chain to find background color
 // Returns null if background cannot be determined (image fills, no fills at all)
-// Also returns gradientParentId if the background is a gradient (needs export-based sampling)
-function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number; gradientParentId?: string } | null {
+// Also returns gradientStops if the background is a gradient — used for synchronous worst-case sampling
+function getBackgroundColor(node: SceneNode): { r: number; g: number; b: number; gradientStops?: { r: number; g: number; b: number }[] } | null {
   let current: BaseNode | null = node.parent;
   while (current && current.type !== 'PAGE' && current.type !== 'DOCUMENT') {
     const sceneNode = current as SceneNode;
     // If a parent has an image fill, we can't determine the bg color
     if (hasImageFill(sceneNode)) return null;
-    // Check for gradient fills — flag for export-based sampling
+    // Check for gradient fills — return all stop colors for worst-case computation
     if (hasGradientFill(sceneNode)) {
-      return { r: -1, g: -1, b: -1, gradientParentId: sceneNode.id };
+      const stops = getGradientStopColors(sceneNode);
+      if (stops.length > 0) {
+        // Use first stop as nominal r/g/b; worst-case computed against full stop list
+        return { r: stops[0].r, g: stops[0].g, b: stops[0].b, gradientStops: stops };
+      }
+      // Fallback: treat as unresolvable
+      return null;
     }
     const color = getNodeFillColor(sceneNode);
     if (color) return color;
