@@ -1013,9 +1013,26 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
       const bgColor = getBackgroundColor(node);
       if (!bgColor) return; // Can't determine background - skip to avoid false positives
       const fgLum = relativeLuminance(fgColor.r, fgColor.g, fgColor.b);
-      const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
-      const ratio = contrastRatio(fgLum, bgLum);
       const required = 3;
+
+      let ratio: number;
+      let bgHex: string;
+      if (bgColor.gradientStops && bgColor.gradientStops.length > 0) {
+        // Worst-case across all gradient stops
+        let worstRatio = Infinity;
+        let worstStop = bgColor.gradientStops[0];
+        for (const stop of bgColor.gradientStops) {
+          const sLum = relativeLuminance(stop.r, stop.g, stop.b);
+          const r = contrastRatio(fgLum, sLum);
+          if (r < worstRatio) { worstRatio = r; worstStop = stop; }
+        }
+        ratio = worstRatio;
+        bgHex = rgbToHex(worstStop.r, worstStop.g, worstStop.b) + ' (gradient worst)';
+      } else {
+        const bgLum = relativeLuminance(bgColor.r, bgColor.g, bgColor.b);
+        ratio = contrastRatio(fgLum, bgLum);
+        bgHex = rgbToHex(bgColor.r, bgColor.g, bgColor.b);
+      }
 
       const w = 'width' in node ? (node as any).width : 0;
       const h = 'height' in node ? (node as any).height : 0;
@@ -1028,7 +1045,7 @@ function runIconContrastAudit(nodes: readonly SceneNode[]): AccessibilityIssue[]
         ratio: Math.round(ratio * 100) / 100,
         required,
         fgColor: rgbToHex(fgColor.r, fgColor.g, fgColor.b),
-        bgColor: rgbToHex(bgColor.r, bgColor.g, bgColor.b),
+        bgColor: bgHex,
         fontSize: 0,
         pass: ratio >= required,
       });
